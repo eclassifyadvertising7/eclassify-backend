@@ -1,0 +1,41 @@
+{
+  "name": "classified-ads-backend",
+  "version": "1.0.0",
+  "description": "Backend API for classified advertising platform",
+  "type": "module",
+  "main": "src/server.js",
+  "imports": {
+    "#*": "./src/*"
+  },
+  "scripts": {
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js"
+  },
+  "keywords": [
+    "classified",
+    "ads",
+    "api",
+    "express"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.0",
+    "express": "^4.19.0",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.0.2",
+    "pg": "^8.11.0",
+    "pg-hstore": "^2.3.4",
+    "sequelize": "^6.37.0",
+    "sharp": "^0.34.5",
+    "slugify": "^1.6.6",
+    "winston": "^3.11.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.0",
+    "sequelize-cli": "^6.6.3"
+  }
+}

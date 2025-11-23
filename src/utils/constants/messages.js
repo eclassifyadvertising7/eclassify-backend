@@ -1,0 +1,131 @@
+/**
+ * Standardized message constants for API responses
+ * Use these constants throughout the application for consistent messaging
+ */
+
+export const SUCCESS_MESSAGES = {
+  // Server and system
+  SERVER_STARTED: 'Server started successfully',
+  DB_CONNECTED: 'Database connected successfully',
+  
+  // Authentication
+  LOGIN_SUCCESS: 'Login successful',
+  LOGOUT_SUCCESS: 'Logout successful',
+  REGISTRATION_SUCCESS: 'User registered successfully',
+  PASSWORD_RESET_SUCCESS: 'Password reset successful',
+  PASSWORD_CHANGED: 'Password changed successfully',
+  EMAIL_VERIFIED: 'Email verified successfully',
+  
+  // User operations
+  USER_CREATED: 'User created successfully',
+  USER_UPDATED: 'User updated successfully',
+  USER_DELETED: 'User deleted successfully',
+  PROFILE_UPDATED: 'Profile updated successfully',
+  
+  // Listing operations
+  LISTING_CREATED: 'Listing created successfully',
+  LISTING_UPDATED: 'Listing updated successfully',
+  LISTING_DELETED: 'Listing deleted successfully',
+  LISTING_FEATURED: 'Listing featured successfully',
+  LISTING_APPROVED: 'Listing approved successfully',
+  LISTING_REJECTED: 'Listing rejected successfully',
+  
+  // Category operations
+  CATEGORY_CREATED: 'Category created successfully',
+  CATEGORY_UPDATED: 'Category updated successfully',
+  CATEGORY_DELETED: 'Category deleted successfully',
+  
+  // Subscription operations
+  SUBSCRIPTION_CREATED: 'Subscription created successfully',
+  SUBSCRIPTION_UPDATED: 'Subscription updated successfully',
+  SUBSCRIPTION_CANCELLED: 'Subscription cancelled successfully',
+  SUBSCRIPTION_PLAN_CREATED: 'Subscription plan created successfully',
+  SUBSCRIPTION_PLAN_UPDATED: 'Subscription plan updated successfully',
+  SUBSCRIPTION_PLAN_DELETED: 'Subscription plan deleted successfully',
+  
+  // Chat operations
+  MESSAGE_SENT: 'Message sent successfully',
+  CHAT_ROOM_CREATED: 'Chat room created successfully',
+  
+  // File operations
+  FILE_UPLOADED: 'File uploaded successfully',
+  FILE_DELETED: 'File deleted successfully',
+  
+  // General operations
+  OPERATION_SUCCESS: 'Operation completed successfully',
+  DATA_RETRIEVED: 'Data retrieved successfully',
+  CHANGES_SAVED: 'Changes saved successfully'
+};
+
+export const ERROR_MESSAGES = {
+  // Server and system
+  SERVER_ERROR: 'Internal server error',
+  DB_CONNECTION_FAILED: 'Database connection failed',
+  SERVICE_UNAVAILABLE: 'Service temporarily unavailable',
+  
+  // Authentication
+  INVALID_CREDENTIALS: 'Invalid email or password',
+  UNAUTHORIZED: 'Unauthorized access',
+  TOKEN_EXPIRED: 'Authentication token expired',
+  TOKEN_INVALID: 'Invalid authentication token',
+  EMAIL_NOT_VERIFIED: 'Email not verified',
+  ACCOUNT_SUSPENDED: 'Account has been suspended',
+  
+  // User errors
+  USER_NOT_FOUND: 'User not found',
+  USER_ALREADY_EXISTS: 'User already exists',
+  EMAIL_ALREADY_EXISTS: 'Email already registered',
+  INVALID_USER_DATA: 'Invalid user data provided',
+  
+  // Listing errors
+  LISTING_NOT_FOUND: 'Listing not found',
+  LISTING_EXPIRED: 'Listing has expired',
+  LISTING_LIMIT_REACHED: 'Listing quota limit reached',
+  INVALID_LISTING_DATA: 'Invalid listing data provided',
+  LISTING_NOT_APPROVED: 'Listing not approved yet',
+  
+  // Category errors
+  CATEGORY_NOT_FOUND: 'Category not found',
+  CATEGORY_ALREADY_EXISTS: 'Category already exists',
+  INVALID_CATEGORY_DATA: 'Invalid category data provided',
+  
+  // Subscription errors
+  SUBSCRIPTION_NOT_FOUND: 'Subscription not found',
+  SUBSCRIPTION_EXPIRED: 'Subscription has expired',
+  INVALID_SUBSCRIPTION_PLAN: 'Invalid subscription plan',
+  PAYMENT_FAILED: 'Payment processing failed',
+  SUBSCRIPTION_PLAN_NOT_FOUND: 'Subscription plan not found',
+  SUBSCRIPTION_PLAN_ALREADY_EXISTS: 'Subscription plan already exists',
+  
+  // Chat errors
+  CHAT_ROOM_NOT_FOUND: 'Chat room not found',
+  MESSAGE_NOT_FOUND: 'Message not found',
+  INVALID_MESSAGE: 'Invalid message content',
+  
+  // File errors
+  FILE_UPLOAD_FAILED: 'File upload failed',
+  FILE_TOO_LARGE: 'File size exceeds maximum limit',
+  INVALID_FILE_TYPE: 'Invalid file type',
+  FILE_NOT_FOUND: 'File not found',
+  
+  // Validation errors
+  INVALID_REQUEST: 'Invalid request data',
+  MISSING_REQUIRED_FIELDS: 'Missing required fields',
+  INVALID_EMAIL_FORMAT: 'Invalid email format',
+  INVALID_PHONE_FORMAT: 'Invalid phone number format',
+  PASSWORD_TOO_WEAK: 'Password does not meet security requirements',
+  
+  // Permission errors
+  FORBIDDEN: 'Access forbidden',
+  INSUFFICIENT_PERMISSIONS: 'Insufficient permissions to perform this action',
+  
+  // Resource errors
+  RESOURCE_NOT_FOUND: 'Resource not found',
+  RESOURCE_ALREADY_EXISTS: 'Resource already exists',
+  RESOURCE_IN_USE: 'Resource is currently in use',
+  
+  // General errors
+  OPERATION_FAILED: 'Operation failed',
+  NOT_IMPLEMENTED: 'Feature not implemented yet',
+  MAINTENANCE_MODE: 'System is under maintenance'
+};
