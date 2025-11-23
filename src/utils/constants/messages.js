@@ -26,14 +26,28 @@ export const SUCCESS_MESSAGES = {
   LISTING_CREATED: 'Listing created successfully',
   LISTING_UPDATED: 'Listing updated successfully',
   LISTING_DELETED: 'Listing deleted successfully',
+  LISTING_FETCHED: 'Listing retrieved successfully',
+  LISTINGS_FETCHED: 'Listings retrieved successfully',
   LISTING_FEATURED: 'Listing featured successfully',
   LISTING_APPROVED: 'Listing approved successfully',
   LISTING_REJECTED: 'Listing rejected successfully',
+  LISTING_SUBMITTED: 'Listing submitted for approval',
+  LISTING_MARKED_SOLD: 'Listing marked as sold',
+  
+  // Listing media operations
+  MEDIA_UPLOADED: 'Media uploaded successfully',
+  MEDIA_DELETED: 'Media deleted successfully',
+  MEDIA_REORDERED: 'Media order updated successfully',
+  PRIMARY_MEDIA_SET: 'Primary media set successfully',
   
   // Category operations
   CATEGORY_CREATED: 'Category created successfully',
   CATEGORY_UPDATED: 'Category updated successfully',
   CATEGORY_DELETED: 'Category deleted successfully',
+  CATEGORY_FETCHED: 'Category retrieved successfully',
+  CATEGORIES_FETCHED: 'Categories retrieved successfully',
+  CATEGORY_STATUS_UPDATED: 'Category status updated successfully',
+  CATEGORY_FEATURED_UPDATED: 'Category featured status updated successfully',
   
   // Subscription operations
   SUBSCRIPTION_CREATED: 'Subscription created successfully',
@@ -82,12 +96,24 @@ export const ERROR_MESSAGES = {
   LISTING_EXPIRED: 'Listing has expired',
   LISTING_LIMIT_REACHED: 'Listing quota limit reached',
   INVALID_LISTING_DATA: 'Invalid listing data provided',
+  INVALID_LISTING_STATUS: 'Invalid listing status',
   LISTING_NOT_APPROVED: 'Listing not approved yet',
+  LISTING_ALREADY_APPROVED: 'Listing already approved',
+  LISTING_ALREADY_REJECTED: 'Listing already rejected',
+  LISTING_CANNOT_EDIT: 'Cannot edit listing in current status',
+  
+  // Listing media errors
+  MEDIA_NOT_FOUND: 'Media not found',
+  MEDIA_LIMIT_REACHED: 'Media upload limit reached',
+  INVALID_MEDIA_TYPE: 'Invalid media type',
+  PRIMARY_MEDIA_REQUIRED: 'At least one primary media is required',
+  MEDIA_DELETE_FAILED: 'Failed to delete media',
   
   // Category errors
   CATEGORY_NOT_FOUND: 'Category not found',
   CATEGORY_ALREADY_EXISTS: 'Category already exists',
   INVALID_CATEGORY_DATA: 'Invalid category data provided',
+  CATEGORY_DELETE_FAILED: 'Failed to delete category',
   
   // Subscription errors
   SUBSCRIPTION_NOT_FOUND: 'Subscription not found',

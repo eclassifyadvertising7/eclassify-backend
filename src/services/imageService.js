@@ -1,133 +1,100 @@
+/**
+ * Image Service
+ * Handles image processing, compression, and deletion
+ */
+
 import sharp from 'sharp';
 import fs from 'fs/promises';
 import path from 'path';
-import { UPLOAD_CONFIG } from '#config/uploadConfig.js';
 
-/**
- * Image Service
- * Handles image upload, optimization, and deletion across different storage backends
- */
 class ImageService {
   /**
-   * Upload and optimize profile photo
-   * @param {Object} file - Multer file object
-   * @param {string} userId - User ID for organizing files
-   * @returns {Promise<Object>} - { url, thumbnailUrl, publicId }
+   * Process and optimize image
+   * @param {string} filePath - Absolute path to uploaded file
+   * @param {Object} config - Processing configuration
+   * @returns {Promise<Object>} - Processed image info
    */
-  async uploadProfilePhoto(file, userId) {
-    const storageType = process.env.STORAGE_TYPE || 'local';
+  async processImage(filePath, config) {
+    try {
+      const { maxWidth, maxHeight, quality } = config;
 
-    if (storageType === 'local') {
-      return await this._uploadToLocal(file, userId);
-    } else if (storageType === 'cloudinary') {
-      return await this._uploadToCloudinary(file, userId);
-    } else if (storageType === 's3') {
-      return await this._uploadToS3(file, userId);
+      // Get image metadata
+      const metadata = await sharp(filePath).metadata();
+
+      // Resize if needed
+      let pipeline = sharp(filePath);
+
+      if (metadata.width > maxWidth || metadata.height > maxHeight) {
+        pipeline = pipeline.resize(maxWidth, maxHeight, {
+          fit: 'inside',
+          withoutEnlargement: true
+        });
+      }
+
+      // Compress and save
+      await pipeline
+        .jpeg({ quality, mozjpeg: true })
+        .toFile(filePath + '.tmp');
+
+      // Replace original with compressed version
+      await fs.unlink(filePath);
+      await fs.rename(filePath + '.tmp', filePath);
+
+      // Get final metadata
+      const finalMetadata = await sharp(filePath).metadata();
+
+      return {
+        width: finalMetadata.width,
+        height: finalMetadata.height,
+        size: finalMetadata.size,
+        format: finalMetadata.format
+      };
+    } catch (error) {
+      throw new Error(`Image processing failed: ${error.message}`);
     }
-
-    throw new Error('Invalid storage type');
   }
 
   /**
-   * Delete profile photo
-   * @param {string} publicId - File identifier
-   * @param {string} storageType - Storage type (local/cloudinary/s3)
+   * Delete image file
+   * @param {string} relativePath - Relative path from database
+   * @returns {Promise<boolean>}
    */
-  async deleteProfilePhoto(publicId, storageType = 'local') {
-    if (storageType === 'local') {
-      return await this._deleteFromLocal(publicId);
-    } else if (storageType === 'cloudinary') {
-      return await this._deleteFromCloudinary(publicId);
-    } else if (storageType === 's3') {
-      return await this._deleteFromS3(publicId);
+  async deleteImage(relativePath) {
+    try {
+      if (!relativePath) return false;
+
+      const absolutePath = path.join(process.cwd(), relativePath);
+      await fs.unlink(absolutePath);
+      return true;
+    } catch (error) {
+      console.error(`Failed to delete image: ${error.message}`);
+      return false;
     }
   }
 
   /**
-   * Upload to local storage
+   * Delete multiple images
+   * @param {Array<string>} relativePaths - Array of relative paths
+   * @returns {Promise<Object>} - Deletion results
    */
-  async _uploadToLocal(file, userId) {
-    const { maxWidth, maxHeight, quality, thumbnailSize } = UPLOAD_CONFIG.PROFILE_PHOTO;
-    const uploadDir = process.env.UPLOAD_DIR || './uploads/profiles';
-    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    
-    // Optimize main image
-    const filename = `profile-${userId}-${uniqueSuffix}.webp`;
-    const filepath = path.join(uploadDir, filename);
-    
-    await sharp(file.path || file.buffer)
-      .resize(maxWidth, maxHeight, { fit: 'inside', withoutEnlargement: true })
-      .webp({ quality })
-      .toFile(filepath);
-
-    // Generate thumbnail
-    const thumbnailFilename = `profile-${userId}-${uniqueSuffix}-thumb.webp`;
-    const thumbnailPath = path.join(uploadDir, thumbnailFilename);
-    
-    await sharp(file.path || file.buffer)
-      .resize(thumbnailSize, thumbnailSize, { fit: 'cover' })
-      .webp({ quality })
-      .toFile(thumbnailPath);
-
-    // Delete original file if it was saved to disk
-    if (file.path) {
-      await fs.unlink(file.path).catch(() => {});
-    }
-
-    const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
-    
-    return {
-      url: `${baseUrl}/uploads/profiles/${filename}`,
-      thumbnailUrl: `${baseUrl}/uploads/profiles/${thumbnailFilename}`,
-      publicId: filename,
-      storageType: 'local'
+  async deleteImages(relativePaths) {
+    const results = {
+      deleted: [],
+      failed: []
     };
-  }
 
-  /**
-   * Upload to Cloudinary (placeholder for future implementation)
-   */
-  async _uploadToCloudinary(file, userId) {
-    // TODO: Implement Cloudinary upload
-    throw new Error('Cloudinary upload not implemented yet');
-  }
+    for (const relativePath of relativePaths) {
+      const success = await this.deleteImage(relativePath);
+      if (success) {
+        results.deleted.push(relativePath);
+      } else {
+        results.failed.push(relativePath);
+      }
+    }
 
-  /**
-   * Upload to S3 (placeholder for future implementation)
-   */
-  async _uploadToS3(file, userId) {
-    // TODO: Implement S3 upload
-    throw new Error('S3 upload not implemented yet');
-  }
-
-  /**
-   * Delete from local storage
-   */
-  async _deleteFromLocal(publicId) {
-    const uploadDir = process.env.UPLOAD_DIR || './uploads/profiles';
-    const filepath = path.join(uploadDir, publicId);
-    
-    // Delete main image
-    await fs.unlink(filepath).catch(() => {});
-    
-    // Delete thumbnail
-    const thumbnailPath = filepath.replace('.webp', '-thumb.webp');
-    await fs.unlink(thumbnailPath).catch(() => {});
-  }
-
-  /**
-   * Delete from Cloudinary (placeholder)
-   */
-  async _deleteFromCloudinary(publicId) {
-    // TODO: Implement Cloudinary deletion
-  }
-
-  /**
-   * Delete from S3 (placeholder)
-   */
-  async _deleteFromS3(publicId) {
-    // TODO: Implement S3 deletion
+    return results;
   }
 }
 
+// Export singleton instance
 export default new ImageService();

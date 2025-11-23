@@ -205,14 +205,102 @@ Quick reference for all database tables, columns, relationships, and hooks.
 
 ---
 
-### listings
-**Columns:** TBD
+### categories
+**Columns:** id (INT PK), name (VARCHAR(100) UNIQUE), slug (VARCHAR(100) UNIQUE), description (TEXT), icon (VARCHAR(255) - relative path), image_url (VARCHAR(255) - relative path), display_order (INT), is_featured (BOOLEAN), is_active (BOOLEAN), created_by (BIGINT FK→users), updated_by (JSON - array of {userId, userName, timestamp}), deleted_by (BIGINT FK→users), deleted_at (TIMESTAMP), created_at (TIMESTAMP), updated_at (TIMESTAMP)
 
 **Relationships:**
-- belongsTo → states (via state_id)
-- belongsTo → car_brands (via car_brand_id)
+- hasMany → listings (via category_id)
+- belongsTo → users (via created_by)
+- belongsTo → users (via deleted_by)
 
-**Hooks:** TBD
+**Hooks:** None (URL conversion handled in service layer)
+
+**Config:** paranoid: true (soft delete)
+
+**Indexes:** slug, is_active, is_featured, display_order
+
+**Notes:** Small lookup table (~5-10 categories); icon and image_url store relative paths (e.g., 'uploads/categories/2024/11/cars-icon.jpg'); service layer converts to absolute URLs using UPLOAD_URL env variable
+
+---
+
+### listings
+**Columns:** id (BIGINT PK), user_id (BIGINT FK→users), category_id (INT FK→categories), title (VARCHAR(200)), slug (VARCHAR(250) UNIQUE), description (TEXT), price (DECIMAL(15,2)), price_negotiable (BOOLEAN), state_id (INT FK→states), city_id (INT FK→cities), locality (VARCHAR(200)), address (TEXT), latitude (DECIMAL(10,8)), longitude (DECIMAL(11,8)), status (ENUM), is_featured (BOOLEAN), featured_until (TIMESTAMP), expires_at (TIMESTAMP), published_at (TIMESTAMP), approved_at (TIMESTAMP), approved_by (BIGINT FK→users), rejected_at (TIMESTAMP), rejected_by (BIGINT FK→users), rejection_reason (TEXT), view_count (INT), contact_count (INT), created_by (BIGINT FK→users), updated_by (BIGINT - last updater only), deleted_by (BIGINT FK→users), deleted_at (TIMESTAMP), created_at (TIMESTAMP), updated_at (TIMESTAMP)
+
+**Relationships:**
+- belongsTo → users (via user_id)
+- belongsTo → categories (via category_id)
+- belongsTo → states (via state_id)
+- belongsTo → cities (via city_id)
+- belongsTo → users (via approved_by, rejected_by)
+- hasOne → car_listings (via listing_id)
+- hasOne → property_listings (via listing_id)
+- hasMany → listing_media (via listing_id)
+
+**Hooks:**
+- beforeCreate: Generate unique slug from title (format: {title-kebab-case}-{random-6-chars})
+- beforeUpdate: Set updated_by to userId from options
+- beforeDestroy: Soft delete associated media (CASCADE handled by DB)
+
+**Config:** paranoid: true (soft delete)
+
+**Indexes:** user_id, category_id, status, (state_id, city_id), slug, (is_featured, featured_until), expires_at, deleted_at
+
+**Notes:** High-volume table (BIGINT PK); status values: 'draft', 'pending', 'active', 'expired', 'sold', 'rejected'; expires_at auto-set to 30 days from approval; slug auto-generated on create
+
+---
+
+### car_listings
+**Columns:** id (BIGINT PK), listing_id (BIGINT UNIQUE FK→listings), brand_id (INT FK→car_brands), model_id (INT FK→car_models), variant_id (INT FK→car_variants), year (INT), registration_year (INT), condition (ENUM), mileage_km (INT), owners_count (INT), fuel_type (ENUM), transmission (ENUM), body_type (ENUM), color (VARCHAR(50)), engine_capacity_cc (INT), power_bhp (INT), seats (INT), registration_number (VARCHAR(20)), registration_state_id (INT FK→states), vin_number (VARCHAR(17)), insurance_valid_until (TIMESTAMP), features (JSON), created_at (TIMESTAMP), updated_at (TIMESTAMP)
+
+**Relationships:**
+- belongsTo → listings (via listing_id) - 1:1 relationship
+- belongsTo → car_brands (via brand_id)
+- belongsTo → car_models (via model_id)
+- belongsTo → car_variants (via variant_id)
+- belongsTo → states (via registration_state_id)
+
+**Hooks:** None (data changes through parent listing)
+
+**Config:** paranoid: false
+
+**Indexes:** listing_id, (brand_id, model_id), year, (fuel_type, transmission)
+
+**Notes:** High-volume table (BIGINT PK); 1:1 with listings; ON DELETE CASCADE; condition values: 'new', 'used'; fuel_type values: 'petrol', 'diesel', 'cng', 'lpg', 'electric', 'hybrid'; transmission values: 'manual', 'automatic', 'cvt', 'semi-automatic'; body_type values: 'sedan', 'hatchback', 'suv', 'coupe', 'convertible', 'wagon', 'pickup', 'van', 'truck'; features stored as JSON array
+
+---
+
+### property_listings
+**Columns:** id (BIGINT PK), listing_id (BIGINT UNIQUE FK→listings), property_type (ENUM), listing_type (ENUM), bedrooms (INT), bathrooms (INT), balconies (INT), area_sqft (INT), plot_area_sqft (INT), carpet_area_sqft (INT), floor_number (INT), total_floors (INT), age_years (INT), facing (ENUM), furnished (ENUM), parking_spaces (INT), amenities (JSON), available_from (DATE), ownership_type (ENUM), rera_approved (BOOLEAN), rera_id (VARCHAR(50)), created_at (TIMESTAMP), updated_at (TIMESTAMP)
+
+**Relationships:**
+- belongsTo → listings (via listing_id) - 1:1 relationship
+
+**Hooks:** None (data changes through parent listing)
+
+**Config:** paranoid: false
+
+**Indexes:** listing_id, property_type, listing_type, bedrooms, area_sqft
+
+**Notes:** High-volume table (BIGINT PK); 1:1 with listings; ON DELETE CASCADE; property_type values: 'apartment', 'house', 'villa', 'plot', 'commercial', 'office', 'shop', 'warehouse'; listing_type values: 'sale', 'rent', 'pg', 'hostel'; furnished values: 'unfurnished', 'semi-furnished', 'fully-furnished'; facing values: 'north', 'south', 'east', 'west', 'north-east', 'north-west', 'south-east', 'south-west'; ownership_type values: 'freehold', 'leasehold', 'co-operative'; amenities stored as JSON array
+
+---
+
+### listing_media
+**Columns:** id (BIGINT PK), listing_id (BIGINT FK→listings), media_type (ENUM), media_url (VARCHAR(500)), thumbnail_url (VARCHAR(500)), file_size_bytes (INT), width (INT), height (INT), duration_seconds (INT), display_order (INT), is_primary (BOOLEAN), storage_type (ENUM), created_at (TIMESTAMP), updated_at (TIMESTAMP)
+
+**Relationships:**
+- belongsTo → listings (via listing_id)
+
+**Hooks:**
+- beforeDestroy: Delete files from storage (local/cloudinary/s3) - implemented in service layer
+
+**Config:** paranoid: false
+
+**Constraints:** UNIQUE (listing_id, display_order); Only one is_primary = true per listing (enforced in app logic)
+
+**Indexes:** listing_id, media_type, (listing_id, is_primary), (listing_id, display_order)
+
+**Notes:** High-volume table (BIGINT PK); ON DELETE CASCADE; media_type values: 'image', 'video'; storage_type values: 'local', 'cloudinary', 's3'; width/height for images only; duration_seconds for videos only; thumbnail_url nullable (generated async); max 15 images + 3 videos per listing (enforced in app logic)
 
 ---
 

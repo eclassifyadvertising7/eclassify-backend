@@ -93,9 +93,9 @@ class SubscriptionRepository {
         }
       ],
       order: [
-        ['sortOrder', 'ASC'],
+        ['sort_order', 'ASC'],
         ['version', 'DESC'],
-        ['createdAt', 'DESC']
+        ['created_at', 'DESC']
       ]
     });
   }
@@ -112,8 +112,8 @@ class SubscriptionRepository {
         deprecatedAt: null
       },
       order: [
-        ['sortOrder', 'ASC'],
-        ['createdAt', 'DESC']
+        ['sort_order', 'ASC'],
+        ['created_at', 'DESC']
       ]
     });
   }
@@ -267,7 +267,7 @@ class SubscriptionRepository {
           attributes: ['id', 'name', 'slug', 'planCode', 'version']
         }
       ],
-      order: [['createdAt', 'DESC']],
+      order: [['created_at', 'DESC']],
       limit,
       offset
     });

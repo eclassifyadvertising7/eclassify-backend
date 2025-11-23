@@ -340,10 +340,14 @@ export default (sequelize) => {
       field: 'deleted_by'
     }
   }, {
+    sequelize,
     tableName: 'subscription_plans',
     timestamps: true,
     underscored: true,
     paranoid: true,
+    createdAt: 'created_at',
+    updatedAt: 'updated_at',
+    deletedAt: 'deleted_at',
     hooks: {
       beforeUpdate: async (plan, options) => {
         if (options.userId && options.userName) {

@@ -22,6 +22,7 @@ Small lookup table for listing categories.
 - `icon` VARCHAR(255)
 - `image_url` VARCHAR(255)
 - `display_order` INT DEFAULT 0
+- `is_featured` BOOLEAN DEFAULT true
 - `is_active` BOOLEAN DEFAULT true
 - `created_by` BIGINT FK → users.id (nullable)
 - `updated_by` JSON (nullable) - [{userId, userName, timestamp}]

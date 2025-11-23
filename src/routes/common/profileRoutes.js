@@ -2,7 +2,7 @@ import express from 'express';
 import ProfileController from '#controllers/common/profileController.js';
 import { authenticate } from '#middleware/authMiddleware.js';
 import { allowRoles } from '#middleware/roleMiddleware.js';
-import { uploadSingle } from '#middleware/uploadMiddleware.js';
+import { uploadProfilePhoto } from '#middleware/uploadMiddleware.js';
 
 const router = express.Router();
 
@@ -21,7 +21,7 @@ router.get('/me', authenticate, ProfileController.getProfile);
 router.put(
   '/me',
   authenticate,
-  uploadSingle('profilePhoto', 'profiles'),
+  uploadProfilePhoto,
   ProfileController.updateProfile
 );
 
@@ -67,7 +67,7 @@ router.put(
   '/:userId',
   authenticate,
   allowRoles(['super_admin', 'admin']),
-  uploadSingle('profilePhoto', 'profiles'),
+  uploadProfilePhoto,
   ProfileController.updateProfileById
 );
 

@@ -1,121 +1,183 @@
+/**
+ * Upload Middleware
+ * Handles file uploads using Multer with validation
+ */
+
 import multer from 'multer';
 import path from 'path';
-import { UPLOAD_CONFIG, isValidFileType, getFileExtension } from '#config/uploadConfig.js';
-import { ERROR_MESSAGES } from '#utils/constants/messages.js';
+import fs from 'fs/promises';
+import { generateFileName } from '#utils/customSlugify.js';
+import { UPLOAD_CONFIG } from '#config/uploadConfig.js';
 
 /**
- * Get storage configuration based on STORAGE_TYPE environment variable
- * - local: Save to disk
- * - cloudinary/s3: Use memory storage (files uploaded via API)
+ * Ensure directory exists, create if not
+ * @param {string} dirPath - Directory path
  */
-const getStorage = () => {
-  const storageType = process.env.STORAGE_TYPE || 'local';
+const ensureDirectoryExists = async (dirPath) => {
+  try {
+    await fs.access(dirPath);
+  } catch {
+    await fs.mkdir(dirPath, { recursive: true });
+  }
+};
 
-  if (storageType === 'local') {
-    return multer.diskStorage({
-      destination: (req, file, cb) => {
-        cb(null, process.env.UPLOAD_DIR || './uploads/profiles');
-      },
-      filename: (req, file, cb) => {
-        const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-        const ext = getFileExtension(file.originalname);
-        cb(null, `profile-${uniqueSuffix}${ext}`);
+/**
+ * Create Multer storage configuration
+ * @param {string} uploadType - Type of upload (categories, profiles, listings)
+ * @param {string} subFolder - Optional subfolder (for listings: images/videos)
+ */
+const createStorage = (uploadType, subFolder = null) => {
+  return multer.diskStorage({
+    destination: async (req, file, cb) => {
+      try {
+        let uploadPath;
+
+        if (uploadType === 'listings' && req.user?.userId) {
+          // For listings: uploads/listings/user-{userId}/{images|videos}
+          const mediaType = subFolder || 'images';
+          uploadPath = path.join(
+            process.cwd(),
+            'uploads',
+            'listings',
+            `user-${req.user.userId}`,
+            mediaType
+          );
+        } else {
+          // For other types: uploads/{type}/{year}/{month}
+          const now = new Date();
+          const year = now.getFullYear();
+          const month = String(now.getMonth() + 1).padStart(2, '0');
+          uploadPath = path.join(process.cwd(), 'uploads', uploadType, String(year), month);
+        }
+
+        await ensureDirectoryExists(uploadPath);
+        cb(null, uploadPath);
+      } catch (error) {
+        cb(error, null);
       }
-    });
-  }
-
-  // For cloudinary/s3, use memory storage
-  return multer.memoryStorage();
+    },
+    filename: (req, file, cb) => {
+      try {
+        const uniqueName = generateFileName(file.originalname);
+        cb(null, uniqueName);
+      } catch (error) {
+        cb(error, null);
+      }
+    }
+  });
 };
 
 /**
- * File filter for profile photo uploads
+ * File filter for validation
+ * @param {Array} allowedTypes - Allowed MIME types
  */
-const profilePhotoFilter = (req, file, cb) => {
-  const { allowedTypes } = UPLOAD_CONFIG.PROFILE_PHOTO;
-
-  if (!isValidFileType(file.mimetype, allowedTypes)) {
-    return cb(new Error(ERROR_MESSAGES.INVALID_FILE_TYPE), false);
-  }
-
-  cb(null, true);
+const createFileFilter = (allowedTypes) => {
+  return (req, file, cb) => {
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`Invalid file type. Allowed types: ${allowedTypes.join(', ')}`), false);
+    }
+  };
 };
 
 /**
- * Multer upload middleware for profile photos
+ * Category images upload middleware (icon + image)
+ */
+export const uploadCategoryImages = multer({
+  storage: createStorage('categories'),
+  limits: {
+    fileSize: UPLOAD_CONFIG.CATEGORY_IMAGE.maxSize
+  },
+  fileFilter: createFileFilter(UPLOAD_CONFIG.CATEGORY_IMAGE.allowedTypes)
+}).fields([
+  { name: 'icon', maxCount: 1 },
+  { name: 'image', maxCount: 1 }
+]);
+
+/**
+ * Profile photo upload middleware
  */
 export const uploadProfilePhoto = multer({
-  storage: getStorage(),
+  storage: createStorage('profiles'),
   limits: {
     fileSize: UPLOAD_CONFIG.PROFILE_PHOTO.maxSize
   },
-  fileFilter: profilePhotoFilter
-}).single('profilePhoto');
+  fileFilter: createFileFilter(UPLOAD_CONFIG.PROFILE_PHOTO.allowedTypes)
+}).single('photo');
 
 /**
- * Generic single file upload middleware
- * @param {string} fieldName - Form field name
- * @param {string} uploadType - Upload type (profiles, listings, etc.)
- * @returns {Function} Multer middleware
+ * Listing images upload middleware (multiple files)
  */
-export const uploadSingle = (fieldName = 'file', uploadType = 'profiles') => {
-  const storageType = process.env.STORAGE_TYPE || 'local';
-  
-  const storage = storageType === 'local'
-    ? multer.diskStorage({
-        destination: (req, file, cb) => {
-          const uploadDir = process.env.UPLOAD_DIR || './uploads';
-          cb(null, `${uploadDir}/${uploadType}`);
-        },
-        filename: (req, file, cb) => {
-          const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-          const ext = getFileExtension(file.originalname);
-          cb(null, `${uploadType}-${uniqueSuffix}${ext}`);
-        }
-      })
-    : multer.memoryStorage();
+export const uploadListingImages = multer({
+  storage: createStorage('listings', 'images'),
+  limits: {
+    fileSize: UPLOAD_CONFIG.LISTING_MEDIA.IMAGE.maxSize,
+    files: UPLOAD_CONFIG.LISTING_MEDIA.IMAGE.maxFiles
+  },
+  fileFilter: createFileFilter(UPLOAD_CONFIG.LISTING_MEDIA.IMAGE.allowedTypes)
+}).array('images', UPLOAD_CONFIG.LISTING_MEDIA.IMAGE.maxFiles);
 
-  return multer({
-    storage,
-    limits: {
-      fileSize: UPLOAD_CONFIG.PROFILE_PHOTO.maxSize
-    },
-    fileFilter: (req, file, cb) => {
-      const { allowedTypes } = UPLOAD_CONFIG.PROFILE_PHOTO;
-      if (!isValidFileType(file.mimetype, allowedTypes)) {
-        return cb(new Error(ERROR_MESSAGES.INVALID_FILE_TYPE), false);
+/**
+ * Listing videos upload middleware (multiple files)
+ */
+export const uploadListingVideos = multer({
+  storage: createStorage('listings', 'videos'),
+  limits: {
+    fileSize: UPLOAD_CONFIG.LISTING_MEDIA.VIDEO.maxSize,
+    files: UPLOAD_CONFIG.LISTING_MEDIA.VIDEO.maxFiles
+  },
+  fileFilter: createFileFilter(UPLOAD_CONFIG.LISTING_MEDIA.VIDEO.allowedTypes)
+}).array('videos', UPLOAD_CONFIG.LISTING_MEDIA.VIDEO.maxFiles);
+
+/**
+ * Listing media upload middleware (images or videos based on field name)
+ */
+export const uploadListingMedia = multer({
+  storage: multer.diskStorage({
+    destination: async (req, file, cb) => {
+      try {
+        // Determine media type from field name or mime type
+        const isVideo = file.mimetype.startsWith('video/');
+        const mediaType = isVideo ? 'videos' : 'images';
+        
+        const uploadPath = path.join(
+          process.cwd(),
+          'uploads',
+          'listings',
+          `user-${req.user.userId}`,
+          mediaType
+        );
+
+        await ensureDirectoryExists(uploadPath);
+        cb(null, uploadPath);
+      } catch (error) {
+        cb(error, null);
       }
+    },
+    filename: (req, file, cb) => {
+      try {
+        const uniqueName = generateFileName(file.originalname);
+        cb(null, uniqueName);
+      } catch (error) {
+        cb(error, null);
+      }
+    }
+  }),
+  limits: {
+    fileSize: UPLOAD_CONFIG.LISTING_MEDIA.VIDEO.maxSize, // Use larger limit
+    files: UPLOAD_CONFIG.LISTING_MEDIA.IMAGE.maxFiles + UPLOAD_CONFIG.LISTING_MEDIA.VIDEO.maxFiles
+  },
+  fileFilter: (req, file, cb) => {
+    const allAllowedTypes = [
+      ...UPLOAD_CONFIG.LISTING_MEDIA.IMAGE.allowedTypes,
+      ...UPLOAD_CONFIG.LISTING_MEDIA.VIDEO.allowedTypes
+    ];
+    
+    if (allAllowedTypes.includes(file.mimetype)) {
       cb(null, true);
+    } else {
+      cb(new Error(`Invalid file type. Allowed types: ${allAllowedTypes.join(', ')}`), false);
     }
-  }).single(fieldName);
-};
-
-/**
- * Error handler for multer errors
- */
-export const handleUploadError = (err, req, res, next) => {
-  if (err instanceof multer.MulterError) {
-    if (err.code === 'LIMIT_FILE_SIZE') {
-      return res.status(400).json({
-        success: false,
-        message: ERROR_MESSAGES.FILE_TOO_LARGE,
-        data: null
-      });
-    }
-    return res.status(400).json({
-      success: false,
-      message: err.message,
-      data: null
-    });
   }
-
-  if (err) {
-    return res.status(400).json({
-      success: false,
-      message: err.message,
-      data: null
-    });
-  }
-
-  next();
-};
+}).array('media', UPLOAD_CONFIG.LISTING_MEDIA.IMAGE.maxFiles + UPLOAD_CONFIG.LISTING_MEDIA.VIDEO.maxFiles);

@@ -4,6 +4,16 @@
  */
 
 export const UPLOAD_CONFIG = {
+  // Category images configuration
+  CATEGORY_IMAGE: {
+    maxSize: 2 * 1024 * 1024, // 2MB
+    allowedTypes: ['image/jpeg', 'image/png', 'image/webp'],
+    allowedExtensions: ['.jpg', '.jpeg', '.png', '.webp'],
+    maxWidth: 1920,
+    maxHeight: 1080,
+    quality: 80
+  },
+
   // Profile photo configuration
   PROFILE_PHOTO: {
     maxSize: 2 * 1024 * 1024, // 2MB
@@ -15,16 +25,25 @@ export const UPLOAD_CONFIG = {
     quality: 80
   },
 
-  // Listing images configuration (for future use)
-  LISTING_IMAGE: {
-    maxSize: 5 * 1024 * 1024, // 5MB
-    maxFiles: 10,
-    allowedTypes: ['image/jpeg', 'image/png', 'image/webp'],
-    allowedExtensions: ['.jpg', '.jpeg', '.png', '.webp'],
-    maxWidth: 1920,
-    maxHeight: 1080,
-    thumbnailSize: 300,
-    quality: 80
+  // Listing media configuration
+  LISTING_MEDIA: {
+    IMAGE: {
+      maxSize: 5 * 1024 * 1024, // 5MB
+      maxFiles: 15,
+      allowedTypes: ['image/jpeg', 'image/png', 'image/webp'],
+      allowedExtensions: ['.jpg', '.jpeg', '.png', '.webp'],
+      maxWidth: 1920,
+      maxHeight: 1080,
+      thumbnailSize: 300,
+      quality: 80
+    },
+    VIDEO: {
+      maxSize: 50 * 1024 * 1024, // 50MB
+      maxFiles: 3,
+      maxDuration: 60, // seconds
+      allowedTypes: ['video/mp4', 'video/quicktime', 'video/x-msvideo'],
+      allowedExtensions: ['.mp4', '.mov', '.avi']
+    }
   }
 };
 

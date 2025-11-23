@@ -14,6 +14,11 @@ import CarBrand from './CarBrand.js';
 import CarModel from './CarModel.js';
 import CarVariant from './CarVariant.js';
 import CarSpecification from './CarSpecification.js';
+import Category from './Category.js';
+import Listing from './Listing.js';
+import CarListing from './CarListing.js';
+import PropertyListing from './PropertyListing.js';
+import ListingMedia from './ListingMedia.js';
 
 // Initialize models
 const User = UserModel(sequelize);
@@ -38,7 +43,12 @@ const models = {
   CarBrand,
   CarModel,
   CarVariant,
-  CarSpecification
+  CarSpecification,
+  Category,
+  Listing,
+  CarListing,
+  PropertyListing,
+  ListingMedia
 };
 
 // Set up associations
@@ -97,6 +107,15 @@ CarBrand.associate(models);
 CarModel.associate(models);
 CarVariant.associate(models);
 CarSpecification.associate(models);
+
+// Category associations
+Category.associate(models);
+
+// Listing associations
+Listing.associate(models);
+CarListing.associate(models);
+PropertyListing.associate(models);
+ListingMedia.associate(models);
 
 export { sequelize };
 export default models;
