@@ -1,7 +1,7 @@
 import sharp from 'sharp';
 import fs from 'fs/promises';
 import path from 'path';
-import { UPLOAD_CONFIG } from '#uploads/uploadConfig.js';
+import { UPLOAD_CONFIG } from '#config/uploadConfig.js';
 
 /**
  * Image Service

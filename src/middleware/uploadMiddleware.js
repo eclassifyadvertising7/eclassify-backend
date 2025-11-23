@@ -1,6 +1,6 @@
 import multer from 'multer';
 import path from 'path';
-import { UPLOAD_CONFIG, isValidFileType, getFileExtension } from '#uploads/uploadConfig.js';
+import { UPLOAD_CONFIG, isValidFileType, getFileExtension } from '#config/uploadConfig.js';
 import { ERROR_MESSAGES } from '#utils/constants/messages.js';
 
 /**

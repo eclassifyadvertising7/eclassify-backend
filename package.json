@@ -9,7 +9,8 @@
   },
   "scripts": {
     "dev": "nodemon src/server.js",
-    "start": "node src/server.js"
+    "start": "node src/server.js",
+    "build": "echo 'No build step required'"
   },
   "keywords": [
     "classified",
