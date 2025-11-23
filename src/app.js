@@ -13,6 +13,8 @@ app.use(helmet());
 // Configure CORS middleware with hardcoded origins plus environment variable
 const allowedOrigins = [
   'http://localhost:3000',
+  'https://eclassify-frontend.vercel.app',
+  'http://eclassify-frontend.vercel.app',
   'https://e-classify-frontend.vercel.app',
   'http://e-classify-frontend.vercel.app',
   process.env.CORS_ORIGIN
