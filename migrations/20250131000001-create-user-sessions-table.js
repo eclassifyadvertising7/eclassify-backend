@@ -37,7 +37,7 @@ export async function up(queryInterface, Sequelize) {
       allowNull: true
     },
     ip_address_v4: {
-      type: Sequelize.STRING(15),
+      type: Sequelize.STRING(45),
       allowNull: true
     },
     ip_address_v6: {

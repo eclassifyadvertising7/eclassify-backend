@@ -604,23 +604,69 @@ All API responses follow this structure:
 
 Keep it concise - table name, columns (with types), relationships, and hooks only.
 
-## API Documentation
+## Documentation Guidelines
 
-**CRITICAL: After development of any module, create API documentation in `API-Docs/` folder at project root.**
+### 🚨 CRITICAL: Minimize Documentation
+
+**DO NOT create unnecessary documents. Create ONLY what is essential.**
+
+### Required Documentation
+
+1. **API Documentation** (`API-Docs/` folder)
+   - **ONE document per feature/module** (e.g., `API-Docs/listings.md`)
+   - Include: endpoints, parameters, request/response examples, error codes
+   - Include: frontend integration examples (React/Vue code snippets)
+   - This is the ONLY document frontend developers need
+
+2. **Database Schema** (`DATABASE-SCHEMA.md`)
+   - Update when creating/modifying tables
+   - Keep concise: table name, columns, relationships, hooks only
+
+3. **Implementation Notes** (ONLY if complex)
+   - Create ONLY for complex features requiring special setup
+   - Examples: `MEDIA-UPLOAD-IMPLEMENTATION.md`, `FORM-DATA-SANITIZATION.md`
+   - Keep brief and actionable
+
+### ❌ DO NOT Create
+
+- Summary documents
+- Quick reference guides (info should be in main API doc)
+- Checklists (use project management tools instead)
+- Testing guides (separate from API docs)
+- Multiple documents for the same feature
+- Redundant documentation
+
+### API Documentation Structure
+
+**ONE comprehensive document per feature:**
+
+```markdown
+# Feature Name API Documentation
+
+## Endpoints
+- List all endpoints with methods
+
+## Authentication
+- Auth requirements
+
+## Request/Response Examples
+- Complete examples with all parameters
+
+## Error Handling
+- All error codes and messages
+
+## Frontend Integration
+- React/Vue code examples
+- Common use cases
+
+## Notes
+- Important considerations
+```
 
 **Update API documentation whenever:**
-- Service or repository code changes affect request payload
-- Service or repository code changes affect response payload
+- Service or repository code changes affect request/response
 - New endpoints are added
 - Endpoint behavior changes
-
-**Documentation should include:**
-- Endpoint URL and HTTP method
-- Request headers (authentication requirements)
-- Request body schema with field descriptions
-- Response format (success and error cases)
-- Example requests and responses
-- Status codes
 
 ## Migration Best Practices
 

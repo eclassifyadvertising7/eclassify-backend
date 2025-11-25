@@ -39,7 +39,7 @@ export default (sequelize) => {
       field: 'user_agent'
     },
     ipAddressV4: {
-      type: DataTypes.STRING(15),
+      type: DataTypes.STRING(45),
       allowNull: true,
       field: 'ip_address_v4'
     },

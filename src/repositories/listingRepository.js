@@ -80,9 +80,15 @@ class ListingRepository {
       where.userId = filters.userId;
     }
 
-    // Filter by category
+    // Filter by category ID
     if (filters.categoryId) {
       where.categoryId = filters.categoryId;
+    }
+
+    // Filter by category slug (need to join with Category table)
+    let categoryJoinRequired = false;
+    if (filters.categorySlug) {
+      categoryJoinRequired = true;
     }
 
     // Filter by status
@@ -113,7 +119,7 @@ class ListingRepository {
       }
     }
 
-    // Search by title
+    // Search by title and description
     if (filters.search) {
       where[Op.or] = [
         { title: { [Op.iLike]: `%${filters.search}%` } },
@@ -123,7 +129,13 @@ class ListingRepository {
 
     // Include associations
     const include = [
-      { model: Category, as: 'category', attributes: ['id', 'name', 'slug'] },
+      { 
+        model: Category, 
+        as: 'category', 
+        attributes: ['id', 'name', 'slug'],
+        where: filters.categorySlug ? { slug: filters.categorySlug } : undefined,
+        required: categoryJoinRequired
+      },
       { model: State, as: 'state', attributes: ['id', 'name', 'slug'] },
       { model: City, as: 'city', attributes: ['id', 'name', 'slug'] },
       { 
@@ -135,6 +147,68 @@ class ListingRepository {
       }
     ];
 
+    // Car-specific filters
+    const carWhere = {};
+    if (filters.brandId) carWhere.brandId = filters.brandId;
+    if (filters.modelId) carWhere.modelId = filters.modelId;
+    if (filters.variantId) carWhere.variantId = filters.variantId;
+    if (filters.minYear) carWhere.year = { [Op.gte]: filters.minYear };
+    if (filters.maxYear) {
+      carWhere.year = carWhere.year || {};
+      carWhere.year[Op.lte] = filters.maxYear;
+    }
+    if (filters.condition) carWhere.condition = filters.condition;
+    if (filters.fuelType) carWhere.fuelType = filters.fuelType;
+    if (filters.transmission) carWhere.transmission = filters.transmission;
+    if (filters.bodyType) carWhere.bodyType = filters.bodyType;
+    if (filters.minMileage) carWhere.mileageKm = { [Op.gte]: filters.minMileage };
+    if (filters.maxMileage) {
+      carWhere.mileageKm = carWhere.mileageKm || {};
+      carWhere.mileageKm[Op.lte] = filters.maxMileage;
+    }
+    if (filters.ownersCount) carWhere.ownersCount = filters.ownersCount;
+
+    // Add CarListing include if car filters are present
+    if (Object.keys(carWhere).length > 0) {
+      const { CarBrand, CarModel, CarVariant } = models;
+      include.push({
+        model: CarListing,
+        as: 'carListing',
+        where: carWhere,
+        required: true,
+        include: [
+          { model: CarBrand, as: 'brand', attributes: ['id', 'name', 'slug'] },
+          { model: CarModel, as: 'model', attributes: ['id', 'name', 'slug'] },
+          { model: CarVariant, as: 'variant', attributes: ['id', 'name'], required: false }
+        ]
+      });
+    }
+
+    // Property-specific filters
+    const propertyWhere = {};
+    if (filters.propertyType) propertyWhere.propertyType = filters.propertyType;
+    if (filters.listingType) propertyWhere.listingType = filters.listingType;
+    if (filters.bedrooms) propertyWhere.bedrooms = filters.bedrooms;
+    if (filters.bathrooms) propertyWhere.bathrooms = filters.bathrooms;
+    if (filters.minArea) propertyWhere.areaSqft = { [Op.gte]: filters.minArea };
+    if (filters.maxArea) {
+      propertyWhere.areaSqft = propertyWhere.areaSqft || {};
+      propertyWhere.areaSqft[Op.lte] = filters.maxArea;
+    }
+    if (filters.furnished) propertyWhere.furnished = filters.furnished;
+    if (filters.facing) propertyWhere.facing = filters.facing;
+    if (filters.parkingSpaces !== undefined) propertyWhere.parkingSpaces = { [Op.gte]: filters.parkingSpaces };
+
+    // Add PropertyListing include if property filters are present
+    if (Object.keys(propertyWhere).length > 0) {
+      include.push({
+        model: PropertyListing,
+        as: 'propertyListing',
+        where: propertyWhere,
+        required: true
+      });
+    }
+
     // Order
     const order = [];
     if (filters.isFeatured) {
@@ -144,6 +218,10 @@ class ListingRepository {
       order.push(['price', 'ASC']);
     } else if (filters.sortBy === 'price_desc') {
       order.push(['price', 'DESC']);
+    } else if (filters.sortBy === 'date_asc') {
+      order.push(['created_at', 'ASC']);
+    } else if (filters.sortBy === 'views') {
+      order.push(['view_count', 'DESC']);
     } else {
       order.push(['created_at', 'DESC']);
     }
