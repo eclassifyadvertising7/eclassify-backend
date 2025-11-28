@@ -13,6 +13,9 @@ const router = express.Router();
 // All routes require authentication
 router.use(authenticate);
 
+// Get personalized feed (action before ID to avoid conflicts)
+router.get('/feed', ListingController.getFeed);
+
 // Get my listing statistics (action before ID to avoid conflicts)
 router.get('/stats', ListingController.getMyStats);
 

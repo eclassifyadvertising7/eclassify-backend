@@ -5,6 +5,7 @@
 
 import { DataTypes } from 'sequelize';
 import sequelize from '#config/database.js';
+import { getFullUrl } from '#utils/storageHelper.js';
 
 const ListingMedia = sequelize.define(
   'ListingMedia',
@@ -29,12 +30,20 @@ const ListingMedia = sequelize.define(
     mediaUrl: {
       type: DataTypes.STRING(500),
       allowNull: false,
-      field: 'media_url'
+      field: 'media_url',
+      get() {
+        const rawValue = this.getDataValue('mediaUrl');
+        return getFullUrl(rawValue);
+      }
     },
     thumbnailUrl: {
       type: DataTypes.STRING(500),
       allowNull: true,
-      field: 'thumbnail_url'
+      field: 'thumbnail_url',
+      get() {
+        const rawValue = this.getDataValue('thumbnailUrl');
+        return getFullUrl(rawValue);
+      }
     },
     fileSizeBytes: {
       type: DataTypes.INTEGER,

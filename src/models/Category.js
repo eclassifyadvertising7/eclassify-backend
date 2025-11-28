@@ -5,6 +5,7 @@
 
 import { DataTypes } from 'sequelize';
 import sequelize from '#config/database.js';
+import { getFullUrl } from '#utils/storageHelper.js';
 
 const Category = sequelize.define(
   'Category',
@@ -36,13 +37,21 @@ const Category = sequelize.define(
       type: DataTypes.STRING(255),
       allowNull: true,
       field: 'icon',
-      comment: 'Relative path to icon image'
+      comment: 'Relative path to icon image',
+      get() {
+        const rawValue = this.getDataValue('icon');
+        return getFullUrl(rawValue);
+      }
     },
     imageUrl: {
       type: DataTypes.STRING(255),
       allowNull: true,
       field: 'image_url',
-      comment: 'Relative path to category banner/image'
+      comment: 'Relative path to category banner/image',
+      get() {
+        const rawValue = this.getDataValue('imageUrl');
+        return getFullUrl(rawValue);
+      }
     },
     displayOrder: {
       type: DataTypes.INTEGER,

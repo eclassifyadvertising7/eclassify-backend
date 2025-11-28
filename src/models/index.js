@@ -14,6 +14,7 @@ import CarBrand from './CarBrand.js';
 import CarModel from './CarModel.js';
 import CarVariant from './CarVariant.js';
 import CarSpecification from './CarSpecification.js';
+import DataRequest from './DataRequest.js';
 import Category from './Category.js';
 import Listing from './Listing.js';
 import CarListing from './CarListing.js';
@@ -44,6 +45,7 @@ const models = {
   CarModel,
   CarVariant,
   CarSpecification,
+  DataRequest,
   Category,
   Listing,
   CarListing,
@@ -107,6 +109,9 @@ CarBrand.associate(models);
 CarModel.associate(models);
 CarVariant.associate(models);
 CarSpecification.associate(models);
+
+// Data request associations
+DataRequest.associate(models);
 
 // Category associations
 Category.associate(models);

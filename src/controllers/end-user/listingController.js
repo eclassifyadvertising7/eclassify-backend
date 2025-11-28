@@ -51,7 +51,42 @@ class ListingController {
   }
 
   /**
-   * Get my listings
+   * Get personalized feed for authenticated user
+   * GET /api/end-user/listings/feed
+   */
+  static async getFeed(req, res) {
+    try {
+      const userId = req.user.userId;
+
+      const filters = {
+        status: 'active',
+        
+        // Optional filters
+        categoryId: req.query.categoryId ? parseInt(req.query.categoryId) : undefined,
+        stateId: req.query.stateId ? parseInt(req.query.stateId) : undefined,
+        cityId: req.query.cityId ? parseInt(req.query.cityId) : undefined,
+        minPrice: req.query.minPrice ? parseFloat(req.query.minPrice) : undefined,
+        maxPrice: req.query.maxPrice ? parseFloat(req.query.maxPrice) : undefined,
+        search: req.query.search,
+        sortBy: req.query.sortBy || 'date_desc'
+      };
+
+      const pagination = {
+        page: req.query.page ? parseInt(req.query.page) : 1,
+        limit: req.query.limit ? parseInt(req.query.limit) : 20
+      };
+
+      // TODO: Add personalization logic based on user preferences, browsing history, location
+      // For now, returns active listings with optional filters
+      const result = await listingService.getAll(filters, pagination);
+      return successResponse(res, result.data, 'Personalized feed retrieved successfully', result.pagination);
+    } catch (error) {
+      return errorResponse(res, error.message, 400);
+    }
+  }
+
+  /**
+   * Get my listings (management view)
    * GET /api/end-user/listings
    */
   static async getMyListings(req, res) {

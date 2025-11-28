@@ -1,459 +1,129 @@
 # Classified Platform Backend
 
-A scalable classified advertising platform (similar to OLX) for cars and properties with dynamic categories, real-time chat, and subscription-based pricing.
+Scalable classified advertising platform (OLX-style) for cars and properties with dynamic categories, real-time chat, and subscription-based pricing.
 
-## Major Features
+## Tech Stack
 
-- **Dynamic Category System**: Admin-configurable categories with flexible meta fields
-- **User Management**: Individual accounts with role-based access
-- **Listing Management**: Create, search, filter listings with auto-expiration (30 days)
-- **Subscription Plans**: Flexible pricing plans with quota management
-- **Real-time Chat**: Socket.io powered messaging between buyers and sellers
-- **Image Optimization**: Multi-storage support (local/Cloudinary/S3) with auto-compression
-- **Admin Dashboard**: Analytics, user management, content moderation
-- **Email Notifications**: Automated emails for key events
-
-## Technology Stack
-
-### Backend
-- **Runtime**: Node.js (v18+)
-- **Framework**: Express.js (v4.19+)
-- **Database**: PostgreSQL with JSONB support
-- **ORM**: Sequelize (v6.37+)
+- **Node.js (v18+)** + Express.js + PostgreSQL + Sequelize ORM
+- **Auth**: JWT (caches `userId`, `roleId`, `roleSlug`) + Passport.js (Google OAuth)
+- **Storage**: Local/Cloudinary/S3 with Sharp image processing
 - **Real-time**: Socket.io
-- **Authentication**: JWT + Passport.js (Google OAuth)
-  - JWT tokens cache `userId`, `roleId`, and `roleSlug` for fast authorization checks
-- **Image Processing**: Sharp (compression, thumbnails)
-- **File Upload**: Multer with configurable storage
-- **Email**: Nodemailer
-- **Logging**: Winston
-- **Scheduling**: node-cron
-
-### Frontend (Reference)
-- Next.js with Context API
-- JWT authentication
+- **Email**: Nodemailer | **Logging**: Winston | **Scheduling**: node-cron
 
 ## Architecture
 
-### Controller-Service-Repository Pattern
+**Controller-Service-Repository Pattern**
 
-**Controllers** (Classes with static methods)
-- Handle HTTP requests/responses
-- Basic input validation
-- Call service layer
-- Use response formatters
-
-**Services** (Classes with instance methods - Singleton)
-- Business logic
-- Orchestrate repository calls
-- Handle transactions
-- Return: `{ success, message, data }`
-
-**Repositories** (Classes with instance methods - Singleton)
-- Database operations only
-- Pure CRUD
-- No business logic
-
-### Example Structure
-
-```javascript
-// controllers/listingController.js
-class ListingController {
-  static async getAllListings(req, res) {
-    try {
-      const result = await ListingService.getAllListings(filters, req.user.id);
-      return paginatedResponse(res, result.data, result.pagination);
-    } catch (error) {
-      return errorResponse(res, error.message, 500);
-    }
-  }
-}
-export default ListingController;
-
-// services/listingService.js
-class ListingService {
-  async getAllListings(filters, userId) {
-    const result = await ListingRepository.findAll(filters);
-    return { success: true, message: 'Success', data: result };
-  }
-}
-export default new ListingService();
-
-// repositories/listingRepository.js
-class ListingRepository {
-  async findAll(filters) {
-    return await Listing.findAndCountAll({ where: filters });
-  }
-}
-export default new ListingRepository();
-```
+- **Controllers** (static methods): Handle HTTP, call services, use response formatters
+- **Services** (singleton): Business logic, orchestrate repositories, return `{ success, message, data }`
+- **Repositories** (singleton): Database operations only, pure CRUD
 
 ## Naming Conventions
 
-### Files
-- **Controllers/Services/Repositories**: `camelCase` (e.g., `authController.js`, `userService.js`)
-- **Models**: `PascalCase` (e.g., `User.js`, `Listing.js`)
-- **Routes**: `camelCase` (e.g., `authRoutes.js`)
-- **Utilities**: `camelCase` (e.g., `responseFormatter.js`)
+- **Files**: `camelCase` (controllers, services, repos, routes, utils) | `PascalCase` (models)
+- **Classes**: `PascalCase` | **Variables/Functions**: `camelCase` | **Constants**: `UPPER_SNAKE_CASE`
+- **Private Methods**: Prefix `_` (e.g., `_validateInput`)
+- **Database**: Tables `snake_case` plural | Columns `snake_case` | Booleans prefix `is/has/can`
 
-### Classes
-- **All Classes**: `PascalCase` (e.g., `AuthController`, `UserService`, `ListingRepository`)
+**Primary Keys**: Use `BIGINT` for high-volume tables (users, listings, messages), `INT` for small tables (categories, roles, plans). FKs must match parent type.
 
-### Variables & Functions
-- **Variables**: `camelCase` (e.g., `userId`, `listingData`)
-- **Functions/Methods**: `camelCase` (e.g., `getUserById`, `createListing`)
-- **Constants**: `UPPER_SNAKE_CASE` (e.g., `JWT_SECRET`, `MAX_FILE_SIZE`)
-- **Private Methods**: Prefix with `_` (e.g., `_validateInput`)
+**Audit Fields**: All nullable
+- `created_by`, `deleted_by` (BIGINT, FK to users)
+- `updated_by`: JSON array (low-volume) or BIGINT (high-volume)
+- `deleted_at` (TIMESTAMP)
 
-### Database
-- **Tables**: `snake_case` plural (e.g., `users`, `listings`, `chat_rooms`)
-- **Columns**: `snake_case` (e.g., `user_id`, `created_at`)
-- **Booleans**: Prefix with `is`, `has`, `can` (e.g., `is_featured`, `has_expired`)
+**API Endpoints**: `/api/resource` in `kebab-case` (e.g., `/api/chat-rooms`)
 
-**Primary Key Guidelines:**
+## Key Rules
 
-Use appropriate ID types based on expected table size to optimize storage:
+**🚨 ES6 Modules Only**: Use `import/export`, always include `.js` extension, no `require()`
 
-```sql
--- For high-volume tables (users, listings, messages, images, etc.)
-id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY
+**Absolute Imports**: Use `#` prefix (e.g., `import UserService from '#services/userService.js'`)
 
--- For small lookup/config tables (categories, roles, plans, etc.)
-id INT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY
-```
+**No Joi**: Manual validation in services, throw descriptive errors
 
-In Sequelize migrations:
-```javascript
-// High-volume tables
-id: {
-  type: Sequelize.BIGINT,
-  primaryKey: true,
-  autoIncrement: true,
-  allowNull: false
-}
+**Constants**: Flat message constants in `utils/constants/messages.js`
 
-// Small tables
-id: {
-  type: Sequelize.INTEGER,
-  primaryKey: true,
-  autoIncrement: true,
-  allowNull: false
-}
-```
+**Modern JS**: `async/await`, arrow functions, template literals, destructuring, optional chaining
 
-**When to use BIGINT vs INT:**
-- **BIGINT** (8 bytes, ~9 quintillion max): Users, listings, messages, chat_rooms, images, notifications, favorites, reviews, reports, activity_logs
-- **INT** (4 bytes, ~2.1 billion max): Categories, roles, subscription_plans, locations, settings, meta_fields
-
-**Important**: Foreign keys must match the referenced primary key type (if parent uses BIGINT, child foreign key must also be BIGINT)
-
-**Audit Fields - updated_by Guidelines:**
-
-1. **Low-volume tables** (< 10K rows, admin-managed):
-   - Use `updated_by` as **JSON array** with full history
-   - Structure: `[{userId, userName, timestamp}, ...]`
-   - Examples: roles, permissions, categories, plans, settings
-   - Add `beforeUpdate` hook to automatically append update records
-
-2. **High-volume tables** (100K+ rows, user-generated):
-   - Use `updated_by` as **BIGINT** (last updater only)
-   - References users(id) with FK constraint
-   - Examples: users, listings, messages, images
-   - Add `beforeUpdate` hook to automatically set last updater
-
-3. **Junction/immutable tables**:
-   - Omit `updated_by` entirely
-   - Examples: role_permissions, favorites, logs
-
-**Standard Audit Fields:**
-- `created_by` (BIGINT, nullable, FK to users)
-- `updated_by` (JSON or BIGINT, nullable - see guidelines above)
-- `deleted_by` (BIGINT, nullable, FK to users)
-- `deleted_at` (TIMESTAMP, nullable)
-- All audit fields should be nullable
-- Hooks work with nullable columns and only populate when data is provided
-
-### API Endpoints
-- **Format**: `/api/resource` (e.g., `/api/listings`, `/api/users`)
-- **Naming**: `kebab-case` lowercase (e.g., `/api/chat-rooms`)
-
-## Important Rules
-
-### 🚨 CRITICAL: ES6 Modules Only
-
-**This project uses ES6 modules exclusively (`"type": "module"` in package.json). This is NON-NEGOTIABLE.**
-
-```javascript
-// ✅ Correct - ES6 modules
-import express from 'express';
-import UserService from '#services/userService.js';
-export default UserController;
-export { someFunction };
-
-// ❌ WRONG - CommonJS (DO NOT USE)
-const express = require('express');
-module.exports = UserController;
-```
-
-**Critical Requirements:**
-- ALL files must use `import/export` syntax
-- ALWAYS include `.js` extension in imports (e.g., `'#services/userService.js'`)
-- Use `import.meta.url` instead of `__dirname` when needed
-- Sequelize migrations/seeders must also use ES6 syntax
-- No `require()` or `module.exports` anywhere in the codebase
-
-### ✅ ALWAYS Use Absolute Imports
-```javascript
-// ✅ Correct
-import UserService from '#services/userService.js';
-import { successResponse } from '#utils/responseFormatter.js';
-import config from '#config/env.js';
-
-// ❌ Wrong
-import UserService from '../../services/userService.js';
-```
-
-Configure in `package.json`:
-```json
-{
-  "imports": {
-    "#*": "./src/*"
-  }
-}
-```
-
-This allows you to import from any file in `src/` using the `#` prefix followed by the path relative to `src/`.
-
-### ❌ NO Joi Validation
-- Use manual validation in service layer
-- Simple checks for required fields, types, formats
-- Throw descriptive errors
-
-```javascript
-// ✅ Correct
-if (!listingData.title || listingData.title.length < 10) {
-  throw new Error('Title must be at least 10 characters');
-}
-
-// ❌ Wrong - Don't use Joi
-const schema = Joi.object({ title: Joi.string().min(10) });
-```
-
-### ✅ Use Constants for Response Messages
-```javascript
-// utils/constants/messages.js
-export const SUCCESS_MESSAGES = {
-  USER_CREATED: 'User registered successfully',
-  LOGIN_SUCCESS: 'Login successful',
-  LISTING_CREATED: 'Listing created successfully'
-};
-
-export const ERROR_MESSAGES = {
-  USER_NOT_FOUND: 'User not found',
-  INVALID_CREDENTIALS: 'Invalid email or password',
-  UNAUTHORIZED: 'Authentication required'
-};
-
-// Usage in service
-return { 
-  success: true, 
-  message: SUCCESS_MESSAGES.USER_CREATED, 
-  data: user 
-};
-```
-
-**Rules:**
-- Only success and error messages
-- No nested structure
-- Flat constants object
-- Import and use directly
-
-### ✅ Modern JavaScript Standards
-- Use `async/await` (no callbacks or `.then()`)
-- Use arrow functions for consistency
-- Use template literals for strings
-- Use destructuring
-- Use optional chaining (`?.`) and nullish coalescing (`??`)
-
-### ✅ Response Formatters
-```javascript
-// All responses use standardized formatters
-successResponse(res, data, message);
-errorResponse(res, message, statusCode);
-paginatedResponse(res, data, pagination, message);
-createResponse(res, data, message);
-notFoundResponse(res, message);
-unauthorizedResponse(res, message);
-forbiddenResponse(res, message);
-validationErrorResponse(res, errors);
-```
-
-## User Roles
-
-- **user**: External users (buyers/sellers)
-- **super_admin**: Full system access, manage roles
-- **admin**: Approve listings, manage users
-- **accountant**: Financial management, billing, payments
-- **marketing**: Feature listings, promotions
-- **seo**: Content optimization, meta tags
-
-## Account Types
-
-- **individual**: Personal users selling own items
+**Response Formatters**: `successResponse`, `errorResponse`, `paginatedResponse`, etc.
 
 ## Project Structure
 
 ```
-backend/
-├── src/
-│   ├── config/          # Database, passport, storage config
-│   ├── controllers/     # Request handlers
-│   ├── services/        # Business logic
-│   ├── repositories/    # Database operations
-│   ├── models/          # Sequelize models
-│   ├── middleware/      # Auth, validation, error handling
-│   ├── routes/          # API routes
-│   ├── utils/           # Helpers, formatters, constants
-│   ├── uploads/         # Upload config and middleware
-│   ├── socket/          # Socket.io handlers
-│   ├── jobs/            # Cron jobs
-│   ├── app.js           # Express app setup
-│   └── server.js        # Server entry point
-├── migrations/          # Database migrations
-├── seeders/             # Database seeders
-├── tests/               # Unit and integration tests
-├── .env.example         # Environment variables template
-└── package.json
+src/
+├── config/          # Database, passport, storage
+├── controllers/     # auth/, panel/, end-user/, public/ (subdirs only here)
+├── services/        # Business logic (flat, no subdirs)
+├── repositories/    # DB operations (flat, no subdirs)
+├── models/          # Sequelize models
+├── middleware/      # Auth, validation, errors (flat)
+├── routes/          # auth/, panel/, end-user/, public/ (subdirs only here)
+├── utils/           # Helpers, formatters, constants (flat)
+├── uploads/         # Upload config
+├── socket/          # Socket.io handlers
+└── jobs/            # Cron jobs
 ```
 
-## Environment Variables
+**Subdirectories only in**: `controllers/` and `routes/` (organized by access level: auth, panel, end-user, public)
 
-Environment variables are loaded using `dotenv` and accessed directly via `process.env`. See `.env.example` for all available configuration options.
+## Environment
 
-**Required Variables:**
-- `NODE_ENV` - Environment (development/production/test)
-- `PORT` - Server port (default: 5000)
-- `DATABASE_URL` - PostgreSQL connection string
-- `JWT_SECRET` - Secret key for JWT signing
-- `CORS_ORIGIN` - Allowed CORS origin (default: http://localhost:3000)
+See `.env.example` for all variables. Required: `DATABASE_URL`, `JWT_SECRET`, `CORS_ORIGIN`, `PORT`, `UPLOAD_URL`
 
-**Optional Variables:**
-- `STORAGE_TYPE` - Storage backend (local/cloudinary/s3)
-- `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USER`, `EMAIL_PASSWORD` - Email configuration
-- `CLOUDINARY_*` - Cloudinary configuration (if using Cloudinary storage)
-- `AWS_*` - AWS S3 configuration (if using S3 storage)
-
-See `.env.example` for the complete list with descriptions.
-
-## Database Schema
-
-See `DATABASE-SCHEMA.md` for a quick reference of all tables, columns, relationships, and hooks.
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js (v18 or higher)
-- PostgreSQL (v12 or higher)
-- npm or yarn package manager
-
-### Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd backend
-   ```
-
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
-
-3. **Configure environment variables**
-   
-   Copy the example environment file and update with your configuration:
-   ```bash
-   cp .env.example .env
-   ```
-   
-   Edit `.env` and configure the following required variables:
-   - `DATABASE_URL`: Your PostgreSQL connection string
-   - `JWT_SECRET`: A secure random string for JWT signing
-   - `CORS_ORIGIN`: Your frontend URL (e.g., http://localhost:3000)
-   - `PORT`: Server port (default: 5000)
-   
-   See `.env.example` for all available configuration options.
-
-4. **Setup database**
-   
-   Create the database and run migrations:
-   ```bash
-   npx sequelize-cli db:create
-   npx sequelize-cli db:migrate
-   ```
-   
-   (Optional) Seed the database with sample data:
-   ```bash
-   npx sequelize-cli db:seed:all
-   ```
-
-5. **Start the server**
-   
-   Development mode (with auto-reload):
-   ```bash
-   npm run dev
-   ```
-   
-   Production mode:
-   ```bash
-   npm start
-   ```
-
-The server will start on the configured port (default: http://localhost:5000)
-
-### Verify Setup
-
-To verify the core system setup without requiring a database connection:
+## Quick Start
 
 ```bash
-node verify-setup.js
+# Install
+npm install
+
+# Setup .env
+cp .env.example .env
+# Edit: DATABASE_URL, JWT_SECRET, CORS_ORIGIN, UPLOAD_URL
+
+# Database
+npx sequelize-cli db:create
+npx sequelize-cli db:migrate
+npx sequelize-cli db:seed:all  # optional
+
+# Run
+npm run dev  # development
+npm start    # production
 ```
 
-This will test:
-- Environment configuration loading
-- Logger configuration
-- Response formatters
-- Message constants
-- Express application setup
-- Error handler middleware
-- API routes configuration
+Server: `http://localhost:5000`
 
-**Note**: The server requires a PostgreSQL database connection to start. Ensure your `DATABASE_URL` in `.env` points to a valid PostgreSQL instance before running `npm run dev`.
+## API
 
-## API Documentation
+Base: `http://localhost:5000/api`
 
-Base URL: `http://localhost:5000/api`
+Response format: `{ success, message, data }`
 
-**Response Format:**
+See `API-Docs/` folder for endpoint documentation.
+
+## URL Transformation
+
+**Rule**: Store relative paths in DB, use model getters to serve full URLs to frontend.
+
 ```javascript
-{
-  success: true,
-  message: "Operation successful",
-  data: { /* response data */ }
+// Model getter
+import { getFullUrl } from '#utils/storageHelper.js';
+
+mediaUrl: {
+  type: DataTypes.STRING(500),
+  field: 'media_url',
+  get() {
+    return getFullUrl(this.getDataValue('mediaUrl'));
+  }
 }
 ```
 
-See `backend-guide.md` for complete API documentation.
+**DB**: `uploads/listings/user-123/images/photo.jpg`  
+**API**: `http://localhost:5000/uploads/listings/user-123/images/photo.jpg`
 
-## Additional Documentation
+Apply to: `ListingMedia`, `Category`, `UserProfile`
 
-- **Design**: `.kiro/specs/classified-platform/design.md`
-- **Requirements**: `.kiro/specs/classified-platform/requirements.md`
-- **Upload Strategy**: `.kiro/specs/classified-platform/upload-strategy.md`
-- **Pricing System**: `.kiro/specs/classified-platform/pricing-system.md`
-- **Frontend Alignment**: `frontend-backend-alignment.md`
+## Documentation
 
-## License
-
-Proprietary
+- **API Docs**: `API-Docs/` folder
+- **Database Schema**: `DATABASE-SCHEMA.md`

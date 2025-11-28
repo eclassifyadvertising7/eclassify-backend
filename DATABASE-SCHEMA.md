@@ -191,6 +191,7 @@ Quick reference for all database tables, columns, relationships, and hooks.
 **Relationships:**
 - hasMany → car_models (via brand_id)
 - hasMany → listings (via car_brand_id)
+- hasMany → car_data_requests (via created_brand_id)
 - belongsTo → users (via created_by)
 - belongsTo → users (via deleted_by)
 
@@ -202,6 +203,28 @@ Quick reference for all database tables, columns, relationships, and hooks.
 **Indexes:** slug, (is_active, display_order), is_popular, deleted_at
 
 **Notes:** Small lookup table (~60 brands); total_models, total_listings, total_views are denormalized counters updated via background jobs; display_order allows manual sorting (popular brands first)
+
+---
+
+### data_requests
+**Columns:** id (BIGINT PK), user_id (BIGINT FK→users), request_type (ENUM: 'brand', 'model', 'variant', 'state', 'city'), brand_name (VARCHAR(100)), model_name (VARCHAR(100)), variant_name (VARCHAR(150)), state_name (VARCHAR(100)), city_name (VARCHAR(100)), additional_details (TEXT), status (ENUM: 'pending', 'approved', 'rejected'), reviewed_by (BIGINT FK→users), reviewed_at (TIMESTAMP), rejection_reason (TEXT), created_brand_id (INT FK→car_brands), created_model_id (INT FK→car_models), created_variant_id (INT FK→car_variants), created_state_id (INT FK→states), created_city_id (INT FK→cities), created_at (TIMESTAMP), updated_at (TIMESTAMP)
+
+**Relationships:**
+- belongsTo → users (via user_id)
+- belongsTo → users (via reviewed_by, as 'reviewer')
+- belongsTo → car_brands (via created_brand_id)
+- belongsTo → car_models (via created_model_id)
+- belongsTo → car_variants (via created_variant_id)
+- belongsTo → states (via created_state_id)
+- belongsTo → cities (via created_city_id)
+
+**Hooks:** None
+
+**Config:** paranoid: false
+
+**Indexes:** user_id, status, request_type, reviewed_by, created_at
+
+**Notes:** High-volume table (BIGINT PK); unified table for requesting new car data (brands/models/variants) AND location data (states/cities); super_admin reviews and approves/rejects; on approval, creates actual entities; tracks which entities were created from request; fields are nullable based on request_type (car fields for car requests, location fields for location requests)
 
 ---
 
