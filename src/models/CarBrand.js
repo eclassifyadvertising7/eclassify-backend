@@ -113,21 +113,6 @@ const CarBrand = sequelize.define(
       type: DataTypes.BIGINT,
       allowNull: true,
       field: 'deleted_by'
-    },
-    createdAt: {
-      type: DataTypes.DATE,
-      allowNull: false,
-      field: 'created_at'
-    },
-    updatedAt: {
-      type: DataTypes.DATE,
-      allowNull: false,
-      field: 'updated_at'
-    },
-    deletedAt: {
-      type: DataTypes.DATE,
-      allowNull: true,
-      field: 'deleted_at'
     }
   },
   {

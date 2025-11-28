@@ -1,5 +1,6 @@
 import { DataTypes } from "sequelize";
 import bcrypt from "bcrypt";
+import { getFullUrl } from '#utils/storageHelper.js';
 
 export default (sequelize) => {
   const User = sequelize.define(
@@ -99,6 +100,10 @@ export default (sequelize) => {
         type: DataTypes.TEXT,
         allowNull: true,
         field: "profile_photo",
+        get() {
+          const rawValue = this.getDataValue('profilePhoto');
+          return getFullUrl(rawValue);
+        }
       },
       subscriptionType: {
         type: DataTypes.ENUM("free", "paid"),

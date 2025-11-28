@@ -1,5 +1,6 @@
 import { DataTypes } from 'sequelize';
 import sequelize from '#config/database.js';
+import { getFullUrl } from '#utils/storageHelper.js';
 
 const CarVariant = sequelize.define(
   'CarVariant',
@@ -106,7 +107,11 @@ const CarVariant = sequelize.define(
     primaryImageUrl: {
       type: DataTypes.STRING(500),
       allowNull: true,
-      field: 'primary_image_url'
+      field: 'primary_image_url',
+      get() {
+        const rawValue = this.getDataValue('primaryImageUrl');
+        return getFullUrl(rawValue);
+      }
     },
     viewCount: {
       type: DataTypes.BIGINT,
@@ -140,21 +145,6 @@ const CarVariant = sequelize.define(
       type: DataTypes.BIGINT,
       allowNull: true,
       field: 'deleted_by'
-    },
-    createdAt: {
-      type: DataTypes.DATE,
-      allowNull: false,
-      field: 'created_at'
-    },
-    updatedAt: {
-      type: DataTypes.DATE,
-      allowNull: false,
-      field: 'updated_at'
-    },
-    deletedAt: {
-      type: DataTypes.DATE,
-      allowNull: true,
-      field: 'deleted_at'
     }
   },
   {
