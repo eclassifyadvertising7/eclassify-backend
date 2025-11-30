@@ -83,7 +83,7 @@ Quick reference for all database tables, columns, relationships, and hooks.
 ---
 
 ### users
-**Columns:** id (BIGINT PK), country_code (VARCHAR(5)), mobile (VARCHAR(15) UNIQUE), full_name (VARCHAR(150)), email (VARCHAR(150) UNIQUE), password_hash (TEXT), role_id (INT FK→roles), status (ENUM), is_active (BOOLEAN), is_password_reset (BOOLEAN), is_phone_verified (BOOLEAN), is_email_verified (BOOLEAN), phone_verified_at (TIMESTAMP), email_verified_at (TIMESTAMP), last_login_at (TIMESTAMP), kyc_status (ENUM), profile_photo (TEXT), subscription_type (ENUM), subscription_expires_at (TIMESTAMP), max_devices (SMALLINT), created_by (BIGINT FK→users), deleted_by (BIGINT FK→users), created_at (TIMESTAMP), updated_at (TIMESTAMP), deleted_at (TIMESTAMP)
+**Columns:** id (BIGINT PK), country_code (VARCHAR(5)), mobile (VARCHAR(15) UNIQUE), full_name (VARCHAR(150)), email (VARCHAR(150) UNIQUE), password_hash (TEXT), role_id (INT FK→roles), status (ENUM), is_active (BOOLEAN), is_password_reset (BOOLEAN), is_phone_verified (BOOLEAN), is_email_verified (BOOLEAN), phone_verified_at (TIMESTAMP), email_verified_at (TIMESTAMP), last_login_at (TIMESTAMP), kyc_status (ENUM), is_verified (BOOLEAN - platform verified badge), subscription_type (ENUM), subscription_expires_at (TIMESTAMP), max_devices (SMALLINT), is_auto_approve_enabled (BOOLEAN - auto-approve user listings), created_by (BIGINT FK→users), deleted_by (BIGINT FK→users), created_at (TIMESTAMP), updated_at (TIMESTAMP), deleted_at (TIMESTAMP)
 
 **Relationships:**
 - belongsTo → roles (via role_id)
@@ -103,7 +103,7 @@ Quick reference for all database tables, columns, relationships, and hooks.
 ---
 
 ### user_profiles
-**Columns:** id (BIGINT PK), user_id (BIGINT UNIQUE FK→users), dob (DATE), gender (VARCHAR(10)), about (TEXT), name_on_id (VARCHAR(150)), business_name (VARCHAR(200)), gstin (VARCHAR(15)), aadhar_number (VARCHAR(12)), pan_number (VARCHAR(10)), address_line1 (TEXT), address_line2 (TEXT), city (VARCHAR(100)), state_id (INT FK→states), state_name (VARCHAR(255)), country (VARCHAR(50)), pincode (VARCHAR(10)), latitude (DECIMAL(10,8)), longitude (DECIMAL(11,8)), created_at (TIMESTAMP), updated_at (TIMESTAMP)
+**Columns:** id (BIGINT PK), user_id (BIGINT UNIQUE FK→users), dob (DATE), gender (VARCHAR(10)), about (TEXT), name_on_id (VARCHAR(150)), business_name (VARCHAR(200)), gstin (VARCHAR(15)), aadhar_number (VARCHAR(12)), pan_number (VARCHAR(10)), address_line1 (TEXT), address_line2 (TEXT), city (VARCHAR(100)), state_id (INT FK→states), state_name (VARCHAR(255)), country (VARCHAR(50)), pincode (VARCHAR(10)), latitude (DECIMAL(10,8)), longitude (DECIMAL(11,8)), profile_photo (TEXT), profile_photo_storage_type (VARCHAR(20)), profile_photo_mime_type (VARCHAR(50)), created_at (TIMESTAMP), updated_at (TIMESTAMP)
 
 **Relationships:**
 - belongsTo → users (via user_id)
@@ -113,7 +113,7 @@ Quick reference for all database tables, columns, relationships, and hooks.
 
 **Config:** paranoid: false
 
-**Notes:** state_name is denormalized for performance; aadhar_number and pan_number should be hashed at application level
+**Notes:** state_name is denormalized for performance; aadhar_number and pan_number should be hashed at application level; profile_photo stores relative path (e.g., 'uploads/profiles/user-123/photo'), model getter converts to full URL using storage_type and mime_type; storage_type values: 'local', 'cloudinary', 'aws', 'gcs', 'digital_ocean'; Cloudinary folder structure: eclassify_app/uploads/profiles/user-{userId}/
 
 ---
 
@@ -247,7 +247,7 @@ Quick reference for all database tables, columns, relationships, and hooks.
 ---
 
 ### listings
-**Columns:** id (BIGINT PK), user_id (BIGINT FK→users), category_id (INT FK→categories), title (VARCHAR(200)), slug (VARCHAR(250) UNIQUE), description (TEXT), price (DECIMAL(15,2)), price_negotiable (BOOLEAN), state_id (INT FK→states), city_id (INT FK→cities), locality (VARCHAR(200)), address (TEXT), latitude (DECIMAL(10,8)), longitude (DECIMAL(11,8)), status (ENUM), is_featured (BOOLEAN), featured_until (TIMESTAMP), expires_at (TIMESTAMP), published_at (TIMESTAMP), approved_at (TIMESTAMP), approved_by (BIGINT FK→users), rejected_at (TIMESTAMP), rejected_by (BIGINT FK→users), rejection_reason (TEXT), view_count (INT), contact_count (INT), created_by (BIGINT FK→users), updated_by (BIGINT - last updater only), deleted_by (BIGINT FK→users), deleted_at (TIMESTAMP), created_at (TIMESTAMP), updated_at (TIMESTAMP)
+**Columns:** id (BIGINT PK), user_id (BIGINT FK→users), category_id (INT FK→categories), title (VARCHAR(200)), slug (VARCHAR(250) UNIQUE), description (TEXT), price (DECIMAL(15,2)), price_negotiable (BOOLEAN), state_id (INT FK→states), city_id (INT FK→cities), locality (VARCHAR(200)), address (TEXT), latitude (DECIMAL(10,8)), longitude (DECIMAL(11,8)), status (ENUM), is_featured (BOOLEAN), featured_until (TIMESTAMP), expires_at (TIMESTAMP), published_at (TIMESTAMP), approved_at (TIMESTAMP), approved_by (BIGINT FK→users), rejected_at (TIMESTAMP), rejected_by (BIGINT FK→users), rejection_reason (TEXT), view_count (INT), contact_count (INT), is_auto_approved (BOOLEAN - true if auto-approved), posted_by_type (ENUM - 'owner', 'agent', 'dealer'), created_by (BIGINT FK→users), updated_by (BIGINT - last updater only), deleted_by (BIGINT FK→users), deleted_at (TIMESTAMP), created_at (TIMESTAMP), updated_at (TIMESTAMP)
 
 **Relationships:**
 - belongsTo → users (via user_id)
@@ -323,7 +323,70 @@ Quick reference for all database tables, columns, relationships, and hooks.
 
 **Indexes:** listing_id, media_type, (listing_id, is_primary), (listing_id, display_order)
 
-**Notes:** High-volume table (BIGINT PK); ON DELETE CASCADE; media_type values: 'image', 'video'; storage_type values: 'local', 'cloudinary', 's3'; width/height for images only; duration_seconds for videos only; thumbnail_url nullable (generated async); max 15 images + 3 videos per listing (enforced in app logic)
+**Notes:** High-volume table (BIGINT PK); ON DELETE CASCADE; media_type values: 'image', 'video'; storage_type values: 'local', 'cloudinary', 'aws', 'gcs', 'digital_ocean'; width/height for images only; duration_seconds for videos only; thumbnail_url nullable (generated async); max 15 images + 3 videos per listing (enforced in app logic)
+
+---
+
+### chat_rooms
+**Columns:** id (BIGINT PK), listing_id (BIGINT FK→listings), buyer_id (BIGINT FK→users), seller_id (BIGINT FK→users), is_active (BOOLEAN), last_message_at (TIMESTAMP), unread_count_buyer (INT), unread_count_seller (INT), is_important_buyer (BOOLEAN), is_important_seller (BOOLEAN), buyer_subscription_tier (VARCHAR(20)), seller_subscription_tier (VARCHAR(20)), buyer_requested_contact (BOOLEAN), seller_shared_contact (BOOLEAN), blocked_by_buyer (BOOLEAN), blocked_by_seller (BOOLEAN), block_metadata (JSONB), reported_by_buyer (BOOLEAN), reported_by_seller (BOOLEAN), report_metadata (JSONB), created_at (TIMESTAMP), updated_at (TIMESTAMP)
+
+**Relationships:**
+- belongsTo → listings (via listing_id)
+- belongsTo → users (via buyer_id, as 'buyer')
+- belongsTo → users (via seller_id, as 'seller')
+- hasMany → chat_messages (via chat_room_id)
+- hasMany → listing_offers (via chat_room_id)
+
+**Hooks:** None
+
+**Constraints:** UNIQUE(listing_id, buyer_id) - one room per buyer-listing combination; CASCADE on delete
+
+**Config:** paranoid: false
+
+**Indexes:** (buyer_id, is_active), (seller_id, is_active), listing_id, (blocked_by_buyer, blocked_by_seller), (reported_by_buyer, reported_by_seller), last_message_at
+
+**Notes:** High-volume table (BIGINT PK); is_active becomes false when listing expires/deleted (read-only mode); subscription tiers cached for fast filtering; block_metadata structure: {buyer: {reason, blockedAt}, seller: {reason, blockedAt}}; report_metadata structure: [{reportedBy, reportedUser, type, reason, reportedAt, status}]
+
+---
+
+### chat_messages
+**Columns:** id (BIGINT PK), chat_room_id (BIGINT FK→chat_rooms), sender_id (BIGINT FK→users), message_text (TEXT), message_type (VARCHAR(20)), message_metadata (JSONB), media_url (VARCHAR(500)), thumbnail_url (VARCHAR(500)), mime_type (VARCHAR(100)), thumbnail_mime_type (VARCHAR(100)), file_size_bytes (INT), width (INT), height (INT), storage_type (ENUM), reply_to_message_id (BIGINT FK→chat_messages), system_event_type (VARCHAR(50)), is_read (BOOLEAN), read_at (TIMESTAMP), edited_at (TIMESTAMP), deleted_at (TIMESTAMP), created_at (TIMESTAMP), updated_at (TIMESTAMP)
+
+**Relationships:**
+- belongsTo → chat_rooms (via chat_room_id)
+- belongsTo → users (via sender_id, as 'sender')
+- belongsTo → chat_messages (self-reference via reply_to_message_id, as 'replyToMessage')
+- hasMany → chat_messages (self-reference via reply_to_message_id, as 'replies')
+
+**Hooks:** None
+
+**Config:** paranoid: true (soft delete)
+
+**Indexes:** (chat_room_id, created_at DESC), sender_id, reply_to_message_id, (chat_room_id, is_read), deleted_at
+
+**Notes:** High-volume table (BIGINT PK); message_type values: 'text', 'image', 'location', 'system'; system_event_type values: 'offer_made', 'offer_accepted', 'offer_rejected', 'contact_requested', 'contact_shared', 'user_blocked'; message_metadata structure varies by type - Location: {lat, lng, address}, System: {action, data}; For image messages: media_url, thumbnail_url, mime_type, thumbnail_mime_type, file_size_bytes, width, height, storage_type (same structure as listing_media); storage_type values: 'local', 'cloudinary', 'aws', 'gcs', 'digital_ocean'; model getters transform media_url and thumbnail_url to full URLs using storageHelper
+
+---
+
+### listing_offers
+**Columns:** id (BIGINT PK), listing_id (BIGINT FK→listings), chat_room_id (BIGINT FK→chat_rooms), buyer_id (BIGINT FK→users), seller_id (BIGINT FK→users), offered_amount (DECIMAL(12,2)), listing_price_at_time (DECIMAL(12,2)), discount_percentage (DECIMAL(5,2)), notes (TEXT), parent_offer_id (BIGINT FK→listing_offers), status (VARCHAR(20)), expires_at (TIMESTAMP), viewed_at (TIMESTAMP), responded_at (TIMESTAMP), rejection_reason (TEXT), auto_rejected (BOOLEAN), created_at (TIMESTAMP), updated_at (TIMESTAMP)
+
+**Relationships:**
+- belongsTo → listings (via listing_id)
+- belongsTo → chat_rooms (via chat_room_id)
+- belongsTo → users (via buyer_id, as 'buyer')
+- belongsTo → users (via seller_id, as 'seller')
+- belongsTo → listing_offers (self-reference via parent_offer_id, as 'parentOffer')
+- hasMany → listing_offers (self-reference via parent_offer_id, as 'counterOffers')
+
+**Hooks:**
+- beforeCreate: Auto-calculate discount_percentage from offered_amount and listing_price_at_time
+
+**Config:** paranoid: false
+
+**Indexes:** (listing_id, created_at DESC), (chat_room_id, created_at DESC), (buyer_id, status), (seller_id, status), (status, expires_at), parent_offer_id
+
+**Notes:** High-volume table (BIGINT PK); status values: 'pending', 'accepted', 'rejected', 'withdrawn', 'expired', 'countered'; parent_offer_id NULL = initial offer, NOT NULL = counter-offer; tracks full negotiation chain; CASCADE on delete
 
 ---
 

@@ -774,7 +774,9 @@ import { getFullUrl } from '#utils/storageHelper.js';
     field: 'media_url',
     get() {
       const rawValue = this.getDataValue('mediaUrl');
-      return getFullUrl(rawValue);
+      const storageType = this.getDataValue('storageType');
+      const mimeType = this.getDataValue('mimeType');
+      return getFullUrl(rawValue, storageType, mimeType);
     }
   },
   thumbnailUrl: {
@@ -783,7 +785,24 @@ import { getFullUrl } from '#utils/storageHelper.js';
     field: 'thumbnail_url',
     get() {
       const rawValue = this.getDataValue('thumbnailUrl');
-      return getFullUrl(rawValue);
+      const storageType = this.getDataValue('storageType');
+      const mimeType = this.getDataValue('thumbnailMimeType');
+      return getFullUrl(rawValue, storageType, mimeType);
+    }
+  }
+}
+
+// Example: UserProfile model
+{
+  profilePhoto: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+    field: 'profile_photo',
+    get() {
+      const rawValue = this.getDataValue('profilePhoto');
+      const storageType = this.getDataValue('profilePhotoStorageType');
+      const mimeType = this.getDataValue('profilePhotoMimeType');
+      return getFullUrl(rawValue, storageType, mimeType);
     }
   }
 }
@@ -798,10 +817,13 @@ import { getFullUrl } from '#utils/storageHelper.js';
 ```
 
 ### Models with File Paths
-- `ListingMedia` - `mediaUrl`, `thumbnailUrl`
-- `Category` - `iconUrl`
-- `UserProfile` - `profilePictureUrl`
+- `ListingMedia` - `mediaUrl`, `thumbnailUrl` (requires `storageType`, `mimeType`, `thumbnailMimeType`)
+- `ChatMessage` - `mediaUrl`, `thumbnailUrl` (requires `storageType`, `mimeType`, `thumbnailMimeType`)
+- `UserProfile` - `profilePhoto` (requires `profilePhotoStorageType`, `profilePhotoMimeType`)
+- `Category` - `iconUrl` (if implemented with storage)
 - Any future models with file paths
+
+**Important:** Always include storage_type and mime_type columns alongside file path columns for proper URL generation.
 
 ### Environment Variable
 ```env

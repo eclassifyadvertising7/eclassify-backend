@@ -81,6 +81,12 @@ export async function up(queryInterface, Sequelize) {
       allowNull: false,
       defaultValue: 'pending'
     },
+    is_verified: {
+      type: Sequelize.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+      comment: 'Platform verified badge - manually set by admin'
+    },
     profile_photo: {
       type: Sequelize.TEXT,
       allowNull: true
@@ -98,6 +104,12 @@ export async function up(queryInterface, Sequelize) {
       type: Sequelize.SMALLINT,
       allowNull: false,
       defaultValue: 1
+    },
+    is_auto_approve_enabled: {
+      type: Sequelize.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+      comment: 'If true, user listings are auto-approved without admin review'
     },
     created_by: {
       type: Sequelize.BIGINT,
@@ -154,6 +166,13 @@ export async function up(queryInterface, Sequelize) {
 
   await queryInterface.addIndex('users', ['deleted_at'], {
     name: 'idx_users_deleted_at'
+  });
+
+  await queryInterface.addIndex('users', ['is_auto_approve_enabled'], {
+    name: 'idx_users_auto_approve',
+    where: {
+      is_auto_approve_enabled: true
+    }
   });
 }
 

@@ -7,7 +7,10 @@ import listingRepository from '#repositories/listingRepository.js';
 import carListingRepository from '#repositories/carListingRepository.js';
 import propertyListingRepository from '#repositories/propertyListingRepository.js';
 import listingMediaRepository from '#repositories/listingMediaRepository.js';
+import models from '#models/index.js';
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '#utils/constants/messages.js';
+
+const { User } = models;
 
 class ListingService {
   /**
@@ -50,10 +53,29 @@ class ListingService {
     // Validate required fields
     this._validateRequiredFields(listingData);
 
+    // Check if user has auto-approve enabled
+    const user = await User.findByPk(userId, { attributes: ['isAutoApproveEnabled'] });
+    const isAutoApproveEnabled = user?.isAutoApproveEnabled || false;
+
     // Set audit fields
     listingData.userId = userId;
     listingData.createdBy = userId;
     listingData.status = 'draft';
+    listingData.isAutoApproved = false;
+
+    // If auto-approve is enabled, set listing to active immediately
+    if (isAutoApproveEnabled) {
+      listingData.status = 'active';
+      listingData.isAutoApproved = true;
+      listingData.approvedAt = new Date();
+      listingData.approvedBy = userId;
+      listingData.publishedAt = new Date();
+      
+      // Set expiry to 30 days from now
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 30);
+      listingData.expiresAt = expiresAt;
+    }
 
     // Create base listing
     const listing = await listingRepository.create(listingData);
@@ -74,9 +96,13 @@ class ListingService {
     // Fetch complete listing with associations
     const completeListing = await listingRepository.getById(listing.id, { includeAll: true });
 
+    const message = isAutoApproveEnabled
+      ? 'Listing created and auto-approved successfully'
+      : SUCCESS_MESSAGES.LISTING_CREATED;
+
     return {
       success: true,
-      message: SUCCESS_MESSAGES.LISTING_CREATED,
+      message,
       data: completeListing
     };
   }
@@ -234,7 +260,34 @@ class ListingService {
       throw new Error('At least one image is required to submit listing');
     }
 
-    // Update status to pending
+    // Check if user has auto-approve enabled
+    const user = await User.findByPk(userId, { attributes: ['isAutoApproveEnabled'] });
+    const isAutoApproveEnabled = user?.isAutoApproveEnabled || false;
+
+    if (isAutoApproveEnabled) {
+      // Auto-approve the listing
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 30);
+
+      await listingRepository.update(id, {
+        status: 'active',
+        isAutoApproved: true,
+        approvedAt: new Date(),
+        approvedBy: userId,
+        publishedAt: new Date(),
+        expiresAt
+      }, { userId });
+
+      const updatedListing = await listingRepository.getById(id, { includeAll: true });
+
+      return {
+        success: true,
+        message: 'Listing submitted and auto-approved successfully',
+        data: updatedListing
+      };
+    }
+
+    // Update status to pending for manual approval
     await listingRepository.updateStatus(id, 'pending', { userId });
 
     const updatedListing = await listingRepository.getById(id, { includeAll: true });

@@ -33,7 +33,6 @@ Authorization: Bearer <access_token>
     "countryCode": "+91",
     "mobile": "9175113022",
     "email": "john@example.com",
-    "profilePhoto": "http://localhost:5000/uploads/profiles/profile-123-1234567890.webp",
     "status": "active",
     "isPhoneVerified": true,
     "isEmailVerified": false,
@@ -54,6 +53,7 @@ Authorization: Bearer <access_token>
       "pincode": "411001",
       "latitude": "18.5204",
       "longitude": "73.8567",
+      "profilePhoto": "https://res.cloudinary.com/your-cloud/image/upload/eclassify_app/uploads/profiles/user-123/photo.jpg",
       "state": {
         "id": 1,
         "name": "Maharashtra",
@@ -120,8 +120,8 @@ profilePhoto: <file> (optional, max 2MB, JPEG/PNG/WebP)
     "id": 123,
     "fullName": "John Doe",
     "email": "john@example.com",
-    "profilePhoto": "http://localhost:3000/uploads/profiles/profile-123-1234567890.webp",
     "profile": {
+      "profilePhoto": "https://res.cloudinary.com/your-cloud/image/upload/eclassify_app/uploads/profiles/user-123/photo.jpg",
       "dob": "1990-01-01",
       "gender": "male",
       "about": "Software developer",
@@ -299,7 +299,6 @@ Authorization: Bearer <access_token>
     "countryCode": "+91",
     "mobile": "9876543210",
     "email": "jane@example.com",
-    "profilePhoto": "http://localhost:5000/uploads/profiles/profile-456-1234567890.webp",
     "status": "active",
     "isPhoneVerified": true,
     "isEmailVerified": true,
@@ -311,7 +310,8 @@ Authorization: Bearer <access_token>
       "gender": "female",
       "about": "Car enthusiast",
       "city": "Mumbai",
-      "stateId": 1
+      "stateId": 1,
+      "profilePhoto": "https://res.cloudinary.com/your-cloud/image/upload/eclassify_app/uploads/profiles/user-456/photo.jpg"
     }
   }
 }

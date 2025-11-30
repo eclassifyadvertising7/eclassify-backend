@@ -25,10 +25,9 @@
 
 ## Storage Options
 
-Three storage backends supported via `STORAGE_TYPE` environment variable:
+Two storage backends supported via `STORAGE_TYPE` environment variable:
 - **local**: Development/testing (default)
-- **cloudinary**: Production with moderate traffic (recommended)
-- **s3**: Large scale production
+- **cloudinary**: Production (recommended for Render deployment)
 
 ## Common Commands
 
@@ -47,8 +46,8 @@ npm run dev
 # Production
 npm start
 
-# Storage migration (when switching storage types)
-npm run migrate:storage -- --from=local --to=cloudinary
+# Switch storage type (just change env variable and restart)
+# STORAGE_TYPE=local or STORAGE_TYPE=cloudinary
 ```
 
 ## Environment Configuration
@@ -57,10 +56,53 @@ Key environment variables:
 - `PORT`, `NODE_ENV`
 - `DATABASE_URL`
 - `JWT_SECRET`, `JWT_EXPIRY`
-- `STORAGE_TYPE`, `UPLOAD_DIR`
+- `STORAGE_TYPE`, `UPLOAD_URL`
 - `CLOUDINARY_*` (if using Cloudinary)
-- `AWS_*` (if using S3)
 - `EMAIL_*` (for notifications)
 - `CORS_ORIGIN`
 
 See `.env.example` for complete list.
+
+## Important Notes
+
+### Sequelize Model Getters
+**When using Sequelize model getters that depend on other columns, always include those columns in your `attributes` array, even if you don't directly use them in the response. The getter needs them to work!**
+
+Example:
+```javascript
+// ❌ Wrong - getter won't work
+attributes: ['id', 'mediaUrl', 'mediaType']
+
+// ✅ Correct - includes columns needed by getter
+attributes: ['id', 'mediaUrl', 'mediaType', 'storageType', 'mimeType']
+```
+
+### Sequelize with underscored: true - Column Names
+**When using `underscored: true` in Sequelize models, you must use snake_case column names in ORDER BY and raw attributes, NOT camelCase.**
+
+The database columns are in snake_case (e.g., `created_at`, `updated_at`), so ORDER BY and raw column references must use the actual database column names.
+
+**ORDER BY:**
+```javascript
+// ❌ Wrong - will cause "column does not exist" error
+order: [['createdAt', 'DESC']]
+order: [['updatedAt', 'ASC']]
+
+// ✅ Correct - use snake_case database column names
+order: [['created_at', 'DESC']]
+order: [['updated_at', 'ASC']]
+```
+
+**Attributes with timestamp columns:**
+```javascript
+// ❌ Wrong - Sequelize can't map createdAt to created_at in SELECT
+attributes: ['id', 'name', 'createdAt']
+
+// ✅ Correct - use array notation to alias snake_case to camelCase
+attributes: ['id', 'name', ['created_at', 'createdAt']]
+attributes: ['id', 'name', ['updated_at', 'updatedAt']]
+```
+
+**Why?** Sequelize's `underscored: true` converts camelCase to snake_case for database columns, but:
+- ORDER BY clauses are passed directly to SQL
+- Timestamp columns (createdAt, updatedAt) in attributes need explicit aliasing from snake_case to camelCase

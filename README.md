@@ -6,7 +6,7 @@ Scalable classified advertising platform (OLX-style) for cars and properties wit
 
 - **Node.js (v18+)** + Express.js + PostgreSQL + Sequelize ORM
 - **Auth**: JWT (caches `userId`, `roleId`, `roleSlug`) + Passport.js (Google OAuth)
-- **Storage**: Local/Cloudinary/S3 with Sharp image processing
+- **Storage**: Local/Cloudinary (storage-agnostic) with Sharp image processing
 - **Real-time**: Socket.io
 - **Email**: Nodemailer | **Logging**: Winston | **Scheduling**: node-cron
 
@@ -101,9 +101,11 @@ Response format: `{ success, message, data }`
 
 See `API-Docs/` folder for endpoint documentation.
 
-## URL Transformation
+## Storage & URL Transformation
 
-**Rule**: Store relative paths in DB, use model getters to serve full URLs to frontend.
+**Storage-Agnostic Design**: Switch between local/Cloudinary by changing `STORAGE_TYPE` env variable.
+
+**Rule**: Store relative paths (without extension) in DB, use model getters to generate full URLs.
 
 ```javascript
 // Model getter
@@ -113,13 +115,27 @@ mediaUrl: {
   type: DataTypes.STRING(500),
   field: 'media_url',
   get() {
-    return getFullUrl(this.getDataValue('mediaUrl'));
+    const rawValue = this.getDataValue('mediaUrl');
+    const storageType = this.getDataValue('storageType');
+    const mimeType = this.getDataValue('mimeType');
+    return getFullUrl(rawValue, storageType, mimeType);
   }
 }
 ```
 
-**DB**: `uploads/listings/user-123/images/photo.jpg`  
-**API**: `http://localhost:5000/uploads/listings/user-123/images/photo.jpg`
+**DB**: `uploads/listings/user-123/images/photo` (no extension)  
+**Local API**: `http://localhost:5000/uploads/listings/user-123/images/photo.jpg`  
+**Cloudinary API**: `https://res.cloudinary.com/.../eclassify_app/uploads/listings/user-123/images/photo.jpg`
+
+**⚠️ Important**: When using model getters that depend on other columns, always include those columns in `attributes` array:
+
+```javascript
+// ✅ Correct
+attributes: ['id', 'mediaUrl', 'storageType', 'mimeType']
+
+// ❌ Wrong - getter won't work
+attributes: ['id', 'mediaUrl']
+```
 
 Apply to: `ListingMedia`, `Category`, `UserProfile`
 

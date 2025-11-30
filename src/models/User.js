@@ -1,6 +1,5 @@
 import { DataTypes } from "sequelize";
 import bcrypt from "bcrypt";
-import { getFullUrl } from '#utils/storageHelper.js';
 
 export default (sequelize) => {
   const User = sequelize.define(
@@ -96,14 +95,11 @@ export default (sequelize) => {
         defaultValue: "pending",
         field: "kyc_status",
       },
-      profilePhoto: {
-        type: DataTypes.TEXT,
-        allowNull: true,
-        field: "profile_photo",
-        get() {
-          const rawValue = this.getDataValue('profilePhoto');
-          return getFullUrl(rawValue);
-        }
+      isVerified: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+        field: "is_verified",
       },
       subscriptionType: {
         type: DataTypes.ENUM("free", "paid"),
@@ -121,6 +117,12 @@ export default (sequelize) => {
         allowNull: false,
         defaultValue: 1,
         field: "max_devices",
+      },
+      isAutoApproveEnabled: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+        field: "is_auto_approve_enabled",
       },
       createdBy: {
         type: DataTypes.BIGINT,

@@ -78,6 +78,11 @@ export async function up(queryInterface, Sequelize) {
       type: Sequelize.STRING(200),
       allowNull: true
     },
+    pincode: {
+      type: Sequelize.STRING(10),
+      allowNull: true,
+      comment: 'Postal/ZIP code for location filtering'
+    },
     address: {
       type: Sequelize.TEXT,
       allowNull: true
@@ -155,6 +160,18 @@ export async function up(queryInterface, Sequelize) {
       allowNull: false,
       defaultValue: 0
     },
+    is_auto_approved: {
+      type: Sequelize.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+      comment: 'True if listing was auto-approved based on user settings'
+    },
+    posted_by_type: {
+      type: Sequelize.ENUM('owner', 'agent', 'dealer'),
+      allowNull: false,
+      defaultValue: 'owner',
+      comment: 'Who posted the listing: owner (self), agent (broker), or dealer (business)'
+    },
     created_by: {
       type: Sequelize.BIGINT,
       allowNull: true,
@@ -227,6 +244,13 @@ export async function up(queryInterface, Sequelize) {
 
   await queryInterface.addIndex('listings', ['deleted_at'], {
     name: 'idx_listings_deleted_at'
+  });
+
+  await queryInterface.addIndex('listings', ['is_auto_approved'], {
+    name: 'idx_listings_auto_approved',
+    where: {
+      is_auto_approved: true
+    }
   });
 }
 

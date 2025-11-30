@@ -230,6 +230,12 @@ export async function up(queryInterface, Sequelize) {
       allowNull: false,
       defaultValue: 0
     },
+    is_auto_approve_enabled: {
+      type: Sequelize.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+      comment: 'Snapshot: auto-approve setting from plan'
+    },
     // Support Snapshot
     support_level: {
       type: Sequelize.STRING(20),

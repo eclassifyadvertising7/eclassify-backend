@@ -144,6 +144,7 @@ Create a new listing in draft status.
     "price": "1500000.00",
     "priceNegotiable": true,
     "status": "draft",
+    "postedByType": "owner",
     "stateId": 1,
     "cityId": 5,
     "locality": "Andheri West",
@@ -197,6 +198,7 @@ Get all listings created by the authenticated user.
       "slug": "toyota-camry-2020-abc123",
       "price": "1500000.00",
       "status": "active",
+      "postedByType": "owner",
       "isFeatured": false,
       "viewCount": 45,
       "createdAt": "2024-11-23T10:30:00.000Z",
@@ -606,7 +608,10 @@ Get detailed listing information (admin view).
       "id": 456,
       "fullName": "John Doe",
       "email": "john@example.com",
-      "mobile": "9876543210"
+      "mobile": "9876543210",
+      "profile": {
+        "profilePhoto": "https://res.cloudinary.com/your-cloud/image/upload/eclassify_app/uploads/profiles/user-456/photo.jpg"
+      }
     },
     /* full listing details */
   }
@@ -797,12 +802,16 @@ Get detailed listing information by slug.
     "description": "Well maintained...",
     "price": "1500000.00",
     "status": "active",
+    "postedByType": "owner",
     "viewCount": 45,
     "carListing": { /* car details */ },
     "media": [ /* media array */ ],
     "user": {
       "id": 456,
-      "fullName": "John Doe"
+      "fullName": "John Doe",
+      "profile": {
+        "profilePhoto": "https://res.cloudinary.com/your-cloud/image/upload/eclassify_app/uploads/profiles/user-456/photo.jpg"
+      }
     }
   }
 }

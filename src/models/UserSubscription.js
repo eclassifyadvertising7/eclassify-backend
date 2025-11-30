@@ -264,6 +264,12 @@ export default (sequelize) => {
       defaultValue: 0,
       field: 'manual_refresh_per_cycle'
     },
+    isAutoApproveEnabled: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+      field: 'is_auto_approve_enabled'
+    },
     // Support Snapshot
     supportLevel: {
       type: DataTypes.STRING(20),

@@ -20,6 +20,9 @@ import Listing from './Listing.js';
 import CarListing from './CarListing.js';
 import PropertyListing from './PropertyListing.js';
 import ListingMedia from './ListingMedia.js';
+import ChatRoom from './ChatRoom.js';
+import ChatMessage from './ChatMessage.js';
+import ListingOffer from './ListingOffer.js';
 
 // Initialize models
 const User = UserModel(sequelize);
@@ -50,7 +53,10 @@ const models = {
   Listing,
   CarListing,
   PropertyListing,
-  ListingMedia
+  ListingMedia,
+  ChatRoom,
+  ChatMessage,
+  ListingOffer
 };
 
 // Set up associations
@@ -121,6 +127,11 @@ Listing.associate(models);
 CarListing.associate(models);
 PropertyListing.associate(models);
 ListingMedia.associate(models);
+
+// Chat associations
+ChatRoom.associate(models);
+ChatMessage.associate(models);
+ListingOffer.associate(models);
 
 export { sequelize };
 export default models;
