@@ -114,12 +114,19 @@ export default {
       });
     });
 
-    // Convert to array and insert
+    // Convert to array and insert in batches
     const citiesToInsert = Array.from(uniqueCities.values());
 
     if (citiesToInsert.length > 0) {
-      console.log(`Inserting ${citiesToInsert.length} new cities...`);
-      await queryInterface.bulkInsert('cities', citiesToInsert);
+      console.log(`Inserting ${citiesToInsert.length} new cities in batches...`);
+      
+      const batchSize = 1000; // Insert 1000 cities at a time
+      for (let i = 0; i < citiesToInsert.length; i += batchSize) {
+        const batch = citiesToInsert.slice(i, i + batchSize);
+        await queryInterface.bulkInsert('cities', batch);
+        console.log(`Inserted batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(citiesToInsert.length / batchSize)} (${batch.length} cities)`);
+      }
+      
       console.log('Cities seeded successfully!');
     } else {
       console.log('No new cities to insert.');
