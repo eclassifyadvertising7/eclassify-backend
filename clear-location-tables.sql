@@ -1,9 +1,12 @@
 -- Clear cities and states tables
 -- Run this SQL directly on your database
 
-TRUNCATE TABLE cities CASCADE;
-TRUNCATE TABLE states CASCADE;
+-- Must delete cities first (child table)
+TRUNCATE TABLE cities RESTART IDENTITY CASCADE;
 
--- Reset sequences (optional, if you want IDs to start from 1 again)
-ALTER SEQUENCE cities_id_seq RESTART WITH 1;
-ALTER SEQUENCE states_id_seq RESTART WITH 1;
+-- Then delete states (parent table)
+TRUNCATE TABLE states RESTART IDENTITY CASCADE;
+
+-- Verify tables are empty
+SELECT COUNT(*) as cities_count FROM cities;
+SELECT COUNT(*) as states_count FROM states;
