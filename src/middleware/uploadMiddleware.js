@@ -1,6 +1,7 @@
 /**
  * Upload Middleware
  * Handles file uploads using Multer with validation
+ * Supports both local storage and Cloudinary
  */
 
 import multer from 'multer';
@@ -8,6 +9,8 @@ import path from 'path';
 import fs from 'fs/promises';
 import { generateFileName } from '#utils/customSlugify.js';
 import { UPLOAD_CONFIG } from '#config/uploadConfig.js';
+
+const STORAGE_TYPE = process.env.STORAGE_TYPE || 'local';
 
 /**
  * Ensure directory exists, create if not
@@ -23,10 +26,17 @@ const ensureDirectoryExists = async (dirPath) => {
 
 /**
  * Create Multer storage configuration
- * @param {string} uploadType - Type of upload (categories, profiles, listings)
- * @param {string} subFolder - Optional subfolder (for listings: images/videos)
+ * Uses memory storage for Cloudinary, disk storage for local
+ * @param {string} uploadType - Type of upload (categories, profiles, listings, chats)
+ * @param {string} subFolder - Optional subfolder (for listings: images/videos, for chats: images)
  */
 const createStorage = (uploadType, subFolder = null) => {
+  // Use memory storage for Cloudinary (files will be uploaded from buffer)
+  if (STORAGE_TYPE === 'cloudinary') {
+    return multer.memoryStorage();
+  }
+
+  // Use disk storage for local uploads
   return multer.diskStorage({
     destination: async (req, file, cb) => {
       try {
@@ -40,6 +50,16 @@ const createStorage = (uploadType, subFolder = null) => {
             'uploads',
             'listings',
             `user-${req.user.userId}`,
+            mediaType
+          );
+        } else if (uploadType === 'chats' && req.params?.roomId) {
+          // For chats: uploads/chats/room-{roomId}/images
+          const mediaType = subFolder || 'images';
+          uploadPath = path.join(
+            process.cwd(),
+            'uploads',
+            'chats',
+            `room-${req.params.roomId}`,
             mediaType
           );
         } else {
@@ -134,36 +154,38 @@ export const uploadListingVideos = multer({
  * Listing media upload middleware (images or videos based on field name)
  */
 export const uploadListingMedia = multer({
-  storage: multer.diskStorage({
-    destination: async (req, file, cb) => {
-      try {
-        // Determine media type from field name or mime type
-        const isVideo = file.mimetype.startsWith('video/');
-        const mediaType = isVideo ? 'videos' : 'images';
-        
-        const uploadPath = path.join(
-          process.cwd(),
-          'uploads',
-          'listings',
-          `user-${req.user.userId}`,
-          mediaType
-        );
+  storage: STORAGE_TYPE === 'cloudinary' 
+    ? multer.memoryStorage()
+    : multer.diskStorage({
+        destination: async (req, file, cb) => {
+          try {
+            // Determine media type from field name or mime type
+            const isVideo = file.mimetype.startsWith('video/');
+            const mediaType = isVideo ? 'videos' : 'images';
+            
+            const uploadPath = path.join(
+              process.cwd(),
+              'uploads',
+              'listings',
+              `user-${req.user.userId}`,
+              mediaType
+            );
 
-        await ensureDirectoryExists(uploadPath);
-        cb(null, uploadPath);
-      } catch (error) {
-        cb(error, null);
-      }
-    },
-    filename: (req, file, cb) => {
-      try {
-        const uniqueName = generateFileName(file.originalname);
-        cb(null, uniqueName);
-      } catch (error) {
-        cb(error, null);
-      }
-    }
-  }),
+            await ensureDirectoryExists(uploadPath);
+            cb(null, uploadPath);
+          } catch (error) {
+            cb(error, null);
+          }
+        },
+        filename: (req, file, cb) => {
+          try {
+            const uniqueName = generateFileName(file.originalname);
+            cb(null, uniqueName);
+          } catch (error) {
+            cb(error, null);
+          }
+        }
+      }),
   limits: {
     fileSize: UPLOAD_CONFIG.LISTING_MEDIA.VIDEO.maxSize, // Use larger limit
     files: UPLOAD_CONFIG.LISTING_MEDIA.IMAGE.maxFiles + UPLOAD_CONFIG.LISTING_MEDIA.VIDEO.maxFiles
@@ -181,3 +203,14 @@ export const uploadListingMedia = multer({
     }
   }
 }).array('media', UPLOAD_CONFIG.LISTING_MEDIA.IMAGE.maxFiles + UPLOAD_CONFIG.LISTING_MEDIA.VIDEO.maxFiles);
+
+/**
+ * Chat image upload middleware (single file)
+ */
+export const uploadChatImage = multer({
+  storage: createStorage('chats', 'images'),
+  limits: {
+    fileSize: UPLOAD_CONFIG.CHAT_IMAGE.maxSize
+  },
+  fileFilter: createFileFilter(UPLOAD_CONFIG.CHAT_IMAGE.allowedTypes)
+}).single('image');

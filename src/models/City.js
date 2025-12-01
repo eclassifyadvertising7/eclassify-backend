@@ -25,6 +25,11 @@ City.init(
       allowNull: false,
       field: "state_id",
     },
+    districtId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      field: "district_id",
+    },
     stateName: {
       type: DataTypes.STRING(255),
       allowNull: false,
@@ -126,6 +131,12 @@ City.associate = (models) => {
   City.belongsTo(models.State, {
     foreignKey: "state_id",
     as: "state",
+  });
+
+  // City belongs to District (optional)
+  City.belongsTo(models.District, {
+    foreignKey: "district_id",
+    as: "districtInfo",
   });
 
   // TODO: Add Listing association when Listing model is created

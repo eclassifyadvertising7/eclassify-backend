@@ -13,6 +13,9 @@ import publicCarDataRoutes from './public/carDataRoutes.js';
 import panelCarDataRoutes from './panel/carDataRoutes.js';
 import endUserDataRequestRoutes from './end-user/dataRequestRoutes.js';
 import panelDataRequestRoutes from './panel/dataRequestRoutes.js';
+import endUserChatRoutes from './end-user/chatRoutes.js';
+import panelChatRoutes from './panel/chatRoutes.js';
+import panelUserManagementRoutes from './panel/userManagementRoutes.js';
 
 // Create main router
 const router = express.Router();
@@ -36,10 +39,13 @@ router.use('/profile', commonProfileRoutes);
 router.use('/end-user/subscriptions', subscriptionRoutes);
 router.use('/end-user/listings', endUserListingRoutes);
 router.use('/end-user/data-requests', endUserDataRequestRoutes);
+router.use('/end-user/chats', endUserChatRoutes);
 router.use('/panel/subscription-plans', subscriptionPlanRoutes);
 router.use('/panel/listings', panelListingRoutes);
 router.use('/panel/categories', panelCategoryRoutes);
 router.use('/panel/data-requests', panelDataRequestRoutes);
+router.use('/panel/chats', panelChatRoutes);
+router.use('/panel/users', panelUserManagementRoutes);
 router.use('/panel', panelCarDataRoutes);
 router.use('/public/categories', publicCategoryRoutes);
 router.use('/public/listings', publicListingRoutes);

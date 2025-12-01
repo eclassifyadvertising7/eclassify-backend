@@ -28,7 +28,7 @@ export const customSlugify = (text, options = {}) => {
     .replace(/^\.+/, '')
     .replace(/\.+$/, '')
     .replace(/_/g, '')
-    .substring(0, 30);
+    .substring(0, 20);
 
   return slug;
 };

@@ -6,7 +6,7 @@
 import models from '#models/index.js';
 import { Op } from 'sequelize';
 
-const { ListingMedia } = models;
+const { ListingMedia, Listing } = models;
 
 class ListingMediaRepository {
   /**
@@ -162,6 +162,17 @@ class ListingMediaRepository {
     });
 
     return (maxOrder || 0) + 1;
+  }
+
+  /**
+   * Get listing by ID (for folder organization)
+   * @param {number} listingId - Listing ID
+   * @returns {Promise<Object|null>}
+   */
+  async getListingById(listingId) {
+    return await Listing.findByPk(listingId, {
+      attributes: ['id', 'userId']
+    });
   }
 }
 

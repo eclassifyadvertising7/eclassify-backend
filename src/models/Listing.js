@@ -68,6 +68,11 @@ const Listing = sequelize.define(
       allowNull: true,
       field: 'locality'
     },
+    pincode: {
+      type: DataTypes.STRING(10),
+      allowNull: true,
+      field: 'pincode'
+    },
     address: {
       type: DataTypes.TEXT,
       allowNull: true,
@@ -146,6 +151,18 @@ const Listing = sequelize.define(
       allowNull: false,
       defaultValue: 0,
       field: 'contact_count'
+    },
+    isAutoApproved: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+      field: 'is_auto_approved'
+    },
+    postedByType: {
+      type: DataTypes.ENUM('owner', 'agent', 'dealer'),
+      allowNull: false,
+      defaultValue: 'owner',
+      field: 'posted_by_type'
     },
     createdBy: {
       type: DataTypes.BIGINT,

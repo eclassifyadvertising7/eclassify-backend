@@ -21,7 +21,6 @@ class ProfileRepository {
         'countryCode',
         'mobile',
         'email',
-        'profilePhoto',
         'status',
         'isPhoneVerified',
         'isEmailVerified',
@@ -46,7 +45,10 @@ class ProfileRepository {
             'country',
             'pincode',
             'latitude',
-            'longitude'
+            'longitude',
+            'profilePhoto',
+            'profilePhotoStorageType',
+            'profilePhotoMimeType'
           ],
           include: [
             {

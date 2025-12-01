@@ -6,7 +6,7 @@
 import models from '#models/index.js';
 import { Op } from 'sequelize';
 
-const { Listing, CarListing, PropertyListing, ListingMedia, Category, State, City, User } = models;
+const { Listing, CarListing, PropertyListing, ListingMedia, Category, State, City, User, UserProfile } = models;
 
 class ListingRepository {
   /**
@@ -26,7 +26,18 @@ class ListingRepository {
    */
   async getById(id, options = {}) {
     const include = options.includeAll ? [
-      { model: User, as: 'user', attributes: ['id', 'fullName', 'email', 'mobile'] },
+      { 
+        model: User, 
+        as: 'user', 
+        attributes: ['id', 'fullName', 'email', 'mobile'],
+        include: [
+          {
+            model: UserProfile,
+            as: 'profile',
+            attributes: ['profilePhoto', 'profilePhotoStorageType', 'profilePhotoMimeType']
+          }
+        ]
+      },
       { model: Category, as: 'category', attributes: ['id', 'name', 'slug'] },
       { model: State, as: 'state', attributes: ['id', 'name', 'slug'] },
       { model: City, as: 'city', attributes: ['id', 'name', 'slug'] },
@@ -49,7 +60,18 @@ class ListingRepository {
    */
   async getBySlug(slug, options = {}) {
     const include = options.includeAll ? [
-      { model: User, as: 'user', attributes: ['id', 'fullName', 'email', 'mobile'] },
+      { 
+        model: User, 
+        as: 'user', 
+        attributes: ['id', 'fullName', 'email', 'mobile'],
+        include: [
+          {
+            model: UserProfile,
+            as: 'profile',
+            attributes: ['profilePhoto', 'profilePhotoStorageType', 'profilePhotoMimeType']
+          }
+        ]
+      },
       { model: Category, as: 'category', attributes: ['id', 'name', 'slug'] },
       { model: State, as: 'state', attributes: ['id', 'name', 'slug'] },
       { model: City, as: 'city', attributes: ['id', 'name', 'slug'] },
@@ -143,7 +165,7 @@ class ListingRepository {
         as: 'media', 
         where: { isPrimary: true },
         required: false,
-        attributes: ['id', 'mediaUrl', 'thumbnailUrl', 'mediaType']
+        attributes: ['id', 'mediaUrl', 'thumbnailUrl', 'mediaType', 'storageType', 'mimeType', 'thumbnailMimeType']
       }
     ];
 

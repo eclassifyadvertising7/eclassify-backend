@@ -1,4 +1,5 @@
 import { DataTypes } from 'sequelize';
+import { getFullUrl } from '#utils/storageHelper.js';
 
 export default (sequelize) => {
   const UserProfile = sequelize.define('UserProfile', {
@@ -99,6 +100,27 @@ export default (sequelize) => {
       type: DataTypes.DECIMAL(11, 8),
       allowNull: true,
       field: 'longitude'
+    },
+    profilePhoto: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      field: 'profile_photo',
+      get() {
+        const rawValue = this.getDataValue('profilePhoto');
+        const storageType = this.getDataValue('profilePhotoStorageType');
+        const mimeType = this.getDataValue('profilePhotoMimeType');
+        return getFullUrl(rawValue, storageType, mimeType);
+      }
+    },
+    profilePhotoStorageType: {
+      type: DataTypes.ENUM('local', 'cloudinary', 'aws', 'gcs', 'digital_ocean'),
+      allowNull: true,
+      field: 'profile_photo_storage_type'
+    },
+    profilePhotoMimeType: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+      field: 'profile_photo_mime_type'
     }
   }, {
     tableName: 'user_profiles',

@@ -25,6 +25,16 @@ export async function up(queryInterface, Sequelize) {
       onUpdate: "CASCADE",
       onDelete: "RESTRICT",
     },
+    district_id: {
+      type: Sequelize.INTEGER,
+      allowNull: true,
+      references: {
+        model: "districts",
+        key: "id",
+      },
+      onUpdate: "CASCADE",
+      onDelete: "SET NULL",
+    },
     state_name: {
       type: Sequelize.STRING(255),
       allowNull: false,

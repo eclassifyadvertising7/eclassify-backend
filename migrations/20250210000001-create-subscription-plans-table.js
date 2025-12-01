@@ -197,6 +197,12 @@ export async function up(queryInterface, Sequelize) {
       allowNull: false,
       defaultValue: 0
     },
+    is_auto_approve_enabled: {
+      type: Sequelize.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+      comment: 'If true, listings under this plan are auto-approved'
+    },
     // Support
     support_level: {
       type: Sequelize.ENUM('none', 'standard', 'priority', 'dedicated'),

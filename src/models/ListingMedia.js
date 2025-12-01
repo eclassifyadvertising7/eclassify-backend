@@ -33,7 +33,9 @@ const ListingMedia = sequelize.define(
       field: 'media_url',
       get() {
         const rawValue = this.getDataValue('mediaUrl');
-        return getFullUrl(rawValue);
+        const storageType = this.getDataValue('storageType');
+        const mimeType = this.getDataValue('mimeType');
+        return getFullUrl(rawValue, storageType, mimeType);
       }
     },
     thumbnailUrl: {
@@ -42,8 +44,24 @@ const ListingMedia = sequelize.define(
       field: 'thumbnail_url',
       get() {
         const rawValue = this.getDataValue('thumbnailUrl');
-        return getFullUrl(rawValue);
+        const storageType = this.getDataValue('storageType');
+        const thumbnailMimeType = this.getDataValue('thumbnailMimeType');
+        return getFullUrl(rawValue, storageType, thumbnailMimeType);
       }
+    },
+    mimeType: {
+      type: DataTypes.STRING(100),
+      allowNull: false,
+      field: 'mime_type',
+      defaultValue: 'image/jpeg',
+      comment: 'MIME type of main media file'
+    },
+    thumbnailMimeType: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+      field: 'thumbnail_mime_type',
+      defaultValue: 'image/jpeg',
+      comment: 'MIME type of thumbnail file'
     },
     fileSizeBytes: {
       type: DataTypes.INTEGER,
@@ -78,7 +96,7 @@ const ListingMedia = sequelize.define(
       field: 'is_primary'
     },
     storageType: {
-      type: DataTypes.ENUM('local', 'cloudinary', 's3'),
+      type: DataTypes.ENUM('local', 'cloudinary', 'aws', 'gcs', 'digital_ocean'),
       allowNull: false,
       defaultValue: 'local',
       field: 'storage_type'
@@ -93,7 +111,7 @@ const ListingMedia = sequelize.define(
     updatedAt: 'updated_at',
     hooks: {
       beforeDestroy: async (media, options) => {
-        // Delete files from storage (local/cloudinary/s3)
+        // Delete files from storage (local/cloudinary)
         // This will be implemented in the service layer
         // Hook is here as a placeholder for future implementation
       }

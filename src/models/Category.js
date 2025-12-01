@@ -40,8 +40,15 @@ const Category = sequelize.define(
       comment: 'Relative path to icon image',
       get() {
         const rawValue = this.getDataValue('icon');
-        return getFullUrl(rawValue);
+        const storageType = this.getDataValue('storageType');
+        const mimeType = this.getDataValue('iconMimeType');
+        return getFullUrl(rawValue, storageType, mimeType);
       }
+    },
+    iconMimeType: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+      field: 'icon_mime_type'
     },
     imageUrl: {
       type: DataTypes.STRING(255),
@@ -50,8 +57,21 @@ const Category = sequelize.define(
       comment: 'Relative path to category banner/image',
       get() {
         const rawValue = this.getDataValue('imageUrl');
-        return getFullUrl(rawValue);
+        const storageType = this.getDataValue('storageType');
+        const mimeType = this.getDataValue('imageMimeType');
+        return getFullUrl(rawValue, storageType, mimeType);
       }
+    },
+    imageMimeType: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+      field: 'image_mime_type'
+    },
+    storageType: {
+      type: DataTypes.ENUM('local', 'cloudinary', 'aws', 'gcs', 'digital_ocean'),
+      allowNull: true,
+      field: 'storage_type',
+      comment: 'Storage type for all images in this category'
     },
     displayOrder: {
       type: DataTypes.INTEGER,

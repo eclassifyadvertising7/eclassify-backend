@@ -1,14 +1,19 @@
 /**
  * ListingMedia Service
  * Business logic for listing media management
+ * Supports both local and Cloudinary storage
  */
 
 import listingMediaRepository from '#repositories/listingMediaRepository.js';
 import imageService from '#services/imageService.js';
 import videoService from '#services/videoService.js';
+import { uploadFile, deleteFile } from '#config/storageConfig.js';
 import { getFullUrl, getRelativePath } from '#utils/storageHelper.js';
 import { UPLOAD_CONFIG } from '#config/uploadConfig.js';
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '#utils/constants/messages.js';
+import sharp from 'sharp';
+
+const STORAGE_TYPE = process.env.STORAGE_TYPE || 'local';
 
 class ListingMediaService {
   /**
@@ -19,12 +24,16 @@ class ListingMediaService {
   _convertToAbsoluteUrls(media) {
     if (!media) return null;
 
-    const mediaData = media.toJSON ? media.toJSON() : media;
+    // Use model instance directly - getters will handle URL generation
+    if (media.toJSON) {
+      return media.toJSON();
+    }
 
+    // If already plain object, generate URLs manually
     return {
-      ...mediaData,
-      mediaUrl: getFullUrl(mediaData.mediaUrl),
-      thumbnailUrl: getFullUrl(mediaData.thumbnailUrl)
+      ...media,
+      mediaUrl: getFullUrl(media.mediaUrl, media.storageType, media.mimeType),
+      thumbnailUrl: getFullUrl(media.thumbnailUrl, media.storageType, media.thumbnailMimeType)
     };
   }
 
@@ -71,13 +80,40 @@ class ListingMediaService {
       // Check if this is the first media (for primary flag)
       const existingTotalCount = existingImageCount + existingVideoCount;
 
+      // Get listing info for folder structure
+      const listing = await listingMediaRepository.getListingById(listingId);
+      if (!listing) {
+        throw new Error('Listing not found');
+      }
+
       // Process images
       for (const file of images) {
         try {
-          const relativePath = getRelativePath(file.path);
+          let mediaUrl, publicId, width, height;
 
-          // Process image (compress and optimize)
-          await imageService.processImage(file.path, UPLOAD_CONFIG.LISTING_MEDIA.IMAGE);
+          if (STORAGE_TYPE === 'cloudinary') {
+            // Optimize image before upload
+            const optimizedBuffer = await this._optimizeImage(file, UPLOAD_CONFIG.LISTING_MEDIA.IMAGE);
+            
+            // Upload to Cloudinary
+            const folder = `uploads/listings/user-${listing.userId}`;
+            const uploadResult = await uploadFile(
+              { ...file, buffer: optimizedBuffer },
+              `${folder}/images`,
+              { resourceType: 'image' }
+            );
+
+            mediaUrl = uploadResult.publicId; // Store publicId for Cloudinary
+            publicId = uploadResult.publicId;
+            width = uploadResult.width;
+            height = uploadResult.height;
+          } else {
+            // Local storage
+            const relativePath = getRelativePath(file.path);
+            await imageService.processImage(file.path, UPLOAD_CONFIG.LISTING_MEDIA.IMAGE);
+            mediaUrl = relativePath;
+            publicId = relativePath;
+          }
 
           // Get next display order
           const displayOrder = await listingMediaRepository.getNextDisplayOrder(listingId);
@@ -89,15 +125,17 @@ class ListingMediaService {
           const media = await listingMediaRepository.create({
             listingId,
             mediaType: 'image',
-            mediaUrl: relativePath,
-            thumbnailUrl: relativePath, // Same as mediaUrl for images
+            mediaUrl,
+            thumbnailUrl: mediaUrl, // Same as mediaUrl for images
+            mimeType: file.mimetype, // Store MIME type
+            thumbnailMimeType: file.mimetype, // Same for thumbnail
             fileSizeBytes: file.size,
-            width: null,
-            height: null,
+            width,
+            height,
             durationSeconds: null,
             displayOrder,
             isPrimary,
-            storageType: process.env.STORAGE_TYPE || 'local'
+            storageType: STORAGE_TYPE
           });
 
           uploadedMedia.push(media);
@@ -109,7 +147,25 @@ class ListingMediaService {
       // Process videos
       for (const file of videos) {
         try {
-          const relativePath = getRelativePath(file.path);
+          let mediaUrl, publicId;
+
+          if (STORAGE_TYPE === 'cloudinary') {
+            // Upload to Cloudinary
+            const folder = `uploads/listings/user-${listing.userId}`;
+            const uploadResult = await uploadFile(
+              file,
+              `${folder}/videos`,
+              { resourceType: 'video' }
+            );
+
+            mediaUrl = uploadResult.publicId; // Store publicId for Cloudinary
+            publicId = uploadResult.publicId;
+          } else {
+            // Local storage
+            const relativePath = getRelativePath(file.path);
+            mediaUrl = relativePath;
+            publicId = relativePath;
+          }
 
           // Get next display order
           const displayOrder = await listingMediaRepository.getNextDisplayOrder(listingId);
@@ -121,15 +177,17 @@ class ListingMediaService {
           const media = await listingMediaRepository.create({
             listingId,
             mediaType: 'video',
-            mediaUrl: relativePath,
-            thumbnailUrl: null, // Will be generated later if needed
+            mediaUrl,
+            thumbnailUrl: mediaUrl, // Same path, different format for Cloudinary
+            mimeType: file.mimetype, // Store video MIME type
+            thumbnailMimeType: 'image/jpeg', // Thumbnails are always JPEG
             fileSizeBytes: file.size,
             width: null,
             height: null,
             durationSeconds: null, // Will be extracted later if needed
             displayOrder,
             isPrimary,
-            storageType: process.env.STORAGE_TYPE || 'local'
+            storageType: STORAGE_TYPE
           });
 
           uploadedMedia.push(media);
@@ -150,10 +208,37 @@ class ListingMediaService {
       };
     } catch (error) {
       // Clean up uploaded files on error
-      for (const file of files) {
-        await imageService.deleteImage(getRelativePath(file.path));
+      if (STORAGE_TYPE === 'local') {
+        for (const file of files) {
+          if (file.path) {
+            await imageService.deleteImage(getRelativePath(file.path));
+          }
+        }
       }
       throw error;
+    }
+  }
+
+  /**
+   * Optimize image using Sharp
+   * @param {Object} file - Multer file object
+   * @param {Object} config - Upload config
+   * @returns {Promise<Buffer>}
+   */
+  async _optimizeImage(file, config) {
+    try {
+      const imageBuffer = file.buffer || (await sharp(file.path).toBuffer());
+      
+      return await sharp(imageBuffer)
+        .resize(config.maxWidth, config.maxHeight, {
+          fit: 'inside',
+          withoutEnlargement: true
+        })
+        .jpeg({ quality: config.quality })
+        .toBuffer();
+    } catch (error) {
+      console.error('Image optimization error:', error);
+      return file.buffer || imageBuffer;
     }
   }
 
@@ -224,17 +309,13 @@ class ListingMediaService {
       }
     }
 
-    // Delete file from storage based on media type
-    if (media.mediaType === 'video') {
-      await videoService.deleteVideo(media.mediaUrl);
-      if (media.thumbnailUrl && media.thumbnailUrl !== media.mediaUrl) {
-        await imageService.deleteImage(media.thumbnailUrl);
-      }
-    } else {
-      await imageService.deleteImage(media.mediaUrl);
-      if (media.thumbnailUrl && media.thumbnailUrl !== media.mediaUrl) {
-        await imageService.deleteImage(media.thumbnailUrl);
-      }
+    // Delete file from storage
+    const resourceType = media.mediaType === 'video' ? 'video' : 'image';
+    await deleteFile(media.mediaUrl, media.storageType, { resourceType });
+
+    // Delete thumbnail if different from main media
+    if (media.thumbnailUrl && media.thumbnailUrl !== media.mediaUrl) {
+      await deleteFile(media.thumbnailUrl, media.storageType, { resourceType: 'image' });
     }
 
     // Delete media record
@@ -271,18 +352,14 @@ class ListingMediaService {
   async deleteAllByListingId(listingId) {
     const media = await listingMediaRepository.getByListingId(listingId);
 
-    // Delete files from storage based on media type
+    // Delete files from storage
     for (const m of media) {
-      if (m.mediaType === 'video') {
-        await videoService.deleteVideo(m.mediaUrl);
-        if (m.thumbnailUrl && m.thumbnailUrl !== m.mediaUrl) {
-          await imageService.deleteImage(m.thumbnailUrl);
-        }
-      } else {
-        await imageService.deleteImage(m.mediaUrl);
-        if (m.thumbnailUrl && m.thumbnailUrl !== m.mediaUrl) {
-          await imageService.deleteImage(m.thumbnailUrl);
-        }
+      const resourceType = m.mediaType === 'video' ? 'video' : 'image';
+      await deleteFile(m.mediaUrl, m.storageType, { resourceType });
+
+      // Delete thumbnail if different from main media
+      if (m.thumbnailUrl && m.thumbnailUrl !== m.mediaUrl) {
+        await deleteFile(m.thumbnailUrl, m.storageType, { resourceType: 'image' });
       }
     }
 

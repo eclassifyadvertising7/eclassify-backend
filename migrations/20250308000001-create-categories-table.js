@@ -30,10 +30,22 @@ export async function up(queryInterface, Sequelize) {
       allowNull: true,
       comment: 'Relative path to icon image'
     },
+    icon_mime_type: {
+      type: Sequelize.STRING(50),
+      allowNull: true
+    },
     image_url: {
       type: Sequelize.STRING(255),
       allowNull: true,
       comment: 'Relative path to category banner/image'
+    },
+    image_mime_type: {
+      type: Sequelize.STRING(50),
+      allowNull: true
+    },
+    storage_type: {
+      type: Sequelize.ENUM('local', 'cloudinary', 'aws', 'gcs', 'digital_ocean'),
+      allowNull: true,
     },
     display_order: {
       type: Sequelize.INTEGER,

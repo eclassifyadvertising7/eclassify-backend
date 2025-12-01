@@ -110,8 +110,20 @@ const CarVariant = sequelize.define(
       field: 'primary_image_url',
       get() {
         const rawValue = this.getDataValue('primaryImageUrl');
-        return getFullUrl(rawValue);
+        const storageType = this.getDataValue('primaryImageStorageType');
+        const mimeType = this.getDataValue('primaryImageMimeType');
+        return getFullUrl(rawValue, storageType, mimeType);
       }
+    },
+    primaryImageStorageType: {
+      type: DataTypes.ENUM('local', 'cloudinary', 'aws', 'gcs', 'digital_ocean'),
+      allowNull: true,
+      field: 'primary_image_storage_type'
+    },
+    primaryImageMimeType: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+      field: 'primary_image_mime_type'
     },
     viewCount: {
       type: DataTypes.BIGINT,

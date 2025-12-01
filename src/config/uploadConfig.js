@@ -44,6 +44,17 @@ export const UPLOAD_CONFIG = {
       allowedTypes: ['video/mp4', 'video/quicktime', 'video/x-msvideo'],
       allowedExtensions: ['.mp4', '.mov', '.avi']
     }
+  },
+
+  // Chat image configuration
+  CHAT_IMAGE: {
+    maxSize: 5 * 1024 * 1024, // 5MB
+    allowedTypes: ['image/jpeg', 'image/png', 'image/webp'],
+    allowedExtensions: ['.jpg', '.jpeg', '.png', '.webp'],
+    maxWidth: 1920,
+    maxHeight: 1080,
+    thumbnailSize: 300,
+    quality: 85
   }
 };
 

@@ -98,6 +98,12 @@ State.init(
 
 // Associations
 State.associate = (models) => {
+  // State has many Districts
+  State.hasMany(models.District, {
+    foreignKey: 'state_id',
+    as: 'districts'
+  });
+
   // State has many Cities
   State.hasMany(models.City, {
     foreignKey: 'state_id',

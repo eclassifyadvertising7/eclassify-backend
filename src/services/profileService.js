@@ -1,9 +1,14 @@
 import profileRepository from '#repositories/profileRepository.js';
 import imageService from '#services/imageService.js';
+import { uploadFile, deleteFile } from '#config/storageConfig.js';
+import { getRelativePath } from '#utils/storageHelper.js';
+import { UPLOAD_CONFIG } from '#config/uploadConfig.js';
 import db from '#models/index.js';
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '#utils/constants/messages.js';
+import sharp from 'sharp';
 
 const { sequelize } = db;
+const STORAGE_TYPE = process.env.STORAGE_TYPE || 'local';
 
 /**
  * Profile Service
@@ -62,14 +67,16 @@ class ProfileService {
       let photoData = null;
       if (file) {
         // Delete old photo if exists
-        if (existingUser.profilePhoto) {
-          const oldPublicId = existingUser.profilePhoto.split('/').pop();
-          await imageService.deleteProfilePhoto(oldPublicId, 'local').catch(() => {});
+        if (existingUser.profile?.profilePhoto) {
+          await deleteFile(
+            existingUser.profile.profilePhoto,
+            existingUser.profile.profilePhotoStorageType,
+            { resourceType: 'image' }
+          ).catch(() => {});
         }
 
         // Upload new photo
-        photoData = await imageService.uploadProfilePhoto(file, userId);
-        userData.profilePhoto = photoData.url;
+        photoData = await this._uploadProfilePhoto(file, userId);
       }
 
       // Update user basic info
@@ -91,6 +98,13 @@ class ProfileService {
       if (profileData.pincode) userProfileData.pincode = profileData.pincode;
       if (profileData.latitude) userProfileData.latitude = parseFloat(profileData.latitude);
       if (profileData.longitude) userProfileData.longitude = parseFloat(profileData.longitude);
+      
+      // Add photo data if uploaded
+      if (photoData) {
+        userProfileData.profilePhoto = photoData.publicId;
+        userProfileData.profilePhotoStorageType = photoData.storageType;
+        userProfileData.profilePhotoMimeType = photoData.mimeType;
+      }
 
       // Update or create profile
       if (Object.keys(userProfileData).length > 0) {
@@ -117,6 +131,84 @@ class ProfileService {
   }
 
   /**
+   * Upload profile photo
+   * @param {Object} file - Multer file object
+   * @param {number} userId - User ID
+   * @returns {Promise<Object>}
+   * @private
+   */
+  async _uploadProfilePhoto(file, userId) {
+    try {
+      let photoUrl, publicId, width, height;
+
+      if (STORAGE_TYPE === 'cloudinary') {
+        // Optimize image before upload
+        const optimizedBuffer = await this._optimizeImage(file, UPLOAD_CONFIG.PROFILE_PHOTO);
+
+        // Upload to Cloudinary
+        const folder = `uploads/profiles/user-${userId}`;
+        const uploadResult = await uploadFile(
+          { ...file, buffer: optimizedBuffer },
+          folder,
+          { resourceType: 'image' }
+        );
+
+        publicId = uploadResult.publicId;
+        width = uploadResult.width;
+        height = uploadResult.height;
+      } else {
+        // Local storage
+        const relativePath = getRelativePath(file.path);
+        await imageService.processImage(file.path, UPLOAD_CONFIG.PROFILE_PHOTO);
+        publicId = relativePath;
+
+        // Get dimensions
+        const metadata = await sharp(file.path).metadata();
+        width = metadata.width;
+        height = metadata.height;
+      }
+
+      return {
+        publicId,
+        storageType: STORAGE_TYPE,
+        mimeType: file.mimetype,
+        width,
+        height
+      };
+    } catch (error) {
+      // Clean up uploaded file on error
+      if (STORAGE_TYPE === 'local' && file.path) {
+        await imageService.deleteImage(getRelativePath(file.path));
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Optimize image using Sharp
+   * @param {Object} file - Multer file object
+   * @param {Object} config - Upload config
+   * @returns {Promise<Buffer>}
+   * @private
+   */
+  async _optimizeImage(file, config) {
+    try {
+      const imageBuffer = file.buffer || (await sharp(file.path).toBuffer());
+      
+      return await sharp(imageBuffer)
+        .resize(config.maxWidth, config.maxHeight, {
+          fit: 'inside',
+          withoutEnlargement: true
+        })
+        .jpeg({ quality: config.quality })
+        .toBuffer();
+    } catch (error) {
+      console.error('Image optimization error:', error);
+      return file.buffer || imageBuffer;
+    }
+  }
+
+  /**
    * Delete profile photo
    * @param {number} userId
    * @returns {Promise<Object>}
@@ -128,18 +220,23 @@ class ProfileService {
       throw new Error(ERROR_MESSAGES.USER_NOT_FOUND);
     }
 
-    if (!user.profilePhoto) {
+    if (!user.profile?.profilePhoto) {
       throw new Error('No profile photo to delete');
     }
 
-    // Extract publicId from URL
-    const publicId = user.profilePhoto.split('/').pop();
-
     // Delete from storage
-    await imageService.deleteProfilePhoto(publicId, 'local');
+    await deleteFile(
+      user.profile.profilePhoto,
+      user.profile.profilePhotoStorageType,
+      { resourceType: 'image' }
+    );
 
     // Update database
-    await profileRepository.updateUser(userId, { profilePhoto: null });
+    await profileRepository.updateOrCreateProfile(userId, {
+      profilePhoto: null,
+      profilePhotoStorageType: null,
+      profilePhotoMimeType: null
+    });
 
     return {
       success: true,

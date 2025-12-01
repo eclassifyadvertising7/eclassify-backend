@@ -33,6 +33,16 @@ export default (sequelize) => {
       allowNull: true,
       field: 'profile_picture_url'
     },
+    profilePictureStorageType: {
+      type: DataTypes.ENUM('local', 'cloudinary', 'aws', 'gcs', 'digital_ocean'),
+      allowNull: true,
+      field: 'profile_picture_storage_type'
+    },
+    profilePictureMimeType: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+      field: 'profile_picture_mime_type'
+    },
     isPrimary: {
       type: DataTypes.BOOLEAN,
       allowNull: false,

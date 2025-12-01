@@ -71,6 +71,7 @@ GET /api/public/listings/homepage?page=1&limit=30
       "price": "650000.00",
       "priceNegotiable": true,
       "status": "active",
+      "postedByType": "owner",
       "isFeatured": true,
       "viewCount": 245,
       "createdAt": "2025-01-24T10:00:00.000Z",
@@ -275,6 +276,7 @@ GET /api/public/listings/category/cars?stateId=5&brandId=1&modelId=5&minYear=201
       "cityId": 42,
       "locality": "Koramangala",
       "status": "active",
+      "postedByType": "dealer",
       "isFeatured": true,
       "featuredUntil": "2025-12-31T23:59:59.000Z",
       "viewCount": 245,
@@ -447,6 +449,7 @@ GET /api/public/listings/honda-city-vx-2020-excellent-condition-a1b2c3
     "latitude": "12.9352",
     "longitude": "77.6245",
     "status": "active",
+    "postedByType": "agent",
     "isFeatured": true,
     "featuredUntil": "2025-12-31T23:59:59.000Z",
     "viewCount": 245,
@@ -459,7 +462,10 @@ GET /api/public/listings/honda-city-vx-2020-excellent-condition-a1b2c3
       "id": 123,
       "fullName": "John Doe",
       "email": "john@example.com",
-      "mobile": "9876543210"
+      "mobile": "9876543210",
+      "profile": {
+        "profilePhoto": "https://res.cloudinary.com/your-cloud/image/upload/eclassify_app/uploads/profiles/user-123/photo.jpg"
+      }
     },
     "category": {
       "id": 1,

@@ -67,7 +67,8 @@ export async function up(queryInterface, Sequelize) {
   });
 
   await queryInterface.addIndex('permissions', ['resource', 'action'], {
-    name: 'idx_permissions_resource_action'
+    name: 'idx_permissions_resource_action',
+    unique: true
   });
 
   await queryInterface.addIndex('permissions', ['is_active'], {

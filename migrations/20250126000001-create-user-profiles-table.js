@@ -92,6 +92,18 @@ export async function up(queryInterface, Sequelize) {
       type: Sequelize.DECIMAL(11, 8),
       allowNull: true
     },
+    profile_photo: {
+      type: Sequelize.TEXT,
+      allowNull: true
+    },
+    profile_photo_storage_type: {
+      type: Sequelize.ENUM('local', 'cloudinary', 'aws', 'gcs', 'digital_ocean'),
+      allowNull: true
+    },
+    profile_photo_mime_type: {
+      type: Sequelize.STRING(50),
+      allowNull: true
+    },
     created_at: {
       type: Sequelize.DATE,
       allowNull: false,

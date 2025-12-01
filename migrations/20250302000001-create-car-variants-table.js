@@ -100,6 +100,14 @@ export default {
         type: Sequelize.STRING(500),
         allowNull: true
       },
+      primary_image_storage_type: {
+        type: Sequelize.ENUM('local', 'cloudinary', 'aws', 'gcs', 'digital_ocean'),
+        allowNull: true
+      },
+      primary_image_mime_type: {
+        type: Sequelize.STRING(50),
+        allowNull: true
+      },
       view_count: {
         type: Sequelize.BIGINT,
         allowNull: false,

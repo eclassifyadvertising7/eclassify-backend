@@ -1,7 +1,10 @@
 import dotenv from 'dotenv';
+import { createServer } from 'http';
 import app from './app.js';
 import logger from '#config/logger.js';
 import { testConnection } from '#config/database.js';
+import { initializeSocket } from './socket/index.js';
+import chatJobs from './jobs/chatJobs.js';
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '#utils/constants/messages.js';
 
 // Load environment variables
@@ -26,8 +29,21 @@ const startServer = async () => {
     
     logger.info(SUCCESS_MESSAGES.DB_CONNECTED);
     
+    // Create HTTP server
+    const server = createServer(app);
+    
+    // Initialize Socket.io
+    const { io, chatHandler } = initializeSocket(server);
+    
+    // Make io and chatHandler available globally
+    app.set('io', io);
+    app.set('chatHandler', chatHandler);
+    
+    // Initialize cron jobs
+    chatJobs.initialize(app);
+    
     // Start HTTP server on configured port
-    const server = app.listen(PORT, () => {
+    server.listen(PORT, () => {
       logger.info(SUCCESS_MESSAGES.SERVER_STARTED);
       logger.info(`Server running on http://localhost:${PORT}`);
       logger.info(`Environment: ${NODE_ENV}`);
@@ -36,6 +52,7 @@ const startServer = async () => {
     // Graceful shutdown handler for SIGTERM
     process.on('SIGTERM', () => {
       logger.info('SIGTERM signal received: closing HTTP server');
+      chatJobs.stopAll();
       server.close(() => {
         logger.info('HTTP server closed');
         process.exit(0);
@@ -45,6 +62,7 @@ const startServer = async () => {
     // Graceful shutdown handler for SIGINT
     process.on('SIGINT', () => {
       logger.info('SIGINT signal received: closing HTTP server');
+      chatJobs.stopAll();
       server.close(() => {
         logger.info('HTTP server closed');
         process.exit(0);

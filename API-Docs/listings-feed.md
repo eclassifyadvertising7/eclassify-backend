@@ -44,6 +44,7 @@ Three separate endpoints for different listing browsing experiences.
       "price": 850000,
       "priceNegotiable": true,
       "status": "active",
+      "postedByType": "owner",
       "isFeatured": false,
       "viewCount": 45,
       "expiresAt": "2025-02-15T10:30:00.000Z",

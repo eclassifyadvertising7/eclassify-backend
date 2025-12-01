@@ -36,6 +36,18 @@ export async function up(queryInterface, Sequelize) {
       allowNull: true,
       comment: 'Thumbnail for images and videos'
     },
+    mime_type: {
+      type: Sequelize.STRING(100),
+      allowNull: false,
+      defaultValue: 'image/jpeg',
+      comment: 'MIME type of main media file'
+    },
+    thumbnail_mime_type: {
+      type: Sequelize.STRING(100),
+      allowNull: true,
+      defaultValue: 'image/jpeg',
+      comment: 'MIME type of thumbnail file'
+    },
     file_size_bytes: {
       type: Sequelize.INTEGER,
       allowNull: false
@@ -67,7 +79,7 @@ export async function up(queryInterface, Sequelize) {
       comment: 'Only ONE per listing'
     },
     storage_type: {
-      type: Sequelize.ENUM('local', 'cloudinary', 's3'),
+      type: Sequelize.ENUM('local', 'cloudinary', 'aws', 'gcs', 'digital_ocean'),
       allowNull: false,
       defaultValue: 'local'
     },
@@ -98,13 +110,6 @@ export async function up(queryInterface, Sequelize) {
 
   await queryInterface.addIndex('listing_media', ['listing_id', 'display_order'], {
     name: 'idx_listing_media_display_order'
-  });
-
-  // Add unique constraint for display_order per listing
-  await queryInterface.addConstraint('listing_media', {
-    fields: ['listing_id', 'display_order'],
-    type: 'unique',
-    name: 'unique_listing_display_order'
   });
 }
 
