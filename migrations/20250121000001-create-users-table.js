@@ -111,6 +111,12 @@ export async function up(queryInterface, Sequelize) {
       defaultValue: false,
       comment: 'If true, user listings are auto-approved without admin review'
     },
+    total_listings: {
+      type: Sequelize.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+      comment: 'Total number of listings created by user'
+    },
     created_by: {
       type: Sequelize.BIGINT,
       allowNull: true,

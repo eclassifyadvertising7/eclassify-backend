@@ -1,5 +1,6 @@
 import sequelize from '#config/database.js';
 import State from './State.js';
+import District from './District.js';
 import City from './City.js';
 import Role from './Role.js';
 import Permission from './Permission.js';
@@ -34,6 +35,7 @@ const UserSubscription = UserSubscriptionModel(sequelize);
 
 const models = {
   State,
+  District,
   City,
   Role,
   Permission,
@@ -96,6 +98,7 @@ Permission.hasMany(RolePermission, {
 
 // Location associations
 State.associate(models);
+District.associate(models);
 City.associate(models);
 
 // User associations

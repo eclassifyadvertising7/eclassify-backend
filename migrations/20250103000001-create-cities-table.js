@@ -48,11 +48,11 @@ export async function up(queryInterface, Sequelize) {
       allowNull: true,
     },
     latitude: {
-      type: Sequelize.DECIMAL(10, 8),
+      type: Sequelize.DECIMAL(11, 8),
       allowNull: true,
     },
     longitude: {
-      type: Sequelize.DECIMAL(11, 8),
+      type: Sequelize.DECIMAL(12, 8),
       allowNull: true,
     },
     is_active: {

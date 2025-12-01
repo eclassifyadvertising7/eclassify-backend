@@ -14,7 +14,7 @@ export async function up(queryInterface, Sequelize) {
         key: 'id'
       },
       onUpdate: 'CASCADE',
-      onDelete: 'CASCADE'
+      onDelete: 'RESTRICT'
     },
     plan_id: {
       type: Sequelize.INTEGER,

@@ -124,6 +124,12 @@ export default (sequelize) => {
         defaultValue: false,
         field: "is_auto_approve_enabled",
       },
+      totalListings: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0,
+        field: "total_listings",
+      },
       createdBy: {
         type: DataTypes.BIGINT,
         allowNull: true,

@@ -67,7 +67,7 @@ export async function up(queryInterface, Sequelize) {
     {
       country_code: "+91",
       mobile: "8002111222",
-      full_name: "Regular User",
+      full_name: "User One",
       email: "userone@yopmail.com",
       password_hash: userHashedPassword,
       role_id: userRole.id,

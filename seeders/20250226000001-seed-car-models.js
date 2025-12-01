@@ -30,7 +30,7 @@ const normalizeString = (str) => {
 export default {
   up: async (queryInterface) => {
     // Read cars data from JSON file
-    const carsFilePath = join(__dirname, '../tests/cars.json');
+    const carsFilePath = join(__dirname, '../data/cars.json');
     const carsData = JSON.parse(readFileSync(carsFilePath, 'utf-8'));
 
     // Get all brands from database
