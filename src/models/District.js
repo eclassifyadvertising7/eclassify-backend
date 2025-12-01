@@ -1,9 +1,9 @@
 import { Model, DataTypes } from 'sequelize';
 import sequelize from '#config/database.js';
 
-class State extends Model {}
+class District extends Model {}
 
-State.init(
+District.init(
   {
     id: {
       type: DataTypes.INTEGER,
@@ -20,15 +20,15 @@ State.init(
       type: DataTypes.STRING(255),
       allowNull: false
     },
-    regionSlug: {
-      type: DataTypes.STRING(255),
+    stateId: {
+      type: DataTypes.INTEGER,
       allowNull: false,
-      field: 'region_slug'
+      field: 'state_id'
     },
-    regionName: {
+    stateName: {
       type: DataTypes.STRING(255),
       allowNull: false,
-      field: 'region_name'
+      field: 'state_name'
     },
     isActive: {
       type: DataTypes.BOOLEAN,
@@ -68,28 +68,36 @@ State.init(
   },
   {
     sequelize,
-    modelName: 'State',
-    tableName: 'states',
+    modelName: 'District',
+    tableName: 'districts',
     timestamps: true,
     underscored: true,
     paranoid: false,
     indexes: [
       {
-        name: 'idx_states_slug',
+        name: 'idx_districts_slug',
         fields: ['slug']
+      },
+      {
+        name: 'idx_districts_state_id',
+        fields: ['state_id']
+      },
+      {
+        name: 'idx_districts_state_active',
+        fields: ['state_id', 'is_active']
       }
     ]
   },
   {
     hooks: {
-      beforeCreate: (state) => {
-        if (!state.slug) {
-          state.slug = state.name.toLowerCase().replace(/\s+/g, '_');
+      beforeCreate: (district) => {
+        if (!district.slug) {
+          district.slug = district.name.toLowerCase().replace(/\s+/g, '-');
         }
       },
-      beforeUpdate: (state) => {
-        if (state.changed('name') && !state.changed('slug')) {
-          state.slug = state.name.toLowerCase().replace(/\s+/g, '_');
+      beforeUpdate: (district) => {
+        if (district.changed('name') && !district.changed('slug')) {
+          district.slug = district.name.toLowerCase().replace(/\s+/g, '-');
         }
       }
     }
@@ -97,24 +105,18 @@ State.init(
 );
 
 // Associations
-State.associate = (models) => {
-  // State has many Districts
-  State.hasMany(models.District, {
+District.associate = (models) => {
+  // District belongs to State
+  District.belongsTo(models.State, {
     foreignKey: 'state_id',
-    as: 'districts'
+    as: 'state'
   });
 
-  // State has many Cities
-  State.hasMany(models.City, {
-    foreignKey: 'state_id',
+  // District has many Cities
+  District.hasMany(models.City, {
+    foreignKey: 'district_id',
     as: 'cities'
   });
-
-  // TODO: Add Listing association when Listing model is created
-  // State.hasMany(models.Listing, {
-  //   foreignKey: 'state_id',
-  //   as: 'listings'
-  // });
 };
 
-export default State;
+export default District;
