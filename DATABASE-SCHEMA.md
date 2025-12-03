@@ -433,3 +433,59 @@ AND table_name IN ('roles', 'permissions', 'user_subscriptions');
 - All tables use snake_case naming
 - Timestamps: created_at, updated_at (auto-managed by Sequelize)
 - Audit fields (created_by, deleted_by) should reference users table when possible
+
+---
+
+### invoices
+**Columns:** id (BIGINT PK), invoice_number (VARCHAR(50) UNIQUE), invoice_type (ENUM), user_id (BIGINT FK→users), subscription_id (BIGINT FK→user_subscriptions), invoice_date (DATE), customer_name (VARCHAR(255)), customer_mobile (VARCHAR(20)), customer_metadata (JSON), plan_name (VARCHAR(255)), plan_code (VARCHAR(50)), plan_version (INT), plan_snapshot (JSON), subtotal (DECIMAL(10,2)), discount_amount (DECIMAL(10,2)), discount_percentage (DECIMAL(5,2)), discount_code (VARCHAR(50)), proration_credit (DECIMAL(10,2)), proration_source_subscription_id (BIGINT FK→user_subscriptions), proration_details (JSON), adjusted_subtotal (DECIMAL(10,2)), tax_amount (DECIMAL(10,2)), tax_percentage (DECIMAL(5,2)), tax_breakdown (JSON), total_amount (DECIMAL(10,2)), amount_paid (DECIMAL(10,2)), amount_due (DECIMAL(10,2)), currency (VARCHAR(3)), status (ENUM), payment_method (VARCHAR(50)), payment_date (DATE), notes (TEXT), customer_notes (TEXT), terms_and_conditions (TEXT), metadata (JSON), created_by (BIGINT FK→users), updated_by (JSON - array of {userId, userName, timestamp}), deleted_by (BIGINT FK→users), created_at (TIMESTAMP), updated_at (TIMESTAMP), deleted_at (TIMESTAMP)
+
+**Relationships:**
+- belongsTo → users (via user_id, as 'user')
+- belongsTo → user_subscriptions (via subscription_id, as 'subscription')
+- belongsTo → user_subscriptions (via proration_source_subscription_id, as 'prorationSourceSubscription')
+- hasMany → transactions (via invoice_id)
+- belongsTo → users (via created_by, as 'creator')
+- belongsTo → users (via deleted_by, as 'deleter')
+
+**Hooks:**
+- beforeUpdate: Auto-append update history to updated_by JSON array
+
+**Config:** paranoid: true (soft delete)
+
+**Indexes:** invoice_number (UNIQUE), user_id, subscription_id, status, deleted_at
+
+**Enums:**
+- invoice_type: 'new_subscription', 'renewal', 'upgrade', 'downgrade', 'adjustment', 'admin_assigned'
+- status: 'draft', 'issued', 'pending', 'paid', 'partially_paid', 'overdue', 'cancelled', 'refunded', 'void'
+
+**Notes:** Invoice-first flow; invoice_number format: ECA/2025/0001; customer_metadata stores address, GSTIN, PAN; plan_snapshot stores complete plan details at time of invoice; proration_credit applied before tax calculation
+
+---
+
+### transactions
+**Columns:** id (BIGINT PK), transaction_number (VARCHAR(50) UNIQUE), transaction_type (ENUM), transaction_context (ENUM), transaction_method (ENUM), invoice_id (BIGINT FK→invoices), subscription_id (BIGINT FK→user_subscriptions), user_id (BIGINT FK→users), subscription_plan_id (INT FK→subscription_plans), amount (DECIMAL(10,2)), currency (VARCHAR(3)), has_proration (BOOLEAN), proration_amount (DECIMAL(10,2)), payment_gateway (ENUM), gateway_order_id (VARCHAR(255)), gateway_payment_id (VARCHAR(255)), gateway_signature (VARCHAR(500)), gateway_response (JSON), manual_payment_metadata (JSON), status (ENUM), failure_reason (TEXT), failure_code (VARCHAR(50)), verified_by (BIGINT FK→users), verified_at (TIMESTAMP), verification_notes (TEXT), ip_address (VARCHAR(45)), user_agent (TEXT), device_info (JSON), initiated_at (TIMESTAMP), completed_at (TIMESTAMP), expires_at (TIMESTAMP), metadata (JSON), created_by (BIGINT FK→users), updated_by (JSON - array of {userId, userName, timestamp}), deleted_by (BIGINT FK→users), created_at (TIMESTAMP), updated_at (TIMESTAMP), deleted_at (TIMESTAMP)
+
+**Relationships:**
+- belongsTo → invoices (via invoice_id, as 'invoice')
+- belongsTo → user_subscriptions (via subscription_id, as 'subscription')
+- belongsTo → users (via user_id, as 'user')
+- belongsTo → subscription_plans (via subscription_plan_id, as 'subscriptionPlan')
+- belongsTo → users (via verified_by, as 'verifier')
+- belongsTo → users (via created_by, as 'creator')
+- belongsTo → users (via deleted_by, as 'deleter')
+
+**Hooks:**
+- beforeUpdate: Auto-append update history to updated_by JSON array
+
+**Config:** paranoid: true (soft delete)
+
+**Indexes:** transaction_number (UNIQUE), invoice_id, subscription_id, user_id, status, deleted_at
+
+**Enums:**
+- transaction_type: 'payment', 'refund', 'adjustment'
+- transaction_context: 'new_subscription', 'renewal', 'upgrade', 'downgrade', 'refund', 'adjustment', 'admin_assigned'
+- transaction_method: 'online', 'manual', 'automated'
+- payment_gateway: 'manual', 'razorpay', 'stripe', 'paytm', 'phonepe', 'cashfree', 'payU', 'jiopay', 'instamojo', 'airpay'
+- status: 'initiated', 'pending', 'processing', 'completed', 'failed', 'refunded', 'partially_refunded', 'cancelled', 'expired'
+
+**Notes:** Transaction-first tracking; transaction_number format: TXN/2025/0001; manual_payment_metadata stores payer name, UPI ID, transaction ID, payment proof for manual payments; verified_by tracks admin who verified manual payments; gateway_response stores full gateway response for debugging

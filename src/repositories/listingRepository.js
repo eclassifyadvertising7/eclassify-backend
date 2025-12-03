@@ -152,6 +152,11 @@ class ListingRepository {
     // Include associations
     const include = [
       { 
+        model: User, 
+        as: 'user', 
+        attributes: ['id', 'fullName', 'mobile']
+      },
+      { 
         model: Category, 
         as: 'category', 
         attributes: ['id', 'name', 'slug'],

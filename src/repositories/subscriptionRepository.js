@@ -334,6 +334,132 @@ class SubscriptionRepository {
       }
     });
   }
+
+  /**
+   * Get all user subscriptions with filters (Admin)
+   * @param {Object} filters - Filter options
+   * @param {Object} pagination - Pagination options
+   * @returns {Promise<Object>} Subscriptions with pagination
+   */
+  async getAllSubscriptions(filters = {}, pagination = {}) {
+    const { page = 1, limit = 10 } = pagination;
+    const offset = (page - 1) * limit;
+    const where = {};
+    const userWhere = {};
+
+    // Status filter
+    if (filters.status) {
+      where.status = filters.status;
+    }
+
+    // User filter
+    if (filters.userId) {
+      where.userId = filters.userId;
+    }
+
+    // Plan filter
+    if (filters.planId) {
+      where.planId = filters.planId;
+    }
+
+    // Date range filter
+    if (filters.dateFrom || filters.dateTo) {
+      where.createdAt = {};
+      if (filters.dateFrom) {
+        where.createdAt[Op.gte] = new Date(filters.dateFrom);
+      }
+      if (filters.dateTo) {
+        where.createdAt[Op.lte] = new Date(filters.dateTo);
+      }
+    }
+
+    // Search filter (name or mobile)
+    if (filters.search) {
+      userWhere[Op.or] = [
+        { fullName: { [Op.iLike]: `%${filters.search}%` } },
+        { mobile: { [Op.like]: `%${filters.search}%` } }
+      ];
+    }
+
+    const { count, rows } = await UserSubscription.findAndCountAll({
+      where,
+      include: [
+        {
+          model: User,
+          as: 'user',
+          attributes: ['id', 'fullName', 'mobile', 'email'],
+          where: Object.keys(userWhere).length > 0 ? userWhere : undefined,
+          required: Object.keys(userWhere).length > 0
+        },
+        {
+          model: SubscriptionPlan,
+          as: 'plan',
+          attributes: ['id', 'name', 'slug', 'planCode', 'version']
+        }
+      ],
+      order: [['created_at', 'DESC']],
+      limit,
+      offset
+    });
+
+    return {
+      subscriptions: rows,
+      pagination: {
+        total: count,
+        page,
+        limit,
+        totalPages: Math.ceil(count / limit)
+      }
+    };
+  }
+
+  /**
+   * Soft delete subscription
+   * @param {number} subscriptionId - Subscription ID
+   * @param {number} userId - Deleter user ID
+   * @returns {Promise<boolean>} Success status
+   */
+  async deleteSubscription(subscriptionId, userId) {
+    const subscription = await UserSubscription.findByPk(subscriptionId);
+    
+    if (!subscription) {
+      return false;
+    }
+
+    subscription.deletedBy = userId;
+    await subscription.save();
+    await subscription.destroy();
+
+    return true;
+  }
+
+  /**
+   * Get subscription by ID with user details (Admin)
+   * @param {number} subscriptionId - Subscription ID
+   * @returns {Promise<Object|null>} Subscription with details
+   */
+  async getSubscriptionWithDetails(subscriptionId) {
+    return await UserSubscription.findByPk(subscriptionId, {
+      include: [
+        {
+          model: User,
+          as: 'user',
+          attributes: ['id', 'fullName', 'mobile', 'email']
+        },
+        {
+          model: SubscriptionPlan,
+          as: 'plan',
+          attributes: ['id', 'name', 'slug', 'planCode', 'version', 'finalPrice']
+        },
+        {
+          model: UserSubscription,
+          as: 'previousSubscription',
+          attributes: ['id', 'planName', 'status', 'endsAt']
+        }
+      ]
+    });
+  }
+
 }
 
 // Export singleton instance

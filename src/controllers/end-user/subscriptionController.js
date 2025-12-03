@@ -61,10 +61,14 @@ class SubscriptionController {
         return errorResponse(res, 'Plan ID is required', 400);
       }
 
+      if (!paymentData || !paymentData.paymentMethod || !paymentData.transactionId) {
+        return errorResponse(res, 'Payment data with payment method and transaction ID are required', 400);
+      }
+
       const result = await subscriptionService.subscribeToPlan(
         userId,
         parseInt(planId),
-        paymentData || {}
+        paymentData
       );
 
       return createResponse(res, result.data, result.message);
@@ -147,6 +151,60 @@ class SubscriptionController {
       return errorResponse(res, error.message, 400);
     }
   }
+
+  /**
+   * Get all my subscriptions (with filters)
+   * GET /api/end-user/subscriptions
+   */
+  static async getMySubscriptions(req, res) {
+    try {
+      const userId = req.user.userId;
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+      const status = req.query.status;
+
+      const filters = { userId };
+      if (status) {
+        filters.status = status;
+      }
+
+      const result = await subscriptionService.getAllSubscriptions(filters, { page, limit });
+
+      return paginatedResponse(res, result.data, result.pagination, result.message);
+    } catch (error) {
+      return errorResponse(res, error.message, 500);
+    }
+  }
+
+  /**
+   * Get subscription by ID (my subscription only)
+   * GET /api/end-user/subscriptions/:id
+   */
+  static async getMySubscriptionById(req, res) {
+    try {
+      const userId = req.user.userId;
+      const subscriptionId = parseInt(req.params.id);
+
+      if (isNaN(subscriptionId)) {
+        return errorResponse(res, 'Invalid subscription ID', 400);
+      }
+
+      const result = await subscriptionService.getSubscriptionById(subscriptionId);
+
+      // Check if subscription belongs to user
+      if (result.data.userId !== userId) {
+        return errorResponse(res, 'Unauthorized access', 403);
+      }
+
+      return successResponse(res, result.data, result.message);
+    } catch (error) {
+      if (error.message.includes('not found')) {
+        return notFoundResponse(res, error.message);
+      }
+      return errorResponse(res, error.message, 500);
+    }
+  }
 }
 
 export default SubscriptionController;
+

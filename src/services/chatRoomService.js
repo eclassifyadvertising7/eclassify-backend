@@ -97,16 +97,24 @@ class ChatRoomService {
    * Get room details
    * @param {number} roomId - Room ID
    * @param {number} userId - User ID (for access check)
+   * @param {boolean} isSuperAdmin - Whether user is super_admin
    * @returns {Promise<Object>}
    */
-  async getRoomDetails(roomId, userId) {
-    const participation = await chatRoomRepository.getUserParticipation(roomId, userId);
-    
-    if (!participation) {
-      throw new Error(ERROR_MESSAGES.FORBIDDEN);
+  async getRoomDetails(roomId, userId, isSuperAdmin = false) {
+    // Super admin can view any room
+    if (!isSuperAdmin) {
+      const participation = await chatRoomRepository.getUserParticipation(roomId, userId);
+      
+      if (!participation) {
+        throw new Error(ERROR_MESSAGES.FORBIDDEN);
+      }
     }
 
     const room = await chatRoomRepository.getById(roomId, { includeAll: true });
+
+    if (!room) {
+      throw new Error(ERROR_MESSAGES.CHAT_ROOM_NOT_FOUND);
+    }
 
     return {
       success: true,
@@ -120,9 +128,15 @@ class ChatRoomService {
    * @param {number} roomId - Room ID
    * @param {number} userId - User ID
    * @param {boolean} isImportant - Important status
+   * @param {boolean} isSuperAdmin - Whether user is super_admin
    * @returns {Promise<Object>}
    */
-  async toggleImportant(roomId, userId, isImportant) {
+  async toggleImportant(roomId, userId, isImportant, isSuperAdmin = false) {
+    // Super admin cannot toggle important (spectator mode only)
+    if (isSuperAdmin) {
+      throw new Error('Super admin cannot modify room settings');
+    }
+
     const participation = await chatRoomRepository.getUserParticipation(roomId, userId);
     
     if (!participation) {
@@ -152,9 +166,15 @@ class ChatRoomService {
    * @param {number} userId - User ID who is blocking
    * @param {boolean} blocked - Block status
    * @param {string} reason - Block reason
+   * @param {boolean} isSuperAdmin - Whether user is super_admin
    * @returns {Promise<Object>}
    */
-  async blockUser(roomId, userId, blocked, reason = null) {
+  async blockUser(roomId, userId, blocked, reason = null, isSuperAdmin = false) {
+    // Super admin cannot block users (spectator mode only)
+    if (isSuperAdmin) {
+      throw new Error('Super admin cannot block users in spectator mode');
+    }
+
     const participation = await chatRoomRepository.getUserParticipation(roomId, userId);
     
     if (!participation) {
@@ -196,9 +216,15 @@ class ChatRoomService {
    * @param {number} userId - User ID who is reporting
    * @param {string} reportType - Report type (spam, harassment, etc.)
    * @param {string} reason - Report reason
+   * @param {boolean} isSuperAdmin - Whether user is super_admin
    * @returns {Promise<Object>}
    */
-  async reportUser(roomId, userId, reportType, reason) {
+  async reportUser(roomId, userId, reportType, reason, isSuperAdmin = false) {
+    // Super admin cannot report (spectator mode only)
+    if (isSuperAdmin) {
+      throw new Error('Super admin cannot report users in spectator mode');
+    }
+
     const participation = await chatRoomRepository.getUserParticipation(roomId, userId);
     
     if (!participation) {
@@ -320,13 +346,17 @@ class ChatRoomService {
    * Delete chat room
    * @param {number} roomId - Room ID
    * @param {number} userId - User ID
+   * @param {boolean} isSuperAdmin - Whether user is super_admin
    * @returns {Promise<Object>}
    */
-  async deleteRoom(roomId, userId) {
-    const participation = await chatRoomRepository.getUserParticipation(roomId, userId);
-    
-    if (!participation) {
-      throw new Error(ERROR_MESSAGES.FORBIDDEN);
+  async deleteRoom(roomId, userId, isSuperAdmin = false) {
+    // Super admin can delete any room (for moderation)
+    if (!isSuperAdmin) {
+      const participation = await chatRoomRepository.getUserParticipation(roomId, userId);
+      
+      if (!participation) {
+        throw new Error(ERROR_MESSAGES.FORBIDDEN);
+      }
     }
 
     const success = await chatRoomRepository.delete(roomId);
