@@ -22,13 +22,6 @@ router.get('/plans', SubscriptionController.getAvailablePlans);
 router.get('/plans/:id', SubscriptionController.getPlanDetails);
 
 /**
- * @route   POST /api/end-user/subscriptions
- * @desc    Subscribe to plan
- * @access  Authenticated Users
- */
-router.post('/', SubscriptionController.subscribeToPlan);
-
-/**
  * @route   GET /api/end-user/subscriptions/active
  * @desc    Get user's active subscription
  * @access  Authenticated Users
@@ -41,6 +34,27 @@ router.get('/active', SubscriptionController.getMySubscription);
  * @access  Authenticated Users
  */
 router.get('/history', SubscriptionController.getSubscriptionHistory);
+
+/**
+ * @route   GET /api/end-user/subscriptions
+ * @desc    Get all my subscriptions (with filters)
+ * @access  Authenticated Users
+ */
+router.get('/', SubscriptionController.getMySubscriptions);
+
+/**
+ * @route   GET /api/end-user/subscriptions/:id
+ * @desc    Get my subscription by ID
+ * @access  Authenticated Users
+ */
+router.get('/:id', SubscriptionController.getMySubscriptionById);
+
+/**
+ * @route   POST /api/end-user/subscriptions
+ * @desc    Subscribe to plan
+ * @access  Authenticated Users
+ */
+router.post('/', SubscriptionController.subscribeToPlan);
 
 /**
  * @route   POST /api/end-user/subscriptions/:id/cancel

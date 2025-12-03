@@ -74,16 +74,26 @@ class ChatHandler {
     try {
       const { roomId } = data;
       const userId = socket.userId;
+      const roleSlug = socket.roleSlug; // Set by socket auth middleware
 
       if (!roomId) {
         socket.emit('error', { message: 'Room ID is required' });
         return;
       }
 
-      // Validate user access to room
+      // Super admin can join any room (spectator mode)
+      if (roleSlug === 'super_admin') {
+        socket.join(`room_${roomId}`);
+        logger.info(`Super admin ${userId} joined room ${roomId} (spectator mode)`);
+        socket.emit('joined_room', { roomId, spectatorMode: true });
+        return;
+      }
+
+      // Validate user access to room (must be buyer or seller)
       const participation = await chatRoomRepository.getUserParticipation(roomId, userId);
       
       if (!participation) {
+        logger.warn(`User ${userId} attempted unauthorized socket access to room ${roomId}`);
         socket.emit('error', { message: 'Access denied to this room' });
         return;
       }
@@ -91,9 +101,9 @@ class ChatHandler {
       // Join socket room
       socket.join(`room_${roomId}`);
       
-      logger.info(`User ${userId} joined room ${roomId}`);
+      logger.info(`User ${userId} joined room ${roomId} as ${participation.userType}`);
       
-      socket.emit('joined_room', { roomId });
+      socket.emit('joined_room', { roomId, userType: participation.userType });
     } catch (error) {
       logger.error('Error in handleJoinRoom:', error);
       socket.emit('error', { message: error.message });
@@ -126,9 +136,23 @@ class ChatHandler {
     try {
       const { roomId, messageText, replyToMessageId } = data;
       const userId = socket.userId;
+      const roleSlug = socket.roleSlug;
 
       if (!roomId || !messageText) {
         socket.emit('error', { message: 'Room ID and message text are required' });
+        return;
+      }
+
+      // Super admin cannot send messages (spectator mode only)
+      if (roleSlug === 'super_admin') {
+        socket.emit('error', { message: 'Super admin cannot send messages in spectator mode' });
+        return;
+      }
+
+      // Validate user is participant
+      const participation = await chatRoomRepository.getUserParticipation(roomId, userId);
+      if (!participation) {
+        socket.emit('error', { message: 'Access denied to this room' });
         return;
       }
 
@@ -167,8 +191,14 @@ class ChatHandler {
     try {
       const { roomId } = data;
       const userId = socket.userId;
+      const roleSlug = socket.roleSlug;
 
       if (!roomId) {
+        return;
+      }
+
+      // Super admin in spectator mode shouldn't emit typing
+      if (roleSlug === 'super_admin') {
         return;
       }
 
@@ -218,9 +248,22 @@ class ChatHandler {
     try {
       const { roomId } = data;
       const userId = socket.userId;
+      const roleSlug = socket.roleSlug;
 
       if (!roomId) {
         socket.emit('error', { message: 'Room ID is required' });
+        return;
+      }
+
+      // Super admin doesn't mark messages as read (spectator mode)
+      if (roleSlug === 'super_admin') {
+        return;
+      }
+
+      // Validate access
+      const participation = await chatRoomRepository.getUserParticipation(roomId, userId);
+      if (!participation) {
+        socket.emit('error', { message: 'Access denied to this room' });
         return;
       }
 

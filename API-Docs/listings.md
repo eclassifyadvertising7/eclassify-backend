@@ -202,6 +202,11 @@ Get all listings created by the authenticated user.
       "isFeatured": false,
       "viewCount": 45,
       "createdAt": "2024-11-23T10:30:00.000Z",
+      "user": {
+        "id": 456,
+        "fullName": "John Doe",
+        "mobile": "9876543210"
+      },
       "category": {
         "id": 1,
         "name": "Cars",
@@ -552,7 +557,46 @@ Get all listings with filters (admin view).
 {
   "success": true,
   "message": "Listings retrieved successfully",
-  "data": [ /* array of listings */ ],
+  "data": [
+    {
+      "id": 123,
+      "title": "Toyota Camry 2020",
+      "slug": "toyota-camry-2020-abc123",
+      "price": "1500000.00",
+      "status": "pending",
+      "postedByType": "owner",
+      "isFeatured": false,
+      "viewCount": 12,
+      "createdAt": "2024-11-23T10:30:00.000Z",
+      "user": {
+        "id": 456,
+        "fullName": "John Doe",
+        "mobile": "9876543210"
+      },
+      "category": {
+        "id": 1,
+        "name": "Cars",
+        "slug": "cars"
+      },
+      "state": {
+        "id": 1,
+        "name": "Maharashtra"
+      },
+      "city": {
+        "id": 5,
+        "name": "Mumbai"
+      },
+      "media": [
+        {
+          "id": 1,
+          "mediaUrl": "http://localhost:5000/uploads/listings/2024/11/image1.jpg",
+          "thumbnailUrl": "http://localhost:5000/uploads/listings/2024/11/image1.jpg",
+          "mediaType": "image",
+          "isPrimary": true
+        }
+      ]
+    }
+  ],
   "pagination": {
     "total": 150,
     "page": 1,
@@ -752,8 +796,52 @@ Browse all active listings.
 {
   "success": true,
   "message": "Listings retrieved successfully",
-  "data": [ /* array of active listings */ ],
-  "pagination": { /* pagination info */ }
+  "data": [
+    {
+      "id": 123,
+      "title": "Toyota Camry 2020",
+      "slug": "toyota-camry-2020-abc123",
+      "price": "1500000.00",
+      "status": "active",
+      "postedByType": "owner",
+      "isFeatured": false,
+      "viewCount": 45,
+      "createdAt": "2024-11-23T10:30:00.000Z",
+      "user": {
+        "id": 456,
+        "fullName": "John Doe",
+        "mobile": "9876543210"
+      },
+      "category": {
+        "id": 1,
+        "name": "Cars",
+        "slug": "cars"
+      },
+      "state": {
+        "id": 1,
+        "name": "Maharashtra"
+      },
+      "city": {
+        "id": 5,
+        "name": "Mumbai"
+      },
+      "media": [
+        {
+          "id": 1,
+          "mediaUrl": "http://localhost:5000/uploads/listings/2024/11/image1.jpg",
+          "thumbnailUrl": "http://localhost:5000/uploads/listings/2024/11/image1.jpg",
+          "mediaType": "image",
+          "isPrimary": true
+        }
+      ]
+    }
+  ],
+  "pagination": {
+    "total": 980,
+    "page": 1,
+    "limit": 20,
+    "totalPages": 49
+  }
 }
 ```
 
@@ -774,7 +862,47 @@ Get featured listings only.
 {
   "success": true,
   "message": "Listings retrieved successfully",
-  "data": [ /* array of featured listings */ ]
+  "data": [
+    {
+      "id": 123,
+      "title": "Toyota Camry 2020",
+      "slug": "toyota-camry-2020-abc123",
+      "price": "1500000.00",
+      "status": "active",
+      "postedByType": "owner",
+      "isFeatured": true,
+      "featuredUntil": "2024-11-30T12:00:00.000Z",
+      "viewCount": 120,
+      "createdAt": "2024-11-23T10:30:00.000Z",
+      "user": {
+        "id": 456,
+        "fullName": "John Doe",
+        "mobile": "9876543210"
+      },
+      "category": {
+        "id": 1,
+        "name": "Cars",
+        "slug": "cars"
+      },
+      "state": {
+        "id": 1,
+        "name": "Maharashtra"
+      },
+      "city": {
+        "id": 5,
+        "name": "Mumbai"
+      },
+      "media": [
+        {
+          "id": 1,
+          "mediaUrl": "http://localhost:5000/uploads/listings/2024/11/image1.jpg",
+          "thumbnailUrl": "http://localhost:5000/uploads/listings/2024/11/image1.jpg",
+          "mediaType": "image",
+          "isPrimary": true
+        }
+      ]
+    }
+  ]
 }
 ```
 

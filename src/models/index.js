@@ -24,6 +24,9 @@ import ListingMedia from './ListingMedia.js';
 import ChatRoom from './ChatRoom.js';
 import ChatMessage from './ChatMessage.js';
 import ListingOffer from './ListingOffer.js';
+import InvoiceModel from './Invoice.js';
+import TransactionModel from './Transaction.js';
+import OtherMedia from './OtherMedia.js';
 
 // Initialize models
 const User = UserModel(sequelize);
@@ -32,6 +35,8 @@ const UserSession = UserSessionModel(sequelize);
 const UserSocialAccount = UserSocialAccountModel(sequelize);
 const SubscriptionPlan = SubscriptionPlanModel(sequelize);
 const UserSubscription = UserSubscriptionModel(sequelize);
+const Invoice = InvoiceModel(sequelize);
+const Transaction = TransactionModel(sequelize);
 
 const models = {
   State,
@@ -46,6 +51,8 @@ const models = {
   UserSocialAccount,
   SubscriptionPlan,
   UserSubscription,
+  Invoice,
+  Transaction,
   CarBrand,
   CarModel,
   CarVariant,
@@ -58,7 +65,8 @@ const models = {
   ListingMedia,
   ChatRoom,
   ChatMessage,
-  ListingOffer
+  ListingOffer,
+  OtherMedia
 };
 
 // Set up associations
@@ -135,6 +143,13 @@ ListingMedia.associate(models);
 ChatRoom.associate(models);
 ChatMessage.associate(models);
 ListingOffer.associate(models);
+
+// Invoice and Transaction associations
+Invoice.associate(models);
+Transaction.associate(models);
+
+// OtherMedia associations
+OtherMedia.associate(models);
 
 export { sequelize };
 export default models;

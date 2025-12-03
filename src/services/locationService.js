@@ -37,49 +37,13 @@ class LocationService {
       throw new Error(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
     }
 
-    // TODO: Replace with actual database query when cities table is populated
-    // const cities = await locationRepository.getCitiesByStateId(stateId);
-
-    // Hardcoded cities for now
-    const hardcodedCities = [
-      {
-        id: 1,
-        slug: 'pune',
-        name: 'Pune',
-        stateId: parseInt(stateId),
-        stateName: state.name,
-        district: 'Pune'
-      },
-      {
-        id: 2,
-        slug: 'mumbai',
-        name: 'Mumbai',
-        stateId: parseInt(stateId),
-        stateName: state.name,
-        district: 'Mumbai'
-      },
-      {
-        id: 3,
-        slug: 'satara',
-        name: 'Satara',
-        stateId: parseInt(stateId),
-        stateName: state.name,
-        district: 'Satara'
-      },
-      {
-        id: 4,
-        slug: 'nagpur',
-        name: 'Nagpur',
-        stateId: parseInt(stateId),
-        stateName: state.name,
-        district: 'Nagpur'
-      }
-    ];
+    // Get cities from database
+    const cities = await locationRepository.getCitiesByStateId(stateId);
 
     return {
       success: true,
       message: SUCCESS_MESSAGES.DATA_RETRIEVED,
-      data: hardcodedCities
+      data: cities
     };
   }
 }

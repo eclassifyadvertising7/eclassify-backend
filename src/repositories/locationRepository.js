@@ -50,8 +50,16 @@ class LocationRepository {
         isActive: true,
         isDeleted: false
       },
-      attributes: ['id', 'slug', 'name', 'stateId', 'stateName', 'district'],
-      order: [['displayOrder', 'ASC'], ['name', 'ASC']]
+      attributes: [
+        'id',
+        'name',
+        'district',
+        'stateName',
+        'pincode',
+        'latitude',
+        'longitude'
+      ],
+      order: [['display_order', 'ASC'], ['name', 'ASC']]
     });
   }
 }

@@ -1236,9 +1236,60 @@ All critical queries indexed:
 
 ### Access Control
 
-- Users can only access their own rooms (buyer or seller)
-- Super admin can access all rooms (logged for audit)
-- Validate room ownership on every request
+- **Regular users (role: 'user')** can only access rooms where they are buyer OR seller
+- **Super admin (role: 'super_admin')** can access ANY room in spectator mode (read-only, logged for audit)
+- Validate room ownership on every HTTP request via `validateRoomAccess` middleware
+- Validate room ownership on Socket.io connections via `handleJoinRoom` event
+- Super admin access is logged for compliance and audit trail
+
+### Spectator Mode (Super Admin)
+
+Super admin has read-only access to all chat rooms for monitoring and moderation:
+
+**Allowed Actions:**
+- ✅ View any chat room
+- ✅ View all messages in any room
+- ✅ Join any room via Socket.io (spectator mode)
+- ✅ Delete rooms (for moderation)
+- ✅ Delete messages (for moderation)
+
+**Restricted Actions:**
+- ❌ Cannot send messages
+- ❌ Cannot mark messages as read
+- ❌ Cannot emit typing indicators
+- ❌ Cannot toggle important flag
+- ❌ Cannot block users
+- ❌ Cannot report users
+- ❌ Cannot make/accept/reject offers
+- ❌ Cannot request/share contact information
+
+### Access Validation Flow
+
+```
+HTTP Request → JWT Auth → Extract roleSlug → Chat Access Middleware
+                                                      ↓
+                                    Is super_admin? → YES → Allow (log access)
+                                                      ↓
+                                                     NO
+                                                      ↓
+                                    Is buyer/seller? → YES → Allow
+                                                      ↓
+                                                     NO → 403 Forbidden
+```
+
+### Socket.io Security
+
+```
+Socket Connection → JWT Auth → Extract roleSlug → Join Room Event
+                                                      ↓
+                                    Is super_admin? → YES → Join (spectator mode)
+                                                      ↓
+                                                     NO
+                                                      ↓
+                                    Is buyer/seller? → YES → Join (normal mode)
+                                                      ↓
+                                                     NO → Disconnect
+```
 
 ### Input Validation
 
