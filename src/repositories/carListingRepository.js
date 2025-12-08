@@ -28,7 +28,7 @@ class CarListingRepository {
     const include = includeRelations ? [
       { model: CarBrand, as: 'brand', attributes: ['id', 'name', 'slug'] },
       { model: CarModel, as: 'model', attributes: ['id', 'name', 'slug'] },
-      { model: CarVariant, as: 'variant', attributes: ['id', 'name', 'slug'] },
+      { model: CarVariant, as: 'variant', attributes: ['id', 'variantName', 'slug'] },
       { model: State, as: 'registrationState', attributes: ['id', 'name', 'slug'] }
     ] : [];
 

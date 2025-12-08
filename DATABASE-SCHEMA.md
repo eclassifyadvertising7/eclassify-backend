@@ -102,6 +102,21 @@ Quick reference for all database tables, columns, relationships, and hooks.
 
 ---
 
+### otp_verifications
+**Columns:** id (BIGINT PK), mobile (VARCHAR(15)), country_code (VARCHAR(5)), otp (VARCHAR(6)), type (ENUM: 'signup', 'login', 'verification'), channel (ENUM: 'sms', 'email', 'whatsapp', 'telegram', 'arattai'), is_verified (BOOLEAN), verified_at (TIMESTAMP), expires_at (TIMESTAMP), attempts (SMALLINT), resend_count (SMALLINT), ip_address (VARCHAR(45)), user_agent (TEXT), session_id (VARCHAR(100)), created_at (TIMESTAMP), updated_at (TIMESTAMP)
+
+**Relationships:** None (standalone table)
+
+**Hooks:** None
+
+**Config:** paranoid: false
+
+**Indexes:** (mobile, type, is_verified), expires_at, (ip_address, created_at)
+
+**Notes:** Stores OTP verification records; OTP expires after 10 minutes; max 5 verification attempts; max 3 resends per session; max 5 OTPs per IP per hour; hardcoded OTP '1234' for development (no DLT); previous OTPs invalidated when new OTP sent; cleanup job should delete records older than 24 hours; ip_address and user_agent for security logging and rate limiting; session_id for tracking user sessions; channel supports SMS, email, WhatsApp, Telegram, and Arattai (popular Indian messaging app)
+
+---
+
 ### user_profiles
 **Columns:** id (BIGINT PK), user_id (BIGINT UNIQUE FK→users), dob (DATE), gender (VARCHAR(10)), about (TEXT), name_on_id (VARCHAR(150)), business_name (VARCHAR(200)), gstin (VARCHAR(15)), aadhar_number (VARCHAR(12)), pan_number (VARCHAR(10)), address_line1 (TEXT), address_line2 (TEXT), city (VARCHAR(100)), state_id (INT FK→states), state_name (VARCHAR(255)), country (VARCHAR(50)), pincode (VARCHAR(10)), latitude (DECIMAL(10,8)), longitude (DECIMAL(11,8)), profile_photo (TEXT), profile_photo_storage_type (VARCHAR(20)), profile_photo_mime_type (VARCHAR(50)), created_at (TIMESTAMP), updated_at (TIMESTAMP)
 

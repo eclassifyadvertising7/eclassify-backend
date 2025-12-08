@@ -63,18 +63,31 @@ class ListingService {
     listingData.status = 'draft';
     listingData.isAutoApproved = false;
 
-    // If auto-approve is enabled, set listing to active immediately
+    let quotaExceeded = false;
+    let quotaMessage = null;
+
+    // If auto-approve is enabled, check quota
     if (isAutoApproveEnabled) {
-      listingData.status = 'active';
-      listingData.isAutoApproved = true;
-      listingData.approvedAt = new Date();
-      listingData.approvedBy = userId;
-      listingData.publishedAt = new Date();
-      
-      // Set expiry to 30 days from now
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 30);
-      listingData.expiresAt = expiresAt;
+      const { canUserCreateListing } = await import('#utils/subscriptionQuotaHelper.js');
+      const quotaCheck = await canUserCreateListing(userId);
+
+      if (quotaCheck.canCreate) {
+        // Quota available - set listing to active immediately
+        listingData.status = 'active';
+        listingData.isAutoApproved = true;
+        listingData.approvedAt = new Date();
+        listingData.approvedBy = userId;
+        listingData.publishedAt = new Date();
+        
+        // Set expiry to 30 days from now
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + 30);
+        listingData.expiresAt = expiresAt;
+      } else {
+        // Quota exceeded - create as draft instead
+        quotaExceeded = true;
+        quotaMessage = `${quotaCheck.message}. Your listing has been saved as draft.`;
+      }
     }
 
     // Create base listing
@@ -96,9 +109,14 @@ class ListingService {
     // Fetch complete listing with associations
     const completeListing = await listingRepository.getById(listing.id, { includeAll: true });
 
-    const message = isAutoApproveEnabled
-      ? 'Listing created and auto-approved successfully'
-      : SUCCESS_MESSAGES.LISTING_CREATED;
+    let message;
+    if (quotaExceeded) {
+      message = quotaMessage;
+    } else if (isAutoApproveEnabled && completeListing.status === 'active') {
+      message = 'Listing created and auto-approved successfully';
+    } else {
+      message = SUCCESS_MESSAGES.LISTING_CREATED;
+    }
 
     return {
       success: true,
@@ -265,26 +283,43 @@ class ListingService {
     const isAutoApproveEnabled = user?.isAutoApproveEnabled || false;
 
     if (isAutoApproveEnabled) {
-      // Auto-approve the listing
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 30);
+      // Check quota before auto-approving
+      const { canUserCreateListing } = await import('#utils/subscriptionQuotaHelper.js');
+      const quotaCheck = await canUserCreateListing(userId);
 
-      await listingRepository.update(id, {
-        status: 'active',
-        isAutoApproved: true,
-        approvedAt: new Date(),
-        approvedBy: userId,
-        publishedAt: new Date(),
-        expiresAt
-      }, { userId });
+      if (quotaCheck.canCreate) {
+        // Quota available - auto-approve the listing
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + 30);
 
-      const updatedListing = await listingRepository.getById(id, { includeAll: true });
+        await listingRepository.update(id, {
+          status: 'active',
+          isAutoApproved: true,
+          approvedAt: new Date(),
+          approvedBy: userId,
+          publishedAt: new Date(),
+          expiresAt
+        }, { userId });
 
-      return {
-        success: true,
-        message: 'Listing submitted and auto-approved successfully',
-        data: updatedListing
-      };
+        const updatedListing = await listingRepository.getById(id, { includeAll: true });
+
+        return {
+          success: true,
+          message: 'Listing submitted and auto-approved successfully',
+          data: updatedListing
+        };
+      } else {
+        // Quota exceeded - submit for manual approval instead
+        await listingRepository.updateStatus(id, 'pending', { userId });
+
+        const updatedListing = await listingRepository.getById(id, { includeAll: true });
+
+        return {
+          success: true,
+          message: `${quotaCheck.message}. Your listing has been submitted for manual approval.`,
+          data: updatedListing
+        };
+      }
     }
 
     // Update status to pending for manual approval
@@ -314,6 +349,21 @@ class ListingService {
 
     if (listing.status !== 'pending') {
       throw new Error('Only pending listings can be approved');
+    }
+
+    // Check user's subscription quota before approving
+    const { canUserCreateListing } = await import('#utils/subscriptionQuotaHelper.js');
+    const quotaCheck = await canUserCreateListing(listing.userId, { thirdPerson: true });
+
+    if (!quotaCheck.canCreate) {
+      return {
+        success: false,
+        message: quotaCheck.message,
+        data: {
+          listing,
+          quotaDetails: quotaCheck.details
+        }
+      };
     }
 
     await listingRepository.approve(id, approvedBy);
@@ -430,7 +480,7 @@ class ListingService {
    * @returns {Promise<Object>}
    */
   async delete(id, userId, isAdmin = false) {
-    const listing = await listingRepository.getById(id);
+    const listing = await listingRepository.getById(id, { includeAll: true });
 
     if (!listing) {
       throw new Error(ERROR_MESSAGES.LISTING_NOT_FOUND);
@@ -441,6 +491,28 @@ class ListingService {
       throw new Error(ERROR_MESSAGES.FORBIDDEN);
     }
 
+    // CRITICAL: Delete physical files BEFORE database records
+    // This prevents orphaned files in storage
+
+    // 1. Delete all listing media files (images/videos)
+    try {
+      const listingMediaService = (await import('#services/listingMediaService.js')).default;
+      await listingMediaService.deleteAllByListingId(id);
+    } catch (error) {
+      console.error(`Failed to delete listing media files: ${error.message}`);
+      // Continue with deletion even if media cleanup fails
+    }
+
+    // 2. Delete all chat media files (images in conversations)
+    try {
+      const chatMediaService = (await import('#services/chatMediaService.js')).default;
+      await chatMediaService.deleteAllByListingId(id);
+    } catch (error) {
+      console.error(`Failed to delete chat media files: ${error.message}`);
+      // Continue with deletion even if chat media cleanup fails
+    }
+
+    // 3. Soft delete listing (CASCADE will handle related database records)
     await listingRepository.delete(id, userId);
 
     return {
@@ -452,10 +524,35 @@ class ListingService {
 
   /**
    * Increment view count
+   * Does not increment for listing owner or super_admin
    * @param {number} id - Listing ID
+   * @param {number|null} userId - User ID (if authenticated)
+   * @param {string|null} userRoleSlug - User role slug (if authenticated)
    * @returns {Promise<Object>}
    */
-  async incrementViewCount(id) {
+  async incrementViewCount(id, userId = null, userRoleSlug = null) {
+    // Get listing to check ownership
+    const listing = await listingRepository.getById(id);
+
+    if (!listing) {
+      throw new Error(ERROR_MESSAGES.LISTING_NOT_FOUND);
+    }
+
+    // Don't increment if:
+    // 1. User is the listing owner
+    // 2. User is super_admin (monitoring/moderation)
+    const isOwner = userId && listing.userId === userId;
+    const isSuperAdmin = userRoleSlug === 'super_admin';
+
+    if (isOwner || isSuperAdmin) {
+      return {
+        success: true,
+        message: 'View count not incremented (owner or admin)',
+        data: { incremented: false, reason: isOwner ? 'owner' : 'super_admin' }
+      };
+    }
+
+    // Increment view count for genuine views
     const success = await listingRepository.incrementViewCount(id);
 
     if (!success) {
@@ -465,7 +562,7 @@ class ListingService {
     return {
       success: true,
       message: 'View count updated',
-      data: null
+      data: { incremented: true }
     };
   }
 

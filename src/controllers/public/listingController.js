@@ -259,12 +259,17 @@ class ListingController {
   /**
    * Increment view count
    * POST /api/public/listings/view/:id
+   * Note: Does not increment for listing owner or super_admin
    */
   static async incrementViewCount(req, res) {
     try {
       const { id } = req.params;
+      
+      // Get user info if authenticated (optional)
+      const userId = req.user?.userId || null;
+      const userRoleSlug = req.user?.roleSlug || null;
 
-      const result = await listingService.incrementViewCount(parseInt(id));
+      const result = await listingService.incrementViewCount(parseInt(id), userId, userRoleSlug);
       return successResponse(res, result.data, result.message);
     } catch (error) {
       return errorResponse(res, error.message, 400);

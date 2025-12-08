@@ -15,6 +15,9 @@ export const SUCCESS_MESSAGES = {
   PASSWORD_RESET_SUCCESS: 'Password reset successful',
   PASSWORD_CHANGED: 'Password changed successfully',
   EMAIL_VERIFIED: 'Email verified successfully',
+  OTP_SENT: 'OTP sent successfully',
+  OTP_VERIFIED: 'OTP verified successfully',
+  PHONE_VERIFIED: 'Phone number verified successfully',
   
   // User operations
   USER_CREATED: 'User created successfully',
@@ -24,6 +27,7 @@ export const SUCCESS_MESSAGES = {
   
   // Listing operations
   LISTING_CREATED: 'Listing created successfully',
+  LISTING_CREATED_AS_DRAFT: 'Listing created as draft due to quota limit',
   LISTING_UPDATED: 'Listing updated successfully',
   LISTING_DELETED: 'Listing deleted successfully',
   LISTING_FETCHED: 'Listing retrieved successfully',
@@ -32,6 +36,7 @@ export const SUCCESS_MESSAGES = {
   LISTING_APPROVED: 'Listing approved successfully',
   LISTING_REJECTED: 'Listing rejected successfully',
   LISTING_SUBMITTED: 'Listing submitted for approval',
+  LISTING_SUBMITTED_FOR_MANUAL_APPROVAL: 'Listing submitted for manual approval due to quota limit',
   LISTING_MARKED_SOLD: 'Listing marked as sold',
   
   // Listing media operations
@@ -84,6 +89,11 @@ export const ERROR_MESSAGES = {
   TOKEN_INVALID: 'Invalid authentication token',
   EMAIL_NOT_VERIFIED: 'Email not verified',
   ACCOUNT_SUSPENDED: 'Account has been suspended',
+  OTP_EXPIRED: 'OTP has expired',
+  OTP_INVALID: 'Invalid OTP',
+  OTP_MAX_ATTEMPTS: 'Maximum OTP verification attempts exceeded',
+  OTP_NOT_FOUND: 'OTP not found or already verified',
+  OTP_SEND_FAILED: 'Failed to send OTP',
   
   // User errors
   USER_NOT_FOUND: 'User not found',
@@ -122,6 +132,8 @@ export const ERROR_MESSAGES = {
   PAYMENT_FAILED: 'Payment processing failed',
   SUBSCRIPTION_PLAN_NOT_FOUND: 'Subscription plan not found',
   SUBSCRIPTION_PLAN_ALREADY_EXISTS: 'Subscription plan already exists',
+  NO_ACTIVE_SUBSCRIPTION: 'You need an active subscription to create listings',
+  ROLLING_QUOTA_REACHED: 'You have reached your listing limit for the current period',
   
   // Chat errors
   CHAT_ROOM_NOT_FOUND: 'Chat room not found',

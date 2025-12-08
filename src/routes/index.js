@@ -13,6 +13,7 @@ import endUserListingRoutes from './end-user/listingRoutes.js';
 import panelListingRoutes from './panel/listingRoutes.js';
 import publicListingRoutes from './public/listingRoutes.js';
 import publicCarDataRoutes from './public/carDataRoutes.js';
+import publicSubscriptionPlanRoutes from './public/subscriptionPlanRoutes.js';
 import panelCarDataRoutes from './panel/carDataRoutes.js';
 import endUserDataRequestRoutes from './end-user/dataRequestRoutes.js';
 import panelDataRequestRoutes from './panel/dataRequestRoutes.js';
@@ -65,6 +66,7 @@ router.use('/panel/transactions', panelTransactionRoutes);
 router.use('/panel', panelCarDataRoutes);
 router.use('/public/categories', publicCategoryRoutes);
 router.use('/public/listings', publicListingRoutes);
+router.use('/public/subscription-plans', publicSubscriptionPlanRoutes);
 router.use('/public', publicCarDataRoutes);
 
 // Export router for use in app.js

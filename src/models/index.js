@@ -27,6 +27,7 @@ import ListingOffer from './ListingOffer.js';
 import InvoiceModel from './Invoice.js';
 import TransactionModel from './Transaction.js';
 import OtherMedia from './OtherMedia.js';
+import OtpVerification from './OtpVerification.js';
 
 // Initialize models
 const User = UserModel(sequelize);
@@ -66,7 +67,8 @@ const models = {
   ChatRoom,
   ChatMessage,
   ListingOffer,
-  OtherMedia
+  OtherMedia,
+  OtpVerification
 };
 
 // Set up associations

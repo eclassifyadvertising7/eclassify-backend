@@ -44,17 +44,24 @@ export const getFullUrl = (relativePath, storageType, mimeType) => {
     });
   }
 
-  // Local storage
+  // Local storage - add extension
   return `${process.env.UPLOAD_URL}/${relativePath}.${ext}`;
 };
 
 /**
  * Convert absolute file system path to relative path for database storage
  * @param {string} absolutePath - Absolute file system path
- * @returns {string} - Relative path with forward slashes (e.g., 'uploads/categories/file.jpg')
+ * @param {boolean} stripExtension - Whether to remove file extension (default: true)
+ * @returns {string} - Relative path with forward slashes, without extension (e.g., 'uploads/categories/file')
  */
-export const getRelativePath = (absolutePath) => {
-  return path.relative(process.cwd(), absolutePath).replace(/\\/g, '/');
+export const getRelativePath = (absolutePath, stripExtension = true) => {
+  const relativePath = path.relative(process.cwd(), absolutePath).replace(/\\/g, '/');
+  
+  if (stripExtension) {
+    return relativePath.replace(/\.[^.]+$/, ''); // Remove extension
+  }
+  
+  return relativePath;
 };
 
 /**

@@ -211,7 +211,7 @@ class ListingMediaService {
       if (STORAGE_TYPE === 'local') {
         for (const file of files) {
           if (file.path) {
-            await imageService.deleteImage(getRelativePath(file.path));
+            await imageService.deleteImage(getRelativePath(file.path), file.mimetype);
           }
         }
       }
@@ -311,11 +311,17 @@ class ListingMediaService {
 
     // Delete file from storage
     const resourceType = media.mediaType === 'video' ? 'video' : 'image';
-    await deleteFile(media.mediaUrl, media.storageType, { resourceType });
+    await deleteFile(media.mediaUrl, media.storageType, { 
+      resourceType,
+      mimeType: media.mimeType 
+    });
 
     // Delete thumbnail if different from main media
     if (media.thumbnailUrl && media.thumbnailUrl !== media.mediaUrl) {
-      await deleteFile(media.thumbnailUrl, media.storageType, { resourceType: 'image' });
+      await deleteFile(media.thumbnailUrl, media.storageType, { 
+        resourceType: 'image',
+        mimeType: media.thumbnailMimeType 
+      });
     }
 
     // Delete media record
@@ -346,25 +352,52 @@ class ListingMediaService {
 
   /**
    * Delete all media for a listing (used when deleting listing)
+   * CRITICAL: Deletes physical files BEFORE database records
    * @param {number} listingId - Listing ID
-   * @returns {Promise<void>}
+   * @returns {Promise<Object>}
    */
   async deleteAllByListingId(listingId) {
     const media = await listingMediaRepository.getByListingId(listingId);
 
-    // Delete files from storage
-    for (const m of media) {
-      const resourceType = m.mediaType === 'video' ? 'video' : 'image';
-      await deleteFile(m.mediaUrl, m.storageType, { resourceType });
+    let deletedCount = 0;
+    let failedCount = 0;
 
-      // Delete thumbnail if different from main media
-      if (m.thumbnailUrl && m.thumbnailUrl !== m.mediaUrl) {
-        await deleteFile(m.thumbnailUrl, m.storageType, { resourceType: 'image' });
+    // Delete physical files from storage FIRST
+    for (const m of media) {
+      try {
+        const resourceType = m.mediaType === 'video' ? 'video' : 'image';
+        
+        // Delete main media file
+        await deleteFile(m.mediaUrl, m.storageType, { 
+          resourceType,
+          mimeType: m.mimeType 
+        });
+
+        // Delete thumbnail if different from main media
+        if (m.thumbnailUrl && m.thumbnailUrl !== m.mediaUrl) {
+          await deleteFile(m.thumbnailUrl, m.storageType, { 
+            resourceType: 'image',
+            mimeType: m.thumbnailMimeType 
+          });
+        }
+
+        deletedCount++;
+      } catch (error) {
+        console.error(`Failed to delete media file ${m.id}: ${error.message}`);
+        failedCount++;
+        // Continue with other files even if one fails
       }
     }
 
-    // Delete media records
+    // Delete database records AFTER physical files
     await listingMediaRepository.deleteByListingId(listingId);
+
+    return {
+      success: true,
+      deletedCount,
+      failedCount,
+      totalMedia: media.length
+    };
   }
 }
 

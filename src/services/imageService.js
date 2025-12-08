@@ -56,14 +56,25 @@ class ImageService {
 
   /**
    * Delete image file
-   * @param {string} relativePath - Relative path from database
+   * @param {string} relativePath - Relative path from database (without extension)
+   * @param {string} mimeType - MIME type to determine extension
    * @returns {Promise<boolean>}
    */
-  async deleteImage(relativePath) {
+  async deleteImage(relativePath, mimeType = 'image/jpeg') {
     try {
       if (!relativePath) return false;
 
-      const absolutePath = path.join(process.cwd(), relativePath);
+      // Map MIME type to extension
+      const MIME_TO_EXT = {
+        'image/jpeg': 'jpg',
+        'image/jpg': 'jpg',
+        'image/png': 'png',
+        'image/webp': 'webp',
+        'image/gif': 'gif'
+      };
+
+      const ext = MIME_TO_EXT[mimeType] || 'jpg';
+      const absolutePath = path.join(process.cwd(), `${relativePath}.${ext}`);
       await fs.unlink(absolutePath);
       return true;
     } catch (error) {
@@ -74,17 +85,20 @@ class ImageService {
 
   /**
    * Delete multiple images
-   * @param {Array<string>} relativePaths - Array of relative paths
+   * @param {Array<Object>} images - Array of {path, mimeType}
    * @returns {Promise<Object>} - Deletion results
    */
-  async deleteImages(relativePaths) {
+  async deleteImages(images) {
     const results = {
       deleted: [],
       failed: []
     };
 
-    for (const relativePath of relativePaths) {
-      const success = await this.deleteImage(relativePath);
+    for (const image of images) {
+      const relativePath = typeof image === 'string' ? image : image.path;
+      const mimeType = typeof image === 'object' ? image.mimeType : 'image/jpeg';
+      
+      const success = await this.deleteImage(relativePath, mimeType);
       if (success) {
         results.deleted.push(relativePath);
       } else {

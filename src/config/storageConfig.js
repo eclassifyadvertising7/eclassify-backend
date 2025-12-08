@@ -96,14 +96,15 @@ const uploadToCloudinary = async (file, folder, options = {}) => {
 const uploadToLocal = async (file, folder) => {
   try {
     // For local storage, file is already saved by multer
-    // Just return the relative path
+    // Get relative path and remove extension (to match Cloudinary behavior)
     const relativePath = path.relative(process.cwd(), file.path).replace(/\\/g, '/');
+    const relativePathWithoutExt = relativePath.replace(/\.[^.]+$/, ''); // Remove extension
     
     return {
       url: `${process.env.UPLOAD_URL}/${relativePath}`,
-      publicId: relativePath,
+      publicId: relativePathWithoutExt, // Store without extension
       storageType: 'local',
-      path: relativePath
+      path: relativePathWithoutExt // Store without extension
     };
   } catch (error) {
     throw new Error(`Local upload failed: ${error.message}`);
@@ -112,15 +113,15 @@ const uploadToLocal = async (file, folder) => {
 
 /**
  * Delete file from storage
- * @param {string} publicId - File public ID or path
+ * @param {string} publicId - File public ID or path (without extension for local)
  * @param {string} storageType - 'local' or 'cloudinary'
- * @param {Object} options - Additional options (resource_type for Cloudinary)
+ * @param {Object} options - Additional options (resource_type for Cloudinary, mimeType for local)
  */
 export const deleteFile = async (publicId, storageType, options = {}) => {
   if (storageType === 'cloudinary') {
     return deleteFromCloudinary(publicId, options);
   }
-  return deleteFromLocal(publicId);
+  return deleteFromLocal(publicId, options.mimeType);
 };
 
 /**
@@ -141,9 +142,22 @@ const deleteFromCloudinary = async (publicId, options = {}) => {
 /**
  * Delete from local storage
  */
-const deleteFromLocal = async (filePath) => {
+const deleteFromLocal = async (filePath, mimeType) => {
   try {
-    const fullPath = path.join(process.cwd(), filePath);
+    // Map MIME type to extension
+    const MIME_TO_EXT = {
+      'image/jpeg': 'jpg',
+      'image/jpg': 'jpg',
+      'image/png': 'png',
+      'image/webp': 'webp',
+      'image/gif': 'gif',
+      'video/mp4': 'mp4',
+      'video/quicktime': 'mov',
+      'video/x-msvideo': 'avi'
+    };
+
+    const ext = MIME_TO_EXT[mimeType] || 'jpg';
+    const fullPath = path.join(process.cwd(), `${filePath}.${ext}`);
     await fs.unlink(fullPath);
     return { result: 'ok' };
   } catch (error) {

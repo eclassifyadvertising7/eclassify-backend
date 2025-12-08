@@ -83,6 +83,11 @@ class ChatRoomRepository {
     const { page = 1, limit = 20 } = pagination;
     const offset = (page - 1) * limit;
 
+    // Filter by listing ID (for cleanup operations)
+    if (filters.listingId) {
+      where.listingId = filters.listingId;
+    }
+
     // Main filter: all, buying, selling
     if (filters.main === 'buying' && filters.userId) {
       where.buyerId = filters.userId;
