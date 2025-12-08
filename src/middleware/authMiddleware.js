@@ -34,6 +34,33 @@ export const authenticate = (req, res, next) => {
 };
 
 /**
+ * Optional authentication - attaches user data if token is present, but doesn't fail if missing
+ * Used for endpoints that work for both authenticated and unauthenticated users
+ */
+export const optionalAuthenticate = (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+
+    // If no auth header, continue without user data
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      req.user = null;
+      return next();
+    }
+
+    const token = authHeader.substring(7);
+    const decoded = verifyAccessToken(token);
+
+    // Attach user data to request
+    req.user = decoded;
+    next();
+  } catch (error) {
+    // If token is invalid, continue without user data (don't fail)
+    req.user = null;
+    next();
+  }
+};
+
+/**
  * Check if user has required role
  * @param {Array<string>} allowedRoles - Array of allowed role slugs
  */

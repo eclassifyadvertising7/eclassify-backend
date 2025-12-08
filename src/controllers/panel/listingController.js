@@ -76,6 +76,11 @@ class ListingController {
       const approvedBy = req.user.userId;
 
       const result = await listingService.approve(parseInt(id), approvedBy);
+      
+      if (!result.success) {
+        return errorResponse(res, result.message, 400);
+      }
+      
       return successResponse(res, result.data, result.message);
     } catch (error) {
       return errorResponse(res, error.message, 400);

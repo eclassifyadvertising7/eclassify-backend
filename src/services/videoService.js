@@ -77,14 +77,23 @@ class VideoService {
 
   /**
    * Delete video file
-   * @param {string} relativePath - Relative path from database
+   * @param {string} relativePath - Relative path from database (without extension)
+   * @param {string} mimeType - MIME type to determine extension
    * @returns {Promise<boolean>}
    */
-  async deleteVideo(relativePath) {
+  async deleteVideo(relativePath, mimeType = 'video/mp4') {
     try {
       if (!relativePath) return false;
 
-      const absolutePath = path.join(process.cwd(), relativePath);
+      // Map MIME type to extension
+      const MIME_TO_EXT = {
+        'video/mp4': 'mp4',
+        'video/quicktime': 'mov',
+        'video/x-msvideo': 'avi'
+      };
+
+      const ext = MIME_TO_EXT[mimeType] || 'mp4';
+      const absolutePath = path.join(process.cwd(), `${relativePath}.${ext}`);
       await fs.unlink(absolutePath);
       return true;
     } catch (error) {
@@ -95,17 +104,20 @@ class VideoService {
 
   /**
    * Delete multiple videos
-   * @param {Array<string>} relativePaths - Array of relative paths
+   * @param {Array<Object>} videos - Array of {path, mimeType}
    * @returns {Promise<Object>}
    */
-  async deleteVideos(relativePaths) {
+  async deleteVideos(videos) {
     const results = {
       deleted: [],
       failed: []
     };
 
-    for (const relativePath of relativePaths) {
-      const success = await this.deleteVideo(relativePath);
+    for (const video of videos) {
+      const relativePath = typeof video === 'string' ? video : video.path;
+      const mimeType = typeof video === 'object' ? video.mimeType : 'video/mp4';
+      
+      const success = await this.deleteVideo(relativePath, mimeType);
       if (success) {
         results.deleted.push(relativePath);
       } else {

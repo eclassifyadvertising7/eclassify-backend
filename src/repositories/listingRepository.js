@@ -25,6 +25,8 @@ class ListingRepository {
    * @returns {Promise<Object|null>}
    */
   async getById(id, options = {}) {
+    const { CarBrand, CarModel, CarVariant } = models;
+    
     const include = options.includeAll ? [
       { 
         model: User, 
@@ -41,7 +43,15 @@ class ListingRepository {
       { model: Category, as: 'category', attributes: ['id', 'name', 'slug'] },
       { model: State, as: 'state', attributes: ['id', 'name', 'slug'] },
       { model: City, as: 'city', attributes: ['id', 'name', 'slug'] },
-      { model: CarListing, as: 'carListing' },
+      { 
+        model: CarListing, 
+        as: 'carListing',
+        include: [
+          { model: CarBrand, as: 'brand', attributes: ['id', 'name', 'slug'] },
+          { model: CarModel, as: 'model', attributes: ['id', 'name', 'slug'] },
+          { model: CarVariant, as: 'variant', attributes: ['id', 'variantName', 'slug'], required: false }
+        ]
+      },
       { model: PropertyListing, as: 'propertyListing' },
       { model: ListingMedia, as: 'media', order: [['displayOrder', 'ASC']] }
     ] : [];
@@ -59,6 +69,8 @@ class ListingRepository {
    * @returns {Promise<Object|null>}
    */
   async getBySlug(slug, options = {}) {
+    const { CarBrand, CarModel, CarVariant } = models;
+    
     const include = options.includeAll ? [
       { 
         model: User, 
@@ -75,7 +87,15 @@ class ListingRepository {
       { model: Category, as: 'category', attributes: ['id', 'name', 'slug'] },
       { model: State, as: 'state', attributes: ['id', 'name', 'slug'] },
       { model: City, as: 'city', attributes: ['id', 'name', 'slug'] },
-      { model: CarListing, as: 'carListing' },
+      { 
+        model: CarListing, 
+        as: 'carListing',
+        include: [
+          { model: CarBrand, as: 'brand', attributes: ['id', 'name', 'slug'] },
+          { model: CarModel, as: 'model', attributes: ['id', 'name', 'slug'] },
+          { model: CarVariant, as: 'variant', attributes: ['id', 'variantName', 'slug'], required: false }
+        ]
+      },
       { model: PropertyListing, as: 'propertyListing' },
       { model: ListingMedia, as: 'media', order: [['displayOrder', 'ASC']] }
     ] : [];
@@ -206,7 +226,7 @@ class ListingRepository {
         include: [
           { model: CarBrand, as: 'brand', attributes: ['id', 'name', 'slug'] },
           { model: CarModel, as: 'model', attributes: ['id', 'name', 'slug'] },
-          { model: CarVariant, as: 'variant', attributes: ['id', 'name'], required: false }
+          { model: CarVariant, as: 'variant', attributes: ['id', 'variantName', 'slug'], required: false }
         ]
       });
     }

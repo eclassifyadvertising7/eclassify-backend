@@ -5,6 +5,7 @@
 
 import express from 'express';
 import ListingController from '#controllers/public/listingController.js';
+import { optionalAuthenticate } from '#middleware/authMiddleware.js';
 
 const router = express.Router();
 
@@ -18,7 +19,8 @@ router.get('/featured', ListingController.getFeatured);
 router.get('/category/:categorySlugOrId', ListingController.browseByCategory);
 
 // Increment view count (action before slug to avoid conflicts)
-router.post('/view/:id', ListingController.incrementViewCount);
+// Optional auth: if authenticated, checks if user is owner or super_admin
+router.post('/view/:id', optionalAuthenticate, ListingController.incrementViewCount);
 
 // Browse all active listings (legacy - kept for backward compatibility)
 router.get('/', ListingController.browse);
