@@ -163,10 +163,13 @@ Quick reference for all database tables, columns, relationships, and hooks.
 ---
 
 ### subscription_plans
-**Columns:** id (INT PK), plan_code (VARCHAR(50) UNIQUE), version (INT), name (VARCHAR(255)), slug (VARCHAR(100) UNIQUE), description (TEXT), short_description (VARCHAR(500)), base_price (DECIMAL(10,2)), discount_amount (DECIMAL(10,2)), final_price (DECIMAL(10,2)), currency (VARCHAR(3)), billing_cycle (ENUM), duration_days (INT), tagline (VARCHAR(255)), show_original_price (BOOLEAN), show_offer_badge (BOOLEAN), offer_badge_text (VARCHAR(50)), sort_order (INT), max_total_listings (INT), max_active_listings (INT), listing_quota_limit (INT), listing_quota_rolling_days (INT), max_featured_listings (INT), max_boosted_listings (INT), max_spotlight_listings (INT), max_homepage_listings (INT), featured_days (INT), boosted_days (INT), spotlight_days (INT), priority_score (INT), search_boost_multiplier (DECIMAL(5,2)), recommendation_boost_multiplier (DECIMAL(5,2)), cross_city_visibility (BOOLEAN), national_visibility (BOOLEAN), auto_renewal (BOOLEAN), max_renewals (INT), listing_duration_days (INT), auto_refresh_enabled (BOOLEAN), refresh_frequency_days (INT), manual_refresh_per_cycle (INT), support_level (ENUM), features (JSON), available_addons (JSON), upsell_suggestions (JSON), metadata (JSON), internal_notes (TEXT), terms_and_conditions (TEXT), is_active (BOOLEAN), is_public (BOOLEAN), is_default (BOOLEAN), is_featured (BOOLEAN), is_system_plan (BOOLEAN), deprecated_at (TIMESTAMP), replaced_by_plan_id (INT FK→subscription_plans), created_by (BIGINT FK→users), updated_by (JSON), deleted_by (BIGINT FK→users), created_at (TIMESTAMP), updated_at (TIMESTAMP), deleted_at (TIMESTAMP)
+**Columns:** id (INT PK), plan_code (VARCHAR(50) UNIQUE), version (INT), name (VARCHAR(255)), slug (VARCHAR(100) UNIQUE), description (TEXT), short_description (VARCHAR(500)), base_price (DECIMAL(10,2)), discount_amount (DECIMAL(10,2)), final_price (DECIMAL(10,2)), currency (VARCHAR(3)), billing_cycle (ENUM), duration_days (INT), tagline (VARCHAR(255)), show_original_price (BOOLEAN), show_offer_badge (BOOLEAN), offer_badge_text (VARCHAR(50)), sort_order (INT), category_id (INT FK→categories NOT NULL), category_name (VARCHAR(255) NOT NULL), state_id (INT FK→states NULL), city_id (INT FK→cities NULL), max_total_listings (INT), max_active_listings (INT), listing_quota_limit (INT), listing_quota_rolling_days (INT), max_featured_listings (INT), max_boosted_listings (INT), max_spotlight_listings (INT), max_homepage_listings (INT), featured_days (INT), boosted_days (INT), spotlight_days (INT), priority_score (INT), search_boost_multiplier (DECIMAL(5,2)), recommendation_boost_multiplier (DECIMAL(5,2)), cross_city_visibility (BOOLEAN), national_visibility (BOOLEAN), auto_renewal (BOOLEAN), max_renewals (INT), listing_duration_days (INT), auto_refresh_enabled (BOOLEAN), refresh_frequency_days (INT), manual_refresh_per_cycle (INT), support_level (ENUM), features (JSON), available_addons (JSON), upsell_suggestions (JSON), metadata (JSON), internal_notes (TEXT), terms_and_conditions (TEXT), is_active (BOOLEAN), is_public (BOOLEAN), is_default (BOOLEAN), is_featured (BOOLEAN), is_system_plan (BOOLEAN), deprecated_at (TIMESTAMP), replaced_by_plan_id (INT FK→subscription_plans), created_by (BIGINT FK→users), updated_by (JSON), deleted_by (BIGINT FK→users), created_at (TIMESTAMP), updated_at (TIMESTAMP), deleted_at (TIMESTAMP)
 
 **Relationships:**
 - belongsTo → subscription_plans (self-reference via replaced_by_plan_id)
+- belongsTo → categories (via category_id)
+- belongsTo → states (via state_id)
+- belongsTo → cities (via city_id)
 - belongsTo → users (via created_by)
 - belongsTo → users (via deleted_by)
 
@@ -176,7 +179,9 @@ Quick reference for all database tables, columns, relationships, and hooks.
 
 **Config:** paranoid: true (soft delete)
 
-**Notes:** Small lookup table (~10-20 plans); features column stores less-critical flags (see SUBSCRIPTION-PLANS-FEATURES.md); billing_cycle values: 'daily', 'weekly', 'monthly', 'quarterly', 'annual', 'one_time'; support_level values: 'none', 'standard', 'priority', 'dedicated'; listing_quota_limit and listing_quota_rolling_days implement rolling window quota (e.g., 10 listings per 30 rolling days)
+**Indexes:** plan_code (UNIQUE), slug (UNIQUE), is_active, is_public, is_default, deleted_at, category_id, state_id, city_id
+
+**Notes:** Small lookup table (~10-20 plans); features column stores less-critical flags (see SUBSCRIPTION-PLANS-FEATURES.md); billing_cycle values: 'daily', 'weekly', 'monthly', 'quarterly', 'annual', 'one_time'; support_level values: 'none', 'standard', 'priority', 'dedicated'; listing_quota_limit and listing_quota_rolling_days implement rolling window quota (e.g., 10 listings per 30 rolling days); category_id and category_name are mandatory - every plan must be tied to a specific category; state_id and city_id are optional - when NULL, plan is available nationally; when state_id is set, plan is restricted to that state; when city_id is set, plan is restricted to that specific city; category_name is cached for performance (denormalized)
 
 ---
 
