@@ -103,6 +103,27 @@ export default (sequelize) => {
       defaultValue: 0,
       field: 'sort_order'
     },
+    // Category & Location Restrictions
+    categoryId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      field: 'category_id'
+    },
+    categoryName: {
+      type: DataTypes.STRING(255),
+      allowNull: false,
+      field: 'category_name'
+    },
+    stateId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      field: 'state_id'
+    },
+    cityId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      field: 'city_id'
+    },
     // Listing Quotas
     maxTotalListings: {
       type: DataTypes.INTEGER,
@@ -381,6 +402,22 @@ export default (sequelize) => {
     SubscriptionPlan.belongsTo(models.SubscriptionPlan, {
       foreignKey: 'replacedByPlanId',
       as: 'replacementPlan'
+    });
+
+    // Category & Location associations
+    SubscriptionPlan.belongsTo(models.Category, {
+      foreignKey: 'categoryId',
+      as: 'category'
+    });
+
+    SubscriptionPlan.belongsTo(models.State, {
+      foreignKey: 'stateId',
+      as: 'state'
+    });
+
+    SubscriptionPlan.belongsTo(models.City, {
+      foreignKey: 'cityId',
+      as: 'city'
     });
 
     // Audit associations

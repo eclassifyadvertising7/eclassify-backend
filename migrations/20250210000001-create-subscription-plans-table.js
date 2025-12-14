@@ -84,6 +84,45 @@ export async function up(queryInterface, Sequelize) {
       allowNull: false,
       defaultValue: 0
     },
+    // Category & Location Restrictions
+    category_id: {
+      type: Sequelize.INTEGER,
+      allowNull: false,
+      references: {
+        model: 'categories',
+        key: 'id'
+      },
+      onUpdate: 'CASCADE',
+      onDelete: 'RESTRICT',
+      comment: 'Plan is restricted to this category'
+    },
+    category_name: {
+      type: Sequelize.STRING(255),
+      allowNull: false,
+      comment: 'Cached category name for display'
+    },
+    state_id: {
+      type: Sequelize.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'states',
+        key: 'id'
+      },
+      onUpdate: 'CASCADE',
+      onDelete: 'SET NULL',
+      comment: 'If set, plan is restricted to this state only'
+    },
+    city_id: {
+      type: Sequelize.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'cities',
+        key: 'id'
+      },
+      onUpdate: 'CASCADE',
+      onDelete: 'SET NULL',
+      comment: 'If set, plan is restricted to this city only'
+    },
     // Listing Quotas
     max_total_listings: {
       type: Sequelize.INTEGER,
@@ -346,6 +385,18 @@ export async function up(queryInterface, Sequelize) {
 
   await queryInterface.addIndex('subscription_plans', ['deleted_at'], {
     name: 'idx_subscription_plans_deleted_at'
+  });
+
+  await queryInterface.addIndex('subscription_plans', ['category_id'], {
+    name: 'idx_subscription_plans_category_id'
+  });
+
+  await queryInterface.addIndex('subscription_plans', ['state_id'], {
+    name: 'idx_subscription_plans_state_id'
+  });
+
+  await queryInterface.addIndex('subscription_plans', ['city_id'], {
+    name: 'idx_subscription_plans_city_id'
   });
 }
 
