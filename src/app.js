@@ -14,12 +14,13 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' }
 }));
 
-// Configure CORS middleware with hardcoded origins plus environment variable
+// Configure CORS middleware with hardcoded origins plus environment variables
 const allowedOrigins = [
   'http://localhost:3000',
   'https://eclassify-frontend.vercel.app',
   'http://eclassify-frontend.vercel.app',
-  process.env.CORS_ORIGIN
+  process.env.CORS_ORIGIN,
+  process.env.FRONTEND_URL
 ].filter(Boolean);
 
 const corsOptions = {

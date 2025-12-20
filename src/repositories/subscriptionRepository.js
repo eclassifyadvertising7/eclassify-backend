@@ -83,6 +83,10 @@ class SubscriptionRepository {
       where.planCode = filters.planCode;
     }
 
+    if (filters.categoryId) {
+      where.categoryId = filters.categoryId;
+    }
+
     return await SubscriptionPlan.findAll({
       where,
       include: [

@@ -34,8 +34,8 @@ console.log(`🔗 OAuth Callback: GET ${process.env.GOOGLE_CALLBACK_URL}`);
 console.log(`🔗 Complete Profile: POST ${process.env.BASE_URL || 'http://localhost:5000'}/api/auth/google/complete-profile`);
 
 console.log('\n🎯 Frontend Integration:');
-console.log(`📱 Redirect URL: ${process.env.CORS_ORIGIN}/auth/callback`);
-console.log(`❌ Error URL: ${process.env.CORS_ORIGIN}/auth/error`);
+console.log(`📱 Redirect URL: ${process.env.FRONTEND_URL}/auth/callback`);
+console.log(`❌ Error URL: ${process.env.FRONTEND_URL}/auth/error`);
 
 if (configValid) {
   console.log('\n✅ Google OAuth configuration looks good!');

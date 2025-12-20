@@ -1,6 +1,6 @@
-# Subscription Management API Documentation
+# User Subscriptions API Documentation
 
-Complete API documentation for subscription plan management (Super Admin) and user subscriptions (End Users).
+Complete API documentation for user subscription management with category-based support.
 
 ---
 
@@ -26,402 +26,19 @@ Complete API documentation for subscription plan management (Super Admin) and us
 
 ## Table of Contents
 
-1. [Super Admin - Plan Management](#super-admin---plan-management)
-2. [Super Admin - User Subscription Management](#super-admin---user-subscription-management)
-3. [End User - Subscriptions](#end-user---subscriptions)
-4. [Data Models](#data-models)
-5. [Error Codes](#error-codes)
+1. [Super Admin - User Subscription Management](#super-admin---user-subscription-management)
+2. [End User - Subscriptions](#end-user---subscriptions)
+3. [Data Models](#data-models)
+4. [Error Codes](#error-codes)
 
 ---
 
-## Super Admin - Plan Management
+## Authentication
 
-### 1. Create Subscription Plan
-
-Create a new subscription plan.
-
-**Endpoint:** `POST /api/panel/subscription-plans`
-
-**Authentication:** Required (Super Admin only)
-
-**Request Headers:**
+All endpoints require JWT authentication. Include the token in the Authorization header:
 ```
-Authorization: Bearer <access_token>
-Content-Type: application/json
+Authorization: Bearer <jwt_token>
 ```
-
-**Request Body:**
-```json
-{
-  "planCode": "premium",
-  "name": "Premium Plan",
-  "slug": "premium",  // Optional - auto-generated from name if not provided
-  "description": "Full-featured premium plan with all benefits",
-  "shortDescription": "Best value for serious sellers",
-  "basePrice": 999.00,
-  "discountAmount": 200.00,
-  "finalPrice": 799.00,
-  "currency": "INR",
-  "billingCycle": "monthly",
-  "durationDays": 30,
-  "tagline": "Most Popular",
-  "showOriginalPrice": true,
-  "showOfferBadge": true,
-  "offerBadgeText": "20% OFF",
-  "sortOrder": 2,
-  "maxTotalListings": 50,
-  "maxActiveListings": 10,
-  "listingQuotaLimit": 10,
-  "listingQuotaRollingDays": 30,
-  "maxFeaturedListings": 5,
-  "maxBoostedListings": 3,
-  "maxSpotlightListings": 1,
-  "maxHomepageListings": 1,
-  "featuredDays": 7,
-  "boostedDays": 3,
-  "spotlightDays": 1,
-  "priorityScore": 80,
-  "searchBoostMultiplier": 1.5,
-  "recommendationBoostMultiplier": 1.3,
-  "crossCityVisibility": true,
-  "nationalVisibility": false,
-  "autoRenewal": true,
-  "maxRenewals": 12,
-  "listingDurationDays": 45,
-  "autoRefreshEnabled": true,
-  "refreshFrequencyDays": 7,
-  "manualRefreshPerCycle": 5,
-  "supportLevel": "priority",
-  "features": {
-    "showPhoneNumber": true,
-    "showWhatsapp": true,
-    "allowChat": true,
-    "priorityChatSupport": true,
-    "analyticsEnabled": true,
-    "viewCountVisible": true,
-    "trackLeads": true,
-    "sellerVerificationIncluded": true,
-    "trustBadge": true,
-    "warrantyBadge": false,
-    "geoTargetingEnabled": true,
-    "radiusTargetingKm": 50,
-    "socialSharingEnabled": true,
-    "createPromotions": true,
-    "autoApproval": false,
-    "priorityModeration": true,
-    "appealRejectedListings": true
-  },
-  "availableAddons": [],
-  "upsellSuggestions": {},
-  "metadata": {},
-  "internalNotes": "Premium plan for power users",
-  "termsAndConditions": "Terms apply",
-  "isActive": true,
-  "isPublic": true,
-  "isDefault": false,
-  "isFeatured": true,
-  "isSystemPlan": false
-}
-```
-
-**Success Response (201):**
-```json
-{
-  "success": true,
-  "message": "Subscription plan created successfully",
-  "data": {
-    "id": 3,
-    "planCode": "premium",
-    "version": 1,
-    "name": "Premium Plan",
-    "slug": "premium",
-    "finalPrice": "799.00",
-    "isActive": true,
-    "isPublic": true,
-    "createdAt": "2025-01-15T10:30:00.000Z",
-    "updatedAt": "2025-01-15T10:30:00.000Z"
-  }
-}
-```
-
-**Error Responses:**
-- `400` - Validation error (missing required fields, invalid data)
-- `401` - Unauthorized (invalid/missing token)
-- `403` - Forbidden (not super admin)
-
----
-
-### 2. Update Subscription Plan
-
-Update a subscription plan. Automatically creates new version if critical fields are changed.
-
-**Endpoint:** `PUT /api/panel/subscription-plans/:id`
-
-**Authentication:** Required (Super Admin only)
-
-**Auto-Versioning Logic:**
-- If **critical fields** changed → Creates new version automatically
-- If **non-critical fields** changed → Updates in place
-
-**Critical Fields (20 total):**
-- Pricing: `basePrice`, `discountAmount`, `finalPrice`, `billingCycle`, `durationDays`
-- Quotas: `maxTotalListings`, `maxActiveListings`, `listingQuotaLimit`, `listingQuotaRollingDays`
-- Featured: `maxFeaturedListings`, `maxBoostedListings`, `maxSpotlightListings`, `maxHomepageListings`, `featuredDays`, `boostedDays`, `spotlightDays`
-- Management: `listingDurationDays`, `autoRenewal`, `maxRenewals`, `supportLevel`
-
-**Request Body (Example - Price Change - Critical Field):**
-```json
-{
-  "finalPrice": 899.00,
-  "basePrice": 1099.00,
-  "discountAmount": 200.00
-}
-```
-
-**Success Response - New Version Created (200):**
-```json
-{
-  "success": true,
-  "message": "New plan version 2 created successfully",
-  "data": {
-    "id": 4,
-    "planCode": "premium",
-    "version": 2,
-    "slug": "premium-v2",  // Auto-generated: planCode-v{version}
-    "finalPrice": "899.00",
-    "isActive": true,
-    "isPublic": true,
-    "deprecatedAt": null,
-    "replacedByPlanId": null
-  }
-}
-```
-
-**Request Body (Example - Non-Critical Fields):**
-```json
-{
-  "name": "Premium Plan - Updated",
-  "description": "Updated description",
-  "tagline": "Best Value"
-}
-```
-
-**Success Response - Updated In Place (200):**
-```json
-{
-  "success": true,
-  "message": "Subscription plan updated successfully",
-  "data": {
-    "id": 3,
-    "planCode": "premium",
-    "version": 1,
-    "slug": "premium",  // Slug unchanged
-    "name": "Premium Plan - Updated",
-    "description": "Updated description"
-  }
-}
-```
-
-**Error Responses:**
-- `400` - Validation error
-- `404` - Plan not found
-
----
-
-### 3. Get All Plans
-
-Get all subscription plans (including deprecated versions).
-
-**Endpoint:** `GET /api/panel/subscription-plans`
-
-**Authentication:** Required (Super Admin only)
-
-**Query Parameters:**
-- `isActive` (optional) - Filter by active status (`true`/`false`)
-- `isPublic` (optional) - Filter by public visibility (`true`/`false`)
-- `planCode` (optional) - Filter by plan code
-
-**Example Request:**
-```
-GET /api/panel/subscription-plans?isActive=true&isPublic=true
-```
-
-**Success Response (200):**
-```json
-{
-  "success": true,
-  "message": "Data retrieved successfully",
-  "data": [
-    {
-      "id": 4,
-      "planCode": "premium",
-      "version": 2,
-      "name": "Premium Plan",
-      "slug": "premium-v2",
-      "finalPrice": "899.00",
-      "isActive": true,
-      "isPublic": true,
-      "deprecatedAt": null,
-      "replacedByPlanId": null,
-      "replacementPlan": null
-    },
-    {
-      "id": 3,
-      "planCode": "premium",
-      "version": 1,
-      "name": "Premium Plan",
-      "slug": "premium",
-      "finalPrice": "799.00",
-      "isActive": true,
-      "isPublic": false,
-      "deprecatedAt": "2025-01-15T11:00:00.000Z",
-      "replacedByPlanId": 4,
-      "replacementPlan": {
-        "id": 4,
-        "name": "Premium Plan",
-        "slug": "premium-v2",
-        "finalPrice": "899.00",
-        "version": 2
-      }
-    }
-  ]
-}
-```
-
----
-
-### 4. Get Plan by ID
-
-Get detailed information about a specific plan.
-
-**Endpoint:** `GET /api/panel/subscription-plans/:id`
-
-**Authentication:** Required (Super Admin only)
-
-**Success Response (200):**
-```json
-{
-  "success": true,
-  "message": "Data retrieved successfully",
-  "data": {
-    "id": 3,
-    "planCode": "premium",
-    "version": 1,
-    "name": "Premium Plan",
-    "slug": "premium",
-    "description": "Full-featured premium plan",
-    "basePrice": "999.00",
-    "discountAmount": "200.00",
-    "finalPrice": "799.00",
-    "currency": "INR",
-    "billingCycle": "monthly",
-    "durationDays": 30,
-    "maxTotalListings": 50,
-    "maxActiveListings": 10,
-    "features": { /* ... */ },
-    "isActive": true,
-    "isPublic": true,
-    "deprecatedAt": null,
-    "replacedByPlanId": null,
-    "createdAt": "2025-01-15T10:30:00.000Z",
-    "updatedAt": "2025-01-15T10:30:00.000Z"
-  }
-}
-```
-
-**Error Response:**
-- `404` - Plan not found
-
----
-
-### 5. Delete Plan
-
-Soft delete a subscription plan.
-
-**Endpoint:** `DELETE /api/panel/subscription-plans/:id`
-
-**Authentication:** Required (Super Admin only)
-
-**Success Response (200):**
-```json
-{
-  "success": true,
-  "message": "Subscription plan deleted successfully",
-  "data": null
-}
-```
-
-**Error Responses:**
-- `400` - Cannot delete (system plan or has active subscriptions)
-- `404` - Plan not found
-
----
-
-### 6. Update Plan Status
-
-Set plan active/inactive status explicitly.
-
-**Endpoint:** `PATCH /api/panel/subscription-plans/status/:id`
-
-**Authentication:** Required (Super Admin only)
-
-**Request Body:**
-```json
-{
-  "isActive": true
-}
-```
-
-**Success Response (200):**
-```json
-{
-  "success": true,
-  "message": "Plan activated successfully",
-  "data": {
-    "id": 3,
-    "planCode": "premium",
-    "isActive": true
-  }
-}
-```
-
-**Error Responses:**
-- `400` - Invalid request (isActive must be boolean)
-- `404` - Plan not found
-
----
-
-### 7. Update Plan Visibility
-
-Set plan public/private visibility explicitly.
-
-**Endpoint:** `PATCH /api/panel/subscription-plans/visibility/:id`
-
-**Authentication:** Required (Super Admin only)
-
-**Request Body:**
-```json
-{
-  "isPublic": false
-}
-```
-
-**Success Response (200):**
-```json
-{
-  "success": true,
-  "message": "Plan visibility disabled successfully",
-  "data": {
-    "id": 3,
-    "planCode": "premium",
-    "isPublic": false
-  }
-}
-```
-
-**Error Responses:**
-- `400` - Invalid request (isPublic must be boolean)
-- `404` - Plan not found
 
 ---
 
@@ -441,15 +58,16 @@ Get all user subscriptions with filters and pagination.
 - `status` (optional) - Filter by status (`pending`, `active`, `expired`, `cancelled`, `suspended`)
 - `userId` (optional) - Filter by user ID
 - `planId` (optional) - Filter by plan ID
+- `categoryId` (optional) - Filter by category ID
 - `dateFrom` (optional) - Filter from date (ISO 8601 format)
 - `dateTo` (optional) - Filter to date (ISO 8601 format)
+- `search` (optional) - Search by user name or mobile
 - `page` (optional, default: 1) - Page number
 - `limit` (optional, default: 10) - Items per page
 
 **Example Request:**
 ```
-GET /api/panel/subscriptions?status=active&page=1&limit=10
-GET /api/panel/subscriptions?userId=42&dateFrom=2025-01-01
+GET /api/panel/subscriptions?status=active&categoryId=1&page=1&limit=10
 ```
 
 **Success Response (200):**
@@ -465,8 +83,8 @@ GET /api/panel/subscriptions?userId=42&dateFrom=2025-01-01
       "status": "active",
       "endsAt": "2025-02-14T12:00:00.000Z",
       "activatedAt": "2025-01-15T12:00:00.000Z",
-      "planName": "Premium Plan",
-      "planCode": "premium",
+      "planName": "Cars Premium Plan",
+      "planCode": "cars-premium",
       "planVersion": 2,
       "finalPrice": "899.00",
       "amountPaid": "899.00",
@@ -478,10 +96,11 @@ GET /api/panel/subscriptions?userId=42&dateFrom=2025-01-01
       },
       "plan": {
         "id": 4,
-        "name": "Premium Plan",
-        "slug": "premium-v2",
-        "planCode": "premium",
-        "version": 2
+        "name": "Cars Premium Plan",
+        "slug": "cars-premium-v2",
+        "planCode": "cars-premium",
+        "version": 2,
+        "categoryId": 1
       },
       "createdAt": "2025-01-15T12:00:00.000Z",
       "updatedAt": "2025-01-15T12:00:00.000Z"
@@ -521,8 +140,8 @@ Get detailed information about a specific user subscription.
     "activatedAt": "2025-01-15T12:00:00.000Z",
     "isTrial": false,
     "autoRenew": true,
-    "planName": "Premium Plan",
-    "planCode": "premium",
+    "planName": "Cars Premium Plan",
+    "planCode": "cars-premium",
     "planVersion": 2,
     "basePrice": "1099.00",
     "discountAmount": "200.00",
@@ -547,9 +166,9 @@ Get detailed information about a specific user subscription.
     },
     "plan": {
       "id": 4,
-      "name": "Premium Plan",
-      "slug": "premium-v2",
-      "planCode": "premium",
+      "name": "Cars Premium Plan",
+      "slug": "cars-premium-v2",
+      "planCode": "cars-premium",
       "version": 2,
       "finalPrice": "899.00"
     },
@@ -567,7 +186,55 @@ Get detailed information about a specific user subscription.
 
 ---
 
-### 3. Create Subscription Manually
+### 3. Get Subscriptions by Category (Admin)
+
+Get subscriptions for specific category with filtering.
+
+**Endpoint:** `GET /api/panel/subscriptions/category/:categoryId`
+
+**Authentication:** Required (Super Admin only)
+
+**Path Parameters:**
+- `categoryId` (integer, required): Category ID
+
+**Query Parameters:**
+- `status` (string, optional): Filter by status
+- `userId` (integer, optional): Filter by user ID
+- `search` (string, optional): Search by user name or mobile
+- `page` (integer, optional): Page number (default: 1)
+- `limit` (integer, optional): Items per page (default: 10)
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Data retrieved successfully",
+  "data": [
+    {
+      "id": 1,
+      "status": "active",
+      "user": {
+        "fullName": "John Doe",
+        "mobile": "9876543210"
+      },
+      "plan": {
+        "name": "Cars Basic Plan",
+        "categoryId": 1
+      }
+    }
+  ],
+  "pagination": {
+    "total": 25,
+    "page": 1,
+    "limit": 10,
+    "totalPages": 3
+  }
+}
+```
+
+---
+
+### 4. Create Subscription Manually (Admin)
 
 Manually assign a subscription plan to a user (admin assignment).
 
@@ -580,7 +247,7 @@ Manually assign a subscription plan to a user (admin assignment).
 {
   "userId": 42,
   "planId": 4,
-  "endsAt": "2025-02-19T23:59:59.000Z",    // Optional - calculated from plan duration
+  "endsAt": "2025-02-19T23:59:59.000Z",
   "notes": "Complimentary subscription for beta tester"
 }
 ```
@@ -597,8 +264,8 @@ Manually assign a subscription plan to a user (admin assignment).
     "status": "active",
     "endsAt": "2025-02-19T23:59:59.000Z",
     "activatedAt": "2025-01-20T10:30:00.000Z",
-    "planName": "Premium Plan",
-    "planCode": "premium",
+    "planName": "Cars Premium Plan",
+    "planCode": "cars-premium",
     "planVersion": 2,
     "finalPrice": "899.00",
     "paymentMethod": "manual",
@@ -613,13 +280,13 @@ Manually assign a subscription plan to a user (admin assignment).
 ```
 
 **Error Responses:**
-- `400` - User already has active subscription
+- `400` - User already has active subscription for this category
 - `400` - User ID and Plan ID are required
 - `404` - Plan not found
 
 ---
 
-### 4. Update Subscription
+### 5. Update Subscription
 
 Update subscription details.
 
@@ -660,7 +327,7 @@ Update subscription details.
 
 ---
 
-### 5. Delete Subscription
+### 6. Delete Subscription
 
 Soft delete a subscription.
 
@@ -682,7 +349,7 @@ Soft delete a subscription.
 
 ---
 
-### 6. Update Subscription Status
+### 7. Update Subscription Status (Admin)
 
 Update subscription status explicitly.
 
@@ -690,10 +357,13 @@ Update subscription status explicitly.
 
 **Authentication:** Required (Super Admin only)
 
+**Path Parameters:**
+- `id` (integer, required): Subscription ID
+
 **Request Body:**
 ```json
 {
-  "status": "active"
+  "status": "suspended"
 }
 ```
 
@@ -708,11 +378,11 @@ Update subscription status explicitly.
 ```json
 {
   "success": true,
-  "message": "Subscription status updated to active",
+  "message": "Subscription status updated to suspended",
   "data": {
     "id": 15,
     "userId": 42,
-    "status": "active",
+    "status": "suspended",
     "updatedAt": "2025-01-20T12:00:00.000Z"
   }
 }
@@ -724,7 +394,7 @@ Update subscription status explicitly.
 
 ---
 
-### 7. Extend Subscription
+### 8. Extend Subscription (Admin)
 
 Extend subscription duration by specified days.
 
@@ -732,10 +402,13 @@ Extend subscription duration by specified days.
 
 **Authentication:** Required (Super Admin only)
 
+**Path Parameters:**
+- `id` (integer, required): Subscription ID
+
 **Request Body:**
 ```json
 {
-  "extensionDays": 15
+  "extensionDays": 30
 }
 ```
 
@@ -743,12 +416,12 @@ Extend subscription duration by specified days.
 ```json
 {
   "success": true,
-  "message": "Subscription extended by 15 days",
+  "message": "Subscription extended by 30 days",
   "data": {
     "id": 15,
     "userId": 42,
     "endsAt": "2025-03-01T12:00:00.000Z",
-    "notes": "Extended by 15 days on 2025-01-20T12:30:00.000Z",
+    "notes": "Extended by 30 days on 2025-01-20T12:30:00.000Z",
     "updatedAt": "2025-01-20T12:30:00.000Z"
   }
 }
@@ -760,7 +433,7 @@ Extend subscription duration by specified days.
 
 ---
 
-### 8. Verify Manual Payment (TEMPORARY)
+### 9. Verify Manual Payment (TEMPORARY)
 
 Verify manual payment and activate or reject subscription. This endpoint will be removed when payment gateway is implemented.
 
@@ -821,12 +494,11 @@ Verify manual payment and activate or reject subscription. This endpoint will be
 1. Subscription status changed from `pending` to `active`
 2. `activatedAt` set to current time
 3. `endsAt` calculated based on plan duration
-4. `activatedAt` set to current time
-5. `amountPaid` set to plan's finalPrice
-6. Invoice status changed from `pending` to `paid`
-7. Invoice `amountPaid` updated, `amountDue` set to 0
-8. Transaction status changed from `pending` to `completed`
-9. Transaction `verifiedBy`, `verifiedAt`, and `verificationNotes` updated
+4. `amountPaid` set to plan's finalPrice
+5. Invoice status changed from `pending` to `paid`
+6. Invoice `amountPaid` updated, `amountDue` set to 0
+7. Transaction status changed from `pending` to `completed`
+8. Transaction `verifiedBy`, `verifiedAt`, and `verificationNotes` updated
 
 **What Happens on Rejection:**
 1. Subscription status changed from `pending` to `cancelled`
@@ -845,13 +517,16 @@ Verify manual payment and activate or reject subscription. This endpoint will be
 
 ## End User - Subscriptions
 
-### 1. Get Available Plans
+### 1. Get Available Plans (Authenticated)
 
-Get all active and public subscription plans.
+Get all available plans for authenticated users.
 
 **Endpoint:** `GET /api/end-user/subscriptions/plans`
 
 **Authentication:** Required
+
+**Query Parameters:**
+- `categoryId` (optional) - Filter by category ID
 
 **Success Response (200):**
 ```json
@@ -861,12 +536,13 @@ Get all active and public subscription plans.
   "data": [
     {
       "id": 1,
-      "planCode": "basic",
+      "planCode": "cars-basic",
       "version": 1,
-      "name": "Basic Plan",
-      "slug": "basic",
-      "description": "Perfect for getting started",
+      "name": "Cars Basic Plan",
+      "slug": "cars-basic",
+      "description": "Perfect for getting started with car listings",
       "shortDescription": "Essential features for beginners",
+      "categoryId": 1,
       "basePrice": "299.00",
       "discountAmount": "0.00",
       "finalPrice": "299.00",
@@ -880,18 +556,6 @@ Get all active and public subscription plans.
       "maxActiveListings": 3,
       "features": { /* ... */ },
       "sortOrder": 1
-    },
-    {
-      "id": 4,
-      "planCode": "premium",
-      "version": 2,
-      "name": "Premium Plan",
-      "slug": "premium-v2",
-      "finalPrice": "899.00",
-      "tagline": "Most Popular",
-      "showOfferBadge": true,
-      "offerBadgeText": "20% OFF",
-      "sortOrder": 2
     }
   ]
 }
@@ -899,7 +563,44 @@ Get all active and public subscription plans.
 
 ---
 
-### 2. Get Plan Details
+### 2. Get Plans by Category (Authenticated)
+
+Get plans for specific category for authenticated users.
+
+**Endpoint:** `GET /api/end-user/subscriptions/plans/category/:categoryId`
+
+**Authentication:** Required
+
+**Path Parameters:**
+- `categoryId` (integer, required): Category ID
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Data retrieved successfully",
+  "data": [
+    {
+      "id": 1,
+      "name": "Cars Basic Plan",
+      "slug": "cars-basic",
+      "planCode": "cars-basic",
+      "categoryId": 1,
+      "finalPrice": "299.00",
+      "maxTotalListings": 5,
+      "featuredDays": 7,
+      "features": {
+        "autoApproval": true,
+        "prioritySupport": false
+      }
+    }
+  ]
+}
+```
+
+---
+
+### 3. Get Plan Details
 
 Get detailed information about a specific plan.
 
@@ -914,11 +615,12 @@ Get detailed information about a specific plan.
   "message": "Data retrieved successfully",
   "data": {
     "id": 4,
-    "planCode": "premium",
+    "planCode": "cars-premium",
     "version": 2,
-    "name": "Premium Plan",
-    "slug": "premium-v2",
+    "name": "Cars Premium Plan",
+    "slug": "cars-premium-v2",
     "description": "Full-featured premium plan with all benefits",
+    "categoryId": 1,
     "basePrice": "1099.00",
     "discountAmount": "200.00",
     "finalPrice": "899.00",
@@ -939,12 +641,9 @@ Get detailed information about a specific plan.
 }
 ```
 
-**Error Responses:**
-- `404` - Plan not found or not available
-
 ---
 
-### 3. Subscribe to Plan (Manual Payment - TEMPORARY)
+### 4. Subscribe to Plan (Manual Payment - TEMPORARY)
 
 Create a new subscription for the authenticated user with manual payment verification.
 
@@ -961,7 +660,6 @@ Create a new subscription for the authenticated user with manual payment verific
 6. User submits form
 7. Entries created with PENDING status in user_subscriptions, invoices, and transactions tables
 8. Admin manually verifies payment and activates subscription
-9. User subscription's activatedAt is set when admin approves, createdAt can be different (when user initially submitted)
 
 **Request Body (Manual Payment):**
 ```json
@@ -987,8 +685,8 @@ Create a new subscription for the authenticated user with manual payment verific
     "status": "pending",
     "endsAt": null,
     "activatedAt": null,
-    "planName": "Premium Plan",
-    "planCode": "premium",
+    "planName": "Cars Premium Plan",
+    "planCode": "cars-premium",
     "planVersion": 2,
     "finalPrice": "899.00",
     "amountPaid": "0.00",
@@ -1005,13 +703,13 @@ Create a new subscription for the authenticated user with manual payment verific
 ```
 
 **Error Responses:**
-- `400` - User already has active subscription
+- `400` - User already has active subscription for this category
 - `400` - UPI ID and Transaction ID are required
 - `404` - Plan not found or not available
 
 ---
 
-### 3b. Subscribe to Plan (Payment Gateway - TO BE IMPLEMENTED)
+### 4b. Subscribe to Plan (Payment Gateway - TO BE IMPLEMENTED)
 
 **Note:** This section is commented out in code. Uncomment when implementing payment gateway.
 
@@ -1046,8 +744,8 @@ Create a new subscription for the authenticated user with manual payment verific
     "startsAt": "2025-01-15T12:00:00.000Z",
     "endsAt": "2025-02-14T12:00:00.000Z",
     "activatedAt": "2025-01-15T12:00:00.000Z",
-    "planName": "Premium Plan",
-    "planCode": "premium",
+    "planName": "Cars Premium Plan",
+    "planCode": "cars-premium",
     "planVersion": 2,
     "finalPrice": "899.00",
     "amountPaid": "899.00",
@@ -1060,7 +758,86 @@ Create a new subscription for the authenticated user with manual payment verific
 
 ---
 
-### 4. Get Active Subscription
+### 5. Get My Active Subscription by Category
+
+Get user's active subscription for specific category.
+
+**Endpoint:** `GET /api/end-user/subscriptions/active/category/:categoryId`
+
+**Authentication:** Required
+
+**Path Parameters:**
+- `categoryId` (integer, required): Category ID
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Data retrieved successfully",
+  "data": {
+    "subscription": {
+      "id": 1,
+      "status": "active",
+      "planName": "Cars Basic Plan",
+      "maxTotalListings": 5,
+      "endsAt": "2024-01-31T00:00:00.000Z"
+    },
+    "needsSubscription": false
+  }
+}
+```
+
+**Response when no subscription (200):**
+```json
+{
+  "success": true,
+  "message": "User is on free plan for this category",
+  "data": {
+    "subscription": null,
+    "freePlan": {
+      "id": 2,
+      "name": "Cars Free Plan",
+      "maxTotalListings": 2
+    },
+    "needsSubscription": true
+  }
+}
+```
+
+---
+
+### 6. Get All My Active Subscriptions
+
+Get all user's active subscriptions across categories.
+
+**Endpoint:** `GET /api/end-user/subscriptions/active/all`
+
+**Authentication:** Required
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Data retrieved successfully",
+  "data": {
+    "subscriptions": [
+      {
+        "id": 1,
+        "status": "active",
+        "plan": {
+          "name": "Cars Basic Plan",
+          "categoryId": 1
+        }
+      }
+    ],
+    "totalActive": 1
+  }
+}
+```
+
+---
+
+### 7. Get Active Subscription
 
 Get the user's currently active subscription.
 
@@ -1081,8 +858,8 @@ Get the user's currently active subscription.
       "status": "active",
       "startsAt": "2025-01-15T12:00:00.000Z",
       "endsAt": "2025-02-14T12:00:00.000Z",
-      "planName": "Premium Plan",
-      "planCode": "premium",
+      "planName": "Cars Premium Plan",
+      "planCode": "cars-premium",
       "planVersion": 2,
       "finalPrice": "899.00",
       "maxActiveListings": 10,
@@ -1090,8 +867,8 @@ Get the user's currently active subscription.
       "features": { /* ... */ },
       "plan": {
         "id": 4,
-        "name": "Premium Plan",
-        "slug": "premium-v2",
+        "name": "Cars Premium Plan",
+        "slug": "cars-premium-v2",
         "deprecatedAt": null,
         "replacedByPlanId": null
       }
@@ -1110,8 +887,8 @@ Get the user's currently active subscription.
     "subscription": { /* ... */ },
     "upgradeAvailable": {
       "id": 5,
-      "name": "Premium Plan",
-      "slug": "premium-v3",
+      "name": "Cars Premium Plan",
+      "slug": "cars-premium-v3",
       "finalPrice": "999.00",
       "version": 3
     }
@@ -1124,7 +901,7 @@ Get the user's currently active subscription.
 
 ---
 
-### 5. Get Subscription History
+### 8. Get My Subscription History
 
 Get user's subscription history with pagination.
 
@@ -1149,8 +926,8 @@ GET /api/end-user/subscriptions/history?page=1&limit=10
   "data": [
     {
       "id": 15,
-      "planName": "Premium Plan",
-      "planCode": "premium",
+      "planName": "Cars Premium Plan",
+      "planCode": "cars-premium",
       "planVersion": 2,
       "status": "active",
       "startsAt": "2025-01-15T12:00:00.000Z",
@@ -1160,8 +937,8 @@ GET /api/end-user/subscriptions/history?page=1&limit=10
     },
     {
       "id": 10,
-      "planName": "Basic Plan",
-      "planCode": "basic",
+      "planName": "Cars Basic Plan",
+      "planCode": "cars-basic",
       "planVersion": 1,
       "status": "expired",
       "startsAt": "2024-12-15T12:00:00.000Z",
@@ -1181,44 +958,7 @@ GET /api/end-user/subscriptions/history?page=1&limit=10
 
 ---
 
-### 6. Cancel Subscription
-
-Cancel the user's active subscription.
-
-**Endpoint:** `POST /api/end-user/subscriptions/:id/cancel`
-
-**Authentication:** Required
-
-**Request Body:**
-```json
-{
-  "reason": "Found a better alternative"
-}
-```
-
-**Success Response (200):**
-```json
-{
-  "success": true,
-  "message": "Subscription cancelled successfully",
-  "data": {
-    "id": 15,
-    "status": "cancelled",
-    "cancelledAt": "2025-01-20T10:00:00.000Z",
-    "cancellationReason": "Found a better alternative",
-    "autoRenew": false
-  }
-}
-```
-
-**Error Responses:**
-- `400` - Only active subscriptions can be cancelled
-- `403` - Unauthorized (not user's subscription)
-- `404` - Subscription not found
-
----
-
-### 7. Get All My Subscriptions
+### 9. Get All My Subscriptions
 
 Get all my subscriptions with optional status filter and pagination.
 
@@ -1228,12 +968,13 @@ Get all my subscriptions with optional status filter and pagination.
 
 **Query Parameters:**
 - `status` (optional) - Filter by status (`pending`, `active`, `expired`, `cancelled`, `suspended`)
+- `categoryId` (optional) - Filter by category ID
 - `page` (optional, default: 1) - Page number
 - `limit` (optional, default: 10) - Items per page
 
 **Example Request:**
 ```
-GET /api/end-user/subscriptions?status=active
+GET /api/end-user/subscriptions?status=active&categoryId=1
 GET /api/end-user/subscriptions?page=1&limit=5
 ```
 
@@ -1250,39 +991,20 @@ GET /api/end-user/subscriptions?page=1&limit=5
       "status": "active",
       "startsAt": "2025-01-15T12:00:00.000Z",
       "endsAt": "2025-02-14T12:00:00.000Z",
-      "planName": "Premium Plan",
-      "planCode": "premium",
+      "planName": "Cars Premium Plan",
+      "planCode": "cars-premium",
       "planVersion": 2,
       "finalPrice": "899.00",
       "amountPaid": "899.00",
-      "user": {
-        "id": 42,
-        "fullName": "John Doe",
-        "mobile": "9876543210",
-        "email": "john@example.com"
-      },
       "plan": {
         "id": 4,
-        "name": "Premium Plan",
-        "slug": "premium-v2",
-        "planCode": "premium",
-        "version": 2
+        "name": "Cars Premium Plan",
+        "slug": "cars-premium-v2",
+        "planCode": "cars-premium",
+        "version": 2,
+        "categoryId": 1
       },
       "createdAt": "2025-01-15T12:00:00.000Z"
-    },
-    {
-      "id": 10,
-      "userId": 42,
-      "planId": 1,
-      "status": "expired",
-      "startsAt": "2024-12-15T12:00:00.000Z",
-      "endsAt": "2025-01-14T12:00:00.000Z",
-      "planName": "Basic Plan",
-      "planCode": "basic",
-      "planVersion": 1,
-      "finalPrice": "299.00",
-      "amountPaid": "299.00",
-      "createdAt": "2024-12-15T12:00:00.000Z"
     }
   ],
   "pagination": {
@@ -1296,7 +1018,7 @@ GET /api/end-user/subscriptions?page=1&limit=5
 
 ---
 
-### 8. Get My Subscription by ID
+### 10. Get My Subscription by ID
 
 Get detailed information about a specific subscription (must be owned by user).
 
@@ -1319,8 +1041,8 @@ Get detailed information about a specific subscription (must be owned by user).
     "activatedAt": "2025-01-15T12:00:00.000Z",
     "isTrial": false,
     "autoRenew": true,
-    "planName": "Premium Plan",
-    "planCode": "premium",
+    "planName": "Cars Premium Plan",
+    "planCode": "cars-premium",
     "planVersion": 2,
     "basePrice": "1099.00",
     "discountAmount": "200.00",
@@ -1346,9 +1068,9 @@ Get detailed information about a specific subscription (must be owned by user).
     },
     "plan": {
       "id": 4,
-      "name": "Premium Plan",
-      "slug": "premium-v2",
-      "planCode": "premium",
+      "name": "Cars Premium Plan",
+      "slug": "cars-premium-v2",
+      "planCode": "cars-premium",
       "version": 2,
       "finalPrice": "899.00"
     },
@@ -1366,35 +1088,47 @@ Get detailed information about a specific subscription (must be owned by user).
 
 ---
 
-## Data Models
+### 11. Cancel Subscription
 
-### Subscription Plan Model
+Cancel user's active subscription.
 
-```typescript
+**Endpoint:** `POST /api/end-user/subscriptions/:id/cancel`
+
+**Authentication:** Required
+
+**Path Parameters:**
+- `id` (integer, required): Subscription ID
+
+**Request Body:**
+```json
 {
-  id: number,
-  planCode: string,           // e.g., "premium"
-  version: number,            // e.g., 1, 2, 3
-  name: string,
-  slug: string,               // e.g., "premium", "premium-v2"
-  description: string,
-  basePrice: decimal,
-  discountAmount: decimal,
-  finalPrice: decimal,
-  currency: string,           // "INR"
-  billingCycle: enum,         // "daily", "weekly", "monthly", "quarterly", "annual", "one_time"
-  durationDays: number,
-  maxTotalListings: number,
-  maxActiveListings: number,
-  features: json,
-  isActive: boolean,
-  isPublic: boolean,
-  deprecatedAt: timestamp,
-  replacedByPlanId: number,
-  createdAt: timestamp,
-  updatedAt: timestamp
+  "reason": "No longer needed"
 }
 ```
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Subscription cancelled successfully",
+  "data": {
+    "id": 15,
+    "status": "cancelled",
+    "cancelledAt": "2025-01-20T10:00:00.000Z",
+    "cancellationReason": "No longer needed",
+    "autoRenew": false
+  }
+}
+```
+
+**Error Responses:**
+- `400` - Only active subscriptions can be cancelled
+- `403` - Unauthorized (not user's subscription)
+- `404` - Subscription not found
+
+---
+
+## Data Models
 
 ### User Subscription Model
 
@@ -1404,20 +1138,32 @@ Get detailed information about a specific subscription (must be owned by user).
   userId: number,
   planId: number,
   status: enum,               // "pending", "active", "expired", "cancelled", "suspended"
+  startsAt: timestamp,
   endsAt: timestamp,
   activatedAt: timestamp,
+  isTrial: boolean,
+  autoRenew: boolean,
   planName: string,           // Snapshot
   planCode: string,           // Snapshot
   planVersion: number,        // Snapshot
+  basePrice: decimal,         // Snapshot
+  discountAmount: decimal,    // Snapshot
   finalPrice: decimal,        // Snapshot
+  currency: string,           // Snapshot
+  durationDays: number,       // Snapshot
   maxActiveListings: number,  // Snapshot
+  maxFeaturedListings: number, // Snapshot
   features: json,             // Snapshot
-  paymentMethod: string,
+  paymentMethod: string,      // "razorpay", "stripe", "manual", etc.
   transactionId: string,
   amountPaid: decimal,
   cancelledAt: timestamp,
   cancellationReason: string,
-  createdAt: timestamp
+  previousSubscriptionId: number,
+  notes: text,
+  metadata: json,
+  createdAt: timestamp,
+  updatedAt: timestamp
 }
 ```
 
@@ -1435,40 +1181,48 @@ Get detailed information about a specific subscription (must be owned by user).
 | 404 | Not Found (resource doesn't exist) |
 | 500 | Internal Server Error |
 
+### Error Response Format
+```json
+{
+  "success": false,
+  "message": "Error description"
+}
+```
+
+---
+
+## Status Values
+
+### Subscription Status
+- `pending`: Payment pending or awaiting approval
+- `active`: Currently active subscription
+- `expired`: Subscription has expired
+- `cancelled`: User cancelled subscription
+- `suspended`: Admin suspended subscription
+
 ---
 
 ## Notes
 
-### Subscription Plans
+### Category-Based Subscriptions
 
-1. **Auto-Versioning**: When updating a plan, if any of the 20 critical fields are changed, a new version is automatically created.
-
-2. **Auto-Generated Slugs**: 
-   - On **create**: Slug auto-generated from name if not provided
-   - On **update (non-critical)**: Slug remains unchanged (cannot be modified)
-   - On **version creation**: Slug auto-generated as `{planCode}-v{version}` (e.g., `premium-v2`)
-
-3. **Deprecated Plans**: Old plan versions remain active but hidden (`isActive: true`, `isPublic: false`) so existing subscribers can still access their benefits.
-
-4. **Explicit State Management**: Toggle endpoints (status, visibility) require explicit boolean values in the request body.
+1. **Category Support**: Users can have one active subscription per category
+2. **Multiple Active Subscriptions**: Users can have active subscriptions across different categories simultaneously
+3. **Category Filtering**: All endpoints support filtering by categoryId
+4. **Free Plans**: Each category can have a default free plan for users without paid subscriptions
 
 ### User Subscriptions
 
 5. **Immutable Snapshots**: User subscriptions store a complete snapshot of plan benefits at purchase time. Never query the plan table for user benefits.
-
-6. **Single Active Subscription**: Users can only have one active subscription at a time.
-
+6. **Category-Specific Active Subscriptions**: Users can only have one active subscription per category at a time.
 7. **Upgrade Detection**: When fetching active subscription, the API checks if the plan is deprecated and suggests the replacement plan if available.
-
 8. **Manual Assignment**: Super admins can manually assign subscriptions to users without payment (useful for complimentary plans, beta testers, etc.).
-
 9. **Subscription Extension**: Super admins can extend subscription duration without creating a new subscription.
-
 10. **Status Management**: Subscriptions can be in one of five states:
     - `pending` - Awaiting activation
     - `active` - Currently active
     - `expired` - Subscription period ended
     - `cancelled` - User or admin cancelled
     - `suspended` - Temporarily suspended
-
 11. **Access Control**: End users can only view and manage their own subscriptions. Super admins have full access to all subscriptions.
+12. **Manual Payment Flow**: Currently uses manual verification. Will be replaced with automated payment gateway integration.

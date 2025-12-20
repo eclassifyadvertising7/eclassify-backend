@@ -66,7 +66,8 @@ class SubscriptionPlanController {
       const filters = {
         isActive: req.query.isActive === 'true' ? true : req.query.isActive === 'false' ? false : undefined,
         isPublic: req.query.isPublic === 'true' ? true : req.query.isPublic === 'false' ? false : undefined,
-        planCode: req.query.planCode
+        planCode: req.query.planCode,
+        categoryId: req.query.categoryId ? parseInt(req.query.categoryId) : undefined
       };
 
       const result = await subscriptionService.getAllPlans(filters);
