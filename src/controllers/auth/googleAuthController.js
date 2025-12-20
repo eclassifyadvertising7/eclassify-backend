@@ -13,6 +13,19 @@ class GoogleAuthController {
    * @route GET /api/auth/google
    */
   static googleAuth(req, res, next) {
+    // Check if Google OAuth is configured
+    if (!process.env.GOOGLE_CLIENT_ID || 
+        !process.env.GOOGLE_CLIENT_SECRET || 
+        process.env.GOOGLE_CLIENT_ID === 'your-google-client-id' ||
+        process.env.GOOGLE_CLIENT_SECRET === 'your-google-client-secret') {
+      return res.status(503).json({
+        success: false,
+        message: 'Google OAuth is not configured on this server',
+        data: null,
+        timestamp: new Date().toISOString()
+      });
+    }
+
     // Store device info in session for later use
     req.session = req.session || {};
     req.session.deviceInfo = {
@@ -31,15 +44,23 @@ class GoogleAuthController {
    * @route GET /api/auth/google/callback
    */
   static googleCallback(req, res, next) {
+    // Check if Google OAuth is configured
+    if (!process.env.GOOGLE_CLIENT_ID || 
+        !process.env.GOOGLE_CLIENT_SECRET || 
+        process.env.GOOGLE_CLIENT_ID === 'your-google-client-id' ||
+        process.env.GOOGLE_CLIENT_SECRET === 'your-google-client-secret') {
+      return res.redirect(`${process.env.FRONTEND_URL}/auth/error?message=Google OAuth not configured`);
+    }
+
     passport.authenticate('google', { session: false }, async (err, authData) => {
       try {
         if (err) {
           console.error('Google OAuth error:', err);
-          return res.redirect(`${process.env.CORS_ORIGIN}/auth/error?message=Authentication failed`);
+          return res.redirect(`${process.env.FRONTEND_URL}/auth/error?message=Authentication failed`);
         }
 
         if (!authData) {
-          return res.redirect(`${process.env.CORS_ORIGIN}/auth/error?message=Authentication cancelled`);
+          return res.redirect(`${process.env.FRONTEND_URL}/auth/error?message=Authentication cancelled`);
         }
 
         const { user, isNewUser, socialAccount, linkedExisting } = authData;
@@ -164,11 +185,11 @@ class GoogleAuthController {
         }));
 
         // Redirect to frontend with success data
-        return res.redirect(`${process.env.CORS_ORIGIN}/auth/callback?data=${encodedData}`);
+        return res.redirect(`${process.env.FRONTEND_URL}/auth/callback?data=${encodedData}`);
 
       } catch (error) {
         console.error('Google callback error:', error);
-        return res.redirect(`${process.env.CORS_ORIGIN}/auth/error?message=Authentication processing failed`);
+        return res.redirect(`${process.env.FRONTEND_URL}/auth/error?message=Authentication processing failed`);
       }
     })(req, res, next);
   }

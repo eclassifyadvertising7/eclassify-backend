@@ -16,7 +16,7 @@ import logger from '#config/logger.js';
 export const initializeSocket = (server) => {
   const io = new Server(server, {
     cors: {
-      origin: process.env.CORS_ORIGIN || '*',
+      origin: [process.env.CORS_ORIGIN, process.env.FRONTEND_URL].filter(Boolean) || '*',
       methods: ['GET', 'POST'],
       credentials: true
     },
