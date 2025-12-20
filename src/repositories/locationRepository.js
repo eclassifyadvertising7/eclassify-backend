@@ -59,7 +59,30 @@ class LocationRepository {
         'latitude',
         'longitude'
       ],
-      order: [['display_order', 'ASC'], ['name', 'ASC']]
+      order: [['displayOrder', 'ASC'], ['name', 'ASC']]
+    });
+  }
+
+  /**
+   * Get all cities irrespective of state
+   * @returns {Promise<Array>}
+   */
+  async getAllCities() {
+    return await City.findAll({
+      where: {
+        isActive: true,
+        isDeleted: false
+      },
+      attributes: [
+        'id',
+        'name',
+        'district',
+        'stateName',
+        'pincode',
+        'latitude',
+        'longitude'
+      ],
+      order: [['stateName', 'ASC'], ['displayOrder', 'ASC'], ['name', 'ASC']]
     });
   }
 }

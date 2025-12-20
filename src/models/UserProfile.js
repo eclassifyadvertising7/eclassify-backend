@@ -121,6 +121,26 @@ export default (sequelize) => {
       type: DataTypes.STRING(50),
       allowNull: true,
       field: 'profile_photo_mime_type'
+    },
+    preferredStateId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      field: 'preferred_state_id'
+    },
+    preferredCityId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      field: 'preferred_city_id'
+    },
+    preferredLatitude: {
+      type: DataTypes.DECIMAL(10, 8),
+      allowNull: true,
+      field: 'preferred_latitude'
+    },
+    preferredLongitude: {
+      type: DataTypes.DECIMAL(11, 8),
+      allowNull: true,
+      field: 'preferred_longitude'
     }
   }, {
     tableName: 'user_profiles',

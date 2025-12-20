@@ -2,6 +2,11 @@
 
 Complete API documentation for listing management endpoints.
 
+## Important Notes
+
+- **Favorite Counts**: All listing responses automatically include a `favoriteCount` field showing the total number of users who have favorited that listing.
+- **Authentication**: End-user endpoints require user authentication. Panel endpoints require admin/staff roles.
+
 ---
 
 ## Quick Reference

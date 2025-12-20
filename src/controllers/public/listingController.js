@@ -5,7 +5,9 @@
 
 import listingService from '#services/listingService.js';
 import categoryRepository from '#repositories/categoryRepository.js';
-import { successResponse, errorResponse } from '#utils/responseFormatter.js';
+import { successResponse, errorResponse, validationErrorResponse } from '#utils/responseFormatter.js';
+import LocationHelper from '#utils/locationHelper.js';
+import activityLogMiddleware from '#middleware/activityLogMiddleware.js';
 
 class ListingController {
   /**
@@ -253,6 +255,241 @@ class ListingController {
       return successResponse(res, result.data, result.message);
     } catch (error) {
       return errorResponse(res, error.message, 404);
+    }
+  }
+
+  /**
+   * Search listings with advanced filtering and ranking
+   * GET /api/public/listings/search
+   */
+  static async searchListings(req, res) {
+    try {
+      const {
+        query,
+        categoryId,
+        priceMin,
+        priceMax,
+        stateId,
+        cityId,
+        locality,
+        postedByType,
+        featuredOnly,
+        sortBy = 'relevance',
+        page = 1,
+        limit = 20,
+        // Car-specific filters
+        brandId,
+        modelId,
+        variantId,
+        year,
+        fuelType,
+        transmission,
+        condition,
+        minMileage,
+        maxMileage,
+        // Property-specific filters
+        propertyType,
+        bedrooms,
+        bathrooms,
+        minArea,
+        maxArea
+      } = req.query;
+
+      // Validate pagination
+      const pageNum = parseInt(page);
+      const limitNum = Math.min(parseInt(limit), 50); // Max 50 items per page
+
+      if (pageNum < 1 || limitNum < 1) {
+        return validationErrorResponse(res, [{ field: 'pagination', message: 'Invalid pagination parameters' }]);
+      }
+
+      // Build search parameters
+      const searchParams = {
+        query: query?.trim() || null,
+        categoryId: categoryId ? parseInt(categoryId) : null,
+        priceMin: priceMin ? parseFloat(priceMin) : null,
+        priceMax: priceMax ? parseFloat(priceMax) : null,
+        stateId: stateId ? parseInt(stateId) : null,
+        cityId: cityId ? parseInt(cityId) : null,
+        locality: locality?.trim() || null,
+        postedByType,
+        featuredOnly: featuredOnly === 'true',
+        sortBy,
+        filters: {
+          // Car filters
+          brandId: brandId ? parseInt(brandId) : null,
+          modelId: modelId ? parseInt(modelId) : null,
+          variantId: variantId ? parseInt(variantId) : null,
+          year: year ? parseInt(year) : null,
+          fuelType,
+          transmission,
+          condition,
+          minMileage: minMileage ? parseInt(minMileage) : null,
+          maxMileage: maxMileage ? parseInt(maxMileage) : null,
+          // Property filters
+          propertyType,
+          bedrooms: bedrooms ? parseInt(bedrooms) : null,
+          bathrooms: bathrooms ? parseInt(bathrooms) : null,
+          minArea: minArea ? parseInt(minArea) : null,
+          maxArea: maxArea ? parseInt(maxArea) : null
+        }
+      };
+
+      // Build user context
+      const userContext = {
+        userId: req.user?.id || null,
+        sessionId: req.activityData?.sessionId || 'anonymous',
+        userLocation: LocationHelper.parseUserLocation(req),
+        ipAddress: req.activityData?.ipAddress,
+        userAgent: req.activityData?.userAgent,
+        user: req.user
+      };
+
+      const pagination = { page: pageNum, limit: limitNum };
+
+      const result = await listingService.searchListings(searchParams, userContext, pagination);
+
+      if (result.success) {
+        return successResponse(res, result.data, result.message);
+      } else {
+        return errorResponse(res, result.message, 500);
+      }
+    } catch (error) {
+      console.error('Error in searchListings:', error);
+      return errorResponse(res, 'Failed to search listings', 500);
+    }
+  }
+
+  /**
+   * Get search suggestions for autocomplete
+   * GET /api/public/listings/search/suggestions
+   */
+  static async getSearchSuggestions(req, res) {
+    try {
+      const { query, limit = 5 } = req.query;
+
+      if (!query || query.length < 2) {
+        return successResponse(res, { suggestions: [] }, 'No suggestions for short query');
+      }
+
+      const userLocation = LocationHelper.parseUserLocation(req);
+      const limitNum = Math.min(parseInt(limit), 10);
+
+      const result = await listingService.getSearchSuggestions(query, userLocation, limitNum);
+
+      if (result.success) {
+        return successResponse(res, result.data, result.message);
+      } else {
+        return errorResponse(res, result.message, 500);
+      }
+    } catch (error) {
+      console.error('Error in getSearchSuggestions:', error);
+      return errorResponse(res, 'Failed to get search suggestions', 500);
+    }
+  }
+
+  /**
+   * Get available search filters for category
+   * GET /api/public/listings/search/filters/:categoryId?
+   */
+  static async getSearchFilters(req, res) {
+    try {
+      const { categoryId } = req.params;
+      const userLocation = LocationHelper.parseUserLocation(req);
+
+      const result = await listingService.getSearchFilters(
+        categoryId ? parseInt(categoryId) : null,
+        userLocation
+      );
+
+      if (result.success) {
+        return successResponse(res, result.data, result.message);
+      } else {
+        return errorResponse(res, result.message, 500);
+      }
+    } catch (error) {
+      console.error('Error in getSearchFilters:', error);
+      return errorResponse(res, 'Failed to get search filters', 500);
+    }
+  }
+
+  /**
+   * Get featured listings with location-based ranking
+   * GET /api/public/listings/featured
+   */
+  static async getFeatured(req, res) {
+    try {
+      const {
+        categoryId,
+        stateId,
+        cityId,
+        limit = 10
+      } = req.query;
+
+      // Validate category if provided
+      if (categoryId) {
+        const categoryIdNum = parseInt(categoryId);
+        if (isNaN(categoryIdNum)) {
+          return errorResponse(res, 'Invalid category ID', 400);
+        }
+        
+        const category = await categoryRepository.getById(categoryIdNum);
+        if (!category) {
+          return errorResponse(res, 'Category not found', 404);
+        }
+        
+        if (!category.isActive) {
+          return errorResponse(res, 'Category is not active', 400);
+        }
+      }
+
+      const filters = {
+        categoryId: categoryId ? parseInt(categoryId) : null,
+        stateId: stateId ? parseInt(stateId) : null,
+        cityId: cityId ? parseInt(cityId) : null
+      };
+
+      const userLocation = LocationHelper.parseUserLocation(req);
+      const pagination = { page: 1, limit: Math.min(parseInt(limit), 20) };
+
+      const result = await listingService.getFeaturedListings(filters, userLocation, pagination);
+
+      if (result.success) {
+        return successResponse(res, result.data, result.message);
+      } else {
+        return errorResponse(res, result.message, 500);
+      }
+    } catch (error) {
+      console.error('Error in getFeatured:', error);
+      return errorResponse(res, 'Failed to get featured listings', 500);
+    }
+  }
+
+  /**
+   * Get similar listings
+   * GET /api/public/listings/:id/similar
+   */
+  static async getSimilarListings(req, res) {
+    try {
+      const { id } = req.params;
+      const { limit = 5 } = req.query;
+
+      if (!id || isNaN(id)) {
+        return validationErrorResponse(res, [{ field: 'id', message: 'Valid listing ID is required' }]);
+      }
+
+      const limitNum = Math.min(parseInt(limit), 10);
+
+      const result = await listingService.getSimilarListings(parseInt(id), limitNum);
+
+      if (result.success) {
+        return successResponse(res, result.data, result.message);
+      } else {
+        return errorResponse(res, result.message, 404);
+      }
+    } catch (error) {
+      console.error('Error in getSimilarListings:', error);
+      return errorResponse(res, 'Failed to get similar listings', 500);
     }
   }
 

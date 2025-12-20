@@ -39,7 +39,6 @@ export async function up(queryInterface, Sequelize) {
       type: Sequelize.STRING(250),
       allowNull: true,
       unique: true,
-      comment: 'Auto-generated URL-friendly identifier'
     },
     description: {
       type: Sequelize.TEXT,
@@ -112,7 +111,6 @@ export async function up(queryInterface, Sequelize) {
     expires_at: {
       type: Sequelize.DATE,
       allowNull: true,
-      comment: 'Auto-set to 30 days from approval'
     },
     published_at: {
       type: Sequelize.DATE,
@@ -160,17 +158,35 @@ export async function up(queryInterface, Sequelize) {
       allowNull: false,
       defaultValue: 0
     },
+    total_favorites: {
+      type: Sequelize.INTEGER,
+      allowNull: false,
+      defaultValue: 0
+    },
     is_auto_approved: {
       type: Sequelize.BOOLEAN,
       allowNull: false,
       defaultValue: false,
-      comment: 'True if listing was auto-approved based on user settings'
     },
     posted_by_type: {
       type: Sequelize.ENUM('owner', 'agent', 'dealer'),
       allowNull: false,
       defaultValue: 'owner',
-      comment: 'Who posted the listing: owner (self), agent (broker), or dealer (business)'
+    },
+    user_subscription_id: {
+      type: Sequelize.BIGINT,
+      allowNull: true,
+      references: {
+        model: 'user_subscriptions',
+        key: 'id'
+      },
+      onUpdate: 'CASCADE',
+      onDelete: 'SET NULL',
+    },
+    is_paid_listing: {
+      type: Sequelize.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
     },
     created_by: {
       type: Sequelize.BIGINT,
@@ -201,6 +217,25 @@ export async function up(queryInterface, Sequelize) {
       type: Sequelize.DATE,
       allowNull: true
     },
+    keywords: {
+      type: Sequelize.TEXT,
+      allowNull: true,
+    },
+    republish_count: {
+      type: Sequelize.INTEGER,
+      allowNull: false,
+      defaultValue: 0, 
+    },
+    republish_history: {
+      type: Sequelize.JSONB,
+      allowNull: true,
+    },
+    republished_at: {
+      type: Sequelize.DATE,
+      allowNull: false,
+      defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+      comment: 'Last republish timestamp, defaults to created_at'
+    },
     created_at: {
       type: Sequelize.DATE,
       allowNull: false,
@@ -222,35 +257,33 @@ export async function up(queryInterface, Sequelize) {
     name: 'idx_listings_category_id'
   });
 
-  await queryInterface.addIndex('listings', ['status'], {
-    name: 'idx_listings_status'
-  });
-
   await queryInterface.addIndex('listings', ['state_id', 'city_id'], {
     name: 'idx_listings_state_city'
   });
 
-  await queryInterface.addIndex('listings', ['slug'], {
-    name: 'idx_listings_slug'
+  // Add indexes for subscription tracking and quota calculations
+  await queryInterface.addIndex('listings', ['user_id', 'category_id', 'status', 'created_at'], {
+    name: 'idx_listings_quota_check',
   });
 
-  await queryInterface.addIndex('listings', ['is_featured', 'featured_until'], {
-    name: 'idx_listings_featured'
+  await queryInterface.addIndex('listings', ['user_subscription_id'], {
+    name: 'idx_listings_subscription_id'
   });
 
-  await queryInterface.addIndex('listings', ['expires_at'], {
-    name: 'idx_listings_expires_at'
-  });
-
-  await queryInterface.addIndex('listings', ['deleted_at'], {
-    name: 'idx_listings_deleted_at'
-  });
-
-  await queryInterface.addIndex('listings', ['is_auto_approved'], {
-    name: 'idx_listings_auto_approved',
+  await queryInterface.addIndex('listings', ['is_paid_listing'], {
+    name: 'idx_listings_paid_status',
     where: {
-      is_auto_approved: true
+      is_paid_listing: true
     }
+  });
+
+  // Add index for republish tracking
+  await queryInterface.addIndex('listings', ['republished_at'], {
+    name: 'idx_listings_republished_at'
+  });
+
+  await queryInterface.addIndex('listings', ['republish_count'], {
+    name: 'idx_listings_republish_count'
   });
 }
 

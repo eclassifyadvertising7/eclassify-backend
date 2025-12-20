@@ -32,40 +32,94 @@ class OtpController {
   }
 
   /**
-   * Verify OTP and complete signup/login
+   * Verify OTP - only verification, no user creation
    * @route POST /api/auth/otp/verify
    */
   static async verifyOtp(req, res) {
     try {
-      const { type, mobile, otp, fullName, countryCode } = req.body;
+      const { type, mobile, email, otp } = req.body;
 
-      // Step 1: Verify OTP
-      await otpService.verifyOtp({ mobile, otp, type });
+      // Verify OTP
+      await otpService.verifyOtp({ mobile, email, otp, type });
 
-      // Step 2: Handle authentication based on type
+      const identifier = mobile || email;
+      const contactType = mobile ? 'Mobile number' : 'Email address';
+      
+      return res.status(200).json({
+        success: true,
+        message: `${contactType} verified successfully`,
+        data: {
+          ...(mobile && { mobile }),
+          ...(email && { email }),
+          type,
+          verified: true
+        },
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+        data: null,
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
+
+  /**
+   * Complete signup after OTP verification
+   * @route POST /api/auth/otp/signup
+   */
+  static async completeSignup(req, res) {
+    try {
+      const { mobile, email, fullName, countryCode } = req.body;
+
+      // Device info for session tracking
       const deviceInfo = {
         deviceName: req.body.device_name,
         userAgent: req.headers['user-agent'],
         ipAddressV4: req.ip || req.connection.remoteAddress
       };
 
-      let result;
-      if (type === 'signup') {
-        result = await authService.signupWithOtp(
-          { mobile, fullName, countryCode },
-          deviceInfo
-        );
-      } else if (type === 'login') {
-        result = await authService.loginWithOtp(
-          { mobile },
-          deviceInfo
-        );
-      } else {
-        throw new Error('Invalid type. Must be signup or login');
-      }
+      // Call auth service to create user (it will verify OTP status)
+      const result = await authService.signupWithOtp(
+        { mobile, email, fullName, countryCode },
+        deviceInfo
+      );
 
-      const statusCode = type === 'signup' ? 201 : 200;
-      return res.status(statusCode).json(result);
+      return res.status(201).json(result);
+    } catch (error) {
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+        data: null,
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
+
+  /**
+   * Complete login after OTP verification
+   * @route POST /api/auth/otp/login
+   */
+  static async completeLogin(req, res) {
+    try {
+      const { mobile, email } = req.body;
+
+      // Device info for session tracking
+      const deviceInfo = {
+        deviceName: req.body.device_name,
+        userAgent: req.headers['user-agent'],
+        ipAddressV4: req.ip || req.connection.remoteAddress
+      };
+
+      // Call auth service to login user (it will verify OTP status)
+      const result = await authService.loginWithOtp(
+        { mobile, email },
+        deviceInfo
+      );
+
+      return res.status(200).json(result);
     } catch (error) {
       return res.status(400).json({
         success: false,

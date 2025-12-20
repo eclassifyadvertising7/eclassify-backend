@@ -10,12 +10,17 @@ export async function up(queryInterface, Sequelize) {
       },
       mobile: {
         type: Sequelize.STRING(15),
-        allowNull: false,
+        allowNull: true,
         field: 'mobile'
+      },
+      email: {
+        type: Sequelize.STRING(255),
+        allowNull: true,
+        field: 'email'
       },
       country_code: {
         type: Sequelize.STRING(5),
-        allowNull: false,
+        allowNull: true,
         defaultValue: '+91',
         field: 'country_code'
       },
@@ -93,6 +98,10 @@ export async function up(queryInterface, Sequelize) {
     // Add indexes for faster lookups
     await queryInterface.addIndex('otp_verifications', ['mobile', 'type', 'is_verified'], {
       name: 'idx_otp_mobile_type_verified'
+    });
+
+    await queryInterface.addIndex('otp_verifications', ['email', 'type', 'is_verified'], {
+      name: 'idx_otp_email_type_verified'
     });
 
     await queryInterface.addIndex('otp_verifications', ['expires_at'], {

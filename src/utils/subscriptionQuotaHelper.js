@@ -31,7 +31,7 @@ export const getUserActiveSubscription = async (userId) => {
     where: {
       userId,
       status: 'active',
-      startsAt: { [Op.lte]: new Date() },
+      activatedAt: { [Op.lte]: new Date() },
       endsAt: { [Op.gte]: new Date() }
     },
     order: [['created_at', 'DESC']]
@@ -179,7 +179,7 @@ export const getUserQuotaUsage = async (userId) => {
         planName: subscription.planName,
         planCode: subscription.planCode,
         status: subscription.status,
-        startsAt: subscription.startsAt,
+        activatedAt: subscription.activatedAt,
         endsAt: subscription.endsAt
       },
       quota: null
@@ -196,7 +196,7 @@ export const getUserQuotaUsage = async (userId) => {
       planName: subscription.planName,
       planCode: subscription.planCode,
       status: subscription.status,
-      startsAt: subscription.startsAt,
+      activatedAt: subscription.activatedAt,
       endsAt: subscription.endsAt
     },
     quota: {

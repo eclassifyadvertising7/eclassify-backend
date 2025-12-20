@@ -5,7 +5,7 @@ Scalable classified advertising platform (OLX-style) for cars and properties wit
 ## Tech Stack
 
 - **Node.js (v18+)** + Express.js + PostgreSQL + Sequelize ORM
-- **Auth**: JWT (caches `userId`, `roleId`, `roleSlug`) + Passport.js (Google OAuth)
+- **Auth**: JWT (caches `userId`, `roleId`, `roleSlug`) + Passport.js + Google OAuth
 - **Storage**: Local/Cloudinary (storage-agnostic) with Sharp image processing
 - **Real-time**: Socket.io
 - **Email**: Nodemailer | **Logging**: Winston | **Scheduling**: node-cron
@@ -139,7 +139,45 @@ attributes: ['id', 'mediaUrl']
 
 Apply to: `ListingMedia`, `Category`, `UserProfile`
 
+## Google OAuth Setup
+
+### 1. Google Cloud Console Configuration
+
+1. Create project in [Google Cloud Console](https://console.cloud.google.com/)
+2. Enable Google+ API (or Google People API)
+3. Create OAuth 2.0 credentials:
+   - **Application type**: Web application
+   - **Authorized redirect URIs**: `http://localhost:5000/api/auth/google/callback`
+   - **Authorized JavaScript origins**: `http://localhost:3000`
+
+### 2. Environment Variables
+
+```env
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+GOOGLE_CALLBACK_URL=http://localhost:5000/api/auth/google/callback
+```
+
+### 3. OAuth Flow
+
+```
+1. GET /api/auth/google → Redirect to Google
+2. User authorizes → Google redirects to callback
+3. GET /api/auth/google/callback → Process auth, redirect to frontend
+4. Frontend receives tokens and user data
+5. POST /api/auth/google/complete-profile → Add mobile (optional)
+```
+
+### 4. Test Configuration
+
+```bash
+node test-google-oauth.js
+```
+
+**Frontend Integration**: See `API-Docs/google-oauth.md` for complete implementation guide.
+
 ## Documentation
 
 - **API Docs**: `API-Docs/` folder
 - **Database Schema**: `DATABASE-SCHEMA.md`
+- **Google OAuth**: `API-Docs/google-oauth.md`

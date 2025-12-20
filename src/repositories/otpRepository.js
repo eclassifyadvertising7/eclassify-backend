@@ -16,21 +16,31 @@ class OtpRepository {
   }
 
   /**
-   * Find active OTP by mobile and type
-   * @param {string} mobile - Mobile number
+   * Find active OTP by identifier (mobile or email) and type
+   * @param {string} identifier - Mobile number or email address
    * @param {string} type - OTP type (signup/login/verification)
    * @returns {Promise<Object|null>} OTP record or null
    */
-  async findActiveOtp(mobile, type) {
+  async findActiveOtp(identifier, type) {
+    // Determine if identifier is email or mobile
+    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier);
+    
+    const whereClause = {
+      type,
+      isVerified: false,
+      expiresAt: {
+        [Op.gt]: new Date()
+      }
+    };
+
+    if (isEmail) {
+      whereClause.email = identifier;
+    } else {
+      whereClause.mobile = identifier;
+    }
+
     return await db.OtpVerification.findOne({
-      where: {
-        mobile,
-        type,
-        isVerified: false,
-        expiresAt: {
-          [Op.gt]: new Date()
-        }
-      },
+      where: whereClause,
       order: [['created_at', 'DESC']]
     });
   }
@@ -64,40 +74,88 @@ class OtpRepository {
   }
 
   /**
-   * Invalidate all previous OTPs for mobile and type
-   * @param {string} mobile - Mobile number
+   * Invalidate all previous OTPs for identifier (mobile or email) and type
+   * @param {string} identifier - Mobile number or email address
    * @param {string} type - OTP type
    * @returns {Promise<void>}
    */
-  async invalidatePreviousOtps(mobile, type) {
+  async invalidatePreviousOtps(identifier, type) {
+    // Determine if identifier is email or mobile
+    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier);
+    
+    const whereClause = {
+      type,
+      isVerified: false
+    };
+
+    if (isEmail) {
+      whereClause.email = identifier;
+    } else {
+      whereClause.mobile = identifier;
+    }
+
     await db.OtpVerification.update(
       { isVerified: true },
-      {
-        where: {
-          mobile,
-          type,
-          isVerified: false
-        }
-      }
+      { where: whereClause }
     );
   }
 
 
 
   /**
-   * Count recent OTPs by mobile number (for rate limiting)
-   * @param {string} mobile - Mobile number
+   * Count recent OTPs by identifier (mobile or email) for rate limiting
+   * @param {string} identifier - Mobile number or email address
    * @param {Date} since - Count OTPs since this time
    * @returns {Promise<number>} Count of OTPs
    */
-  async countRecentOtpsByMobile(mobile, since) {
-    return await db.OtpVerification.count({
-      where: {
-        mobile,
-        created_at: {
-          [Op.gte]: since
-        }
+  async countRecentOtpsByIdentifier(identifier, since) {
+    // Determine if identifier is email or mobile
+    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier);
+    
+    const whereClause = {
+      created_at: {
+        [Op.gte]: since
       }
+    };
+
+    if (isEmail) {
+      whereClause.email = identifier;
+    } else {
+      whereClause.mobile = identifier;
+    }
+
+    return await db.OtpVerification.count({
+      where: whereClause
+    });
+  }
+
+  /**
+   * Check if identifier (mobile or email) has been verified for specific type
+   * @param {string} identifier - Mobile number or email address
+   * @param {string} type - OTP type (signup/login/verification)
+   * @returns {Promise<Object|null>} Verified OTP record or null
+   */
+  async findVerifiedOtp(identifier, type) {
+    // Determine if identifier is email or mobile
+    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier);
+    
+    const whereClause = {
+      type,
+      isVerified: true,
+      verifiedAt: {
+        [Op.ne]: null
+      }
+    };
+
+    if (isEmail) {
+      whereClause.email = identifier;
+    } else {
+      whereClause.mobile = identifier;
+    }
+
+    return await db.OtpVerification.findOne({
+      where: whereClause,
+      order: [['verified_at', 'DESC']]
     });
   }
 

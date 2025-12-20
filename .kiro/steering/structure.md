@@ -654,13 +654,19 @@ Keep it concise - table name, columns (with types), relationships, and hooks onl
 ## Error Handling
 - All error codes and messages
 
-## Frontend Integration
-- React/Vue code examples
-- Common use cases
-
 ## Notes
 - Important considerations
 ```
+
+**🚨 CRITICAL: DO NOT include frontend integration code in API documentation.**
+- **NO React/Vue/JavaScript examples**
+- **NO sample frontend implementations**
+- **NO client-side code snippets**
+- **NO HTML/CSS examples**
+- **NO frontend library usage examples**
+- **Focus PURELY on API endpoints, parameters, and responses**
+
+**This is a STRICT rule - API documentation must be backend-focused only.**
 
 **Update API documentation whenever:**
 - Service or repository code changes affect request/response

@@ -2,6 +2,8 @@ import crypto from 'crypto';
 import bcrypt from 'bcrypt';
 import authRepository from '#repositories/authRepository.js';
 import subscriptionRepository from '#repositories/subscriptionRepository.js';
+import otpRepository from '#repositories/otpRepository.js';
+import emailService from '#services/emailService.js';
 import { generateTokens, verifyRefreshToken } from '#utils/jwtHelper.js';
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '#utils/constants/messages.js';
 import db from '#models/index.js';
@@ -12,12 +14,17 @@ import db from '#models/index.js';
  */
 class AuthService {
   /**
-   * Generate random 10-digit password
+   * Generate random 8-digit alphanumeric password
    * @private
    * @returns {string} Random password
    */
   _generateRandomPassword() {
-    return crypto.randomBytes(5).toString('hex'); // 10 characters
+    const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+    let password = '';
+    for (let i = 0; i < 8; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return password;
   }
 
   /**
@@ -31,7 +38,7 @@ class AuthService {
         const freePlan = await subscriptionRepository.findPlanBySlug('free');
         
         if (freePlan) {
-          const startsAt = new Date();
+          const activatedAt = new Date();
           const endsAt = new Date();
           // Use plan's duration days from database
           const durationDays = freePlan.durationDays || 30;
@@ -44,7 +51,7 @@ class AuthService {
             planCode: freePlan.planCode,
             planVersion: freePlan.version,
             status: 'active',
-            startsAt,
+            activatedAt,
             endsAt,
             basePrice: 0,
             finalPrice: 0,
@@ -174,7 +181,8 @@ class AuthService {
           profile_image: userWithRole.profilePhoto,
           last_login_at: null,
           isPhoneVerified: userWithRole.isPhoneVerified,
-          isEmailVerified: userWithRole.isEmailVerified
+          isEmailVerified: userWithRole.isEmailVerified,
+          is_password_reset: userWithRole.isPasswordReset
         },
         tokens
       },
@@ -291,6 +299,7 @@ class AuthService {
         status: user.status,
         isPhoneVerified: user.isPhoneVerified,
         isEmailVerified: user.isEmailVerified,
+        is_password_reset: user.isPasswordReset,
         subscriptionType: user.subscriptionType,
         subscriptionExpiresAt: user.subscriptionExpiresAt,
         last_login_at: user.lastLoginAt,
@@ -310,7 +319,7 @@ class AuthService {
    * @returns {Promise<Object>} Service response with user data and tokens
    */
   async signupWithOtp(signupData, deviceInfo = {}) {
-    const { mobile, fullName, countryCode = '+91' } = signupData;
+    const { mobile, email, fullName, countryCode = '+91' } = signupData;
 
     // Validate required fields
     if (!fullName || fullName.trim().length < 2) {
@@ -321,10 +330,28 @@ class AuthService {
       throw new Error(ERROR_MESSAGES.INVALID_PHONE_FORMAT);
     }
 
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw new Error('Valid email address is required');
+    }
+
+    // Check OTP verification status - either mobile OR email must be verified
+    const mobileVerified = await otpRepository.findVerifiedOtp(mobile, 'signup');
+    const emailVerified = await otpRepository.findVerifiedOtp(email, 'signup');
+
+    if (!mobileVerified && !emailVerified) {
+      throw new Error('Either mobile number or email must be verified via OTP before signup');
+    }
+
     // Check if mobile already exists
     const existingUser = await authRepository.findByMobile(mobile);
     if (existingUser) {
       throw new Error('Mobile number already registered');
+    }
+
+    // Check if email already exists
+    const existingEmailUser = await authRepository.findByEmail(email);
+    if (existingEmailUser) {
+      throw new Error('Email address already registered');
     }
 
     // Get default role
@@ -341,11 +368,14 @@ class AuthService {
     const user = await authRepository.create({
       fullName: fullName.trim(),
       mobile,
+      email,
       countryCode,
       passwordHash,
       roleId: defaultRole.id,
       isPhoneVerified: true,
-      phoneVerifiedAt: new Date()
+      phoneVerifiedAt: new Date(),
+      isEmailVerified: true,
+      emailVerifiedAt: new Date()
     });
 
     // Fetch user with role
@@ -353,6 +383,18 @@ class AuthService {
 
     // Assign free subscription asynchronously
     this._assignFreeSubscription(userWithRole.id);
+
+    // Send password email asynchronously (if email is available)
+    if (email) {
+      setImmediate(async () => {
+        try {
+          await emailService.sendPasswordEmail(email, fullName, autoPassword);
+          console.log(`Password email sent to ${email}`);
+        } catch (error) {
+          console.error('Failed to send password email:', error.message);
+        }
+      });
+    }
 
     // Generate JWT tokens
     const tokens = generateTokens({
@@ -387,7 +429,8 @@ class AuthService {
           profile_image: userWithRole.profilePhoto,
           last_login_at: null,
           isPhoneVerified: userWithRole.isPhoneVerified,
-          isEmailVerified: userWithRole.isEmailVerified
+          isEmailVerified: userWithRole.isEmailVerified,
+          is_password_reset: userWithRole.isPasswordReset
         },
         tokens,
         authMethod: 'otp'
@@ -404,11 +447,28 @@ class AuthService {
    * @returns {Promise<Object>} Service response with user data and tokens
    */
   async loginWithOtp(loginData, deviceInfo = {}) {
-    const { mobile } = loginData;
+    const { mobile, email } = loginData;
 
-    // Validate required fields
-    if (!mobile) {
-      throw new Error(ERROR_MESSAGES.MISSING_REQUIRED_FIELDS);
+    // Validate required fields - at least one identifier is required
+    if (!mobile && !email) {
+      throw new Error('Either mobile number or email address is required');
+    }
+
+    if (mobile && !/^\d{10}$/.test(mobile)) {
+      throw new Error(ERROR_MESSAGES.INVALID_PHONE_FORMAT);
+    }
+
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw new Error('Valid email address is required');
+    }
+
+    // Check OTP verification status - either mobile OR email must be verified
+    const identifier = mobile || email;
+    const verifiedOtp = await otpRepository.findVerifiedOtp(identifier, 'login');
+
+    if (!verifiedOtp) {
+      const contactType = mobile ? 'Mobile number' : 'Email address';
+      throw new Error(`${contactType} must be verified via OTP before login`);
     }
 
     // Find user by mobile
@@ -426,19 +486,21 @@ class AuthService {
       throw new Error('Account is inactive');
     }
 
-    // Update phone verification status if not verified
+    // Update verification status based on OTP channel
+    const updateData = {};
     if (!user.isPhoneVerified) {
-      await db.User.update(
-        {
-          isPhoneVerified: true,
-          phoneVerifiedAt: new Date()
-        },
-        {
-          where: { id: user.id }
-        }
-      );
-      user.isPhoneVerified = true;
-      user.phoneVerifiedAt = new Date();
+      updateData.isPhoneVerified = true;
+      updateData.phoneVerifiedAt = new Date();
+    }
+    if (!user.isEmailVerified) {
+      updateData.isEmailVerified = true;
+      updateData.emailVerifiedAt = new Date();
+    }
+
+    if (Object.keys(updateData).length > 0) {
+      await db.User.update(updateData, { where: { id: user.id } });
+      // Update local user object
+      Object.assign(user, updateData);
     }
 
     // Update last login
@@ -477,7 +539,8 @@ class AuthService {
           profile_image: user.profilePhoto,
           last_login_at: new Date().toISOString(),
           isPhoneVerified: user.isPhoneVerified,
-          isEmailVerified: user.isEmailVerified
+          isEmailVerified: user.isEmailVerified,
+          is_password_reset: user.isPasswordReset
         },
         tokens,
         authMethod: 'otp'
@@ -570,6 +633,52 @@ class AuthService {
       data: null,
       timestamp: new Date().toISOString()
     };
+  }
+
+  /**
+   * Find user by mobile number
+   * @param {string} mobile - Mobile number
+   * @returns {Promise<Object|null>} User object or null
+   */
+  async findByMobile(mobile) {
+    return await authRepository.findByMobile(mobile);
+  }
+
+  /**
+   * Create session record
+   * @param {Object} sessionData - Session data
+   * @returns {Promise<Object>} Created session
+   */
+  async createSession(sessionData) {
+    return await authRepository.createSession(sessionData);
+  }
+
+  /**
+   * Update user's last login timestamp
+   * @param {number} userId - User ID
+   * @returns {Promise<void>}
+   */
+  async updateLastLogin(userId) {
+    return await authRepository.updateLastLogin(userId);
+  }
+
+  /**
+   * Update user mobile number
+   * @param {number} userId - User ID
+   * @param {string} mobile - Mobile number
+   * @param {string} countryCode - Country code
+   * @returns {Promise<void>}
+   */
+  async updateUserMobile(userId, mobile, countryCode = '+91') {
+    await db.User.update(
+      { 
+        mobile, 
+        countryCode,
+        isPhoneVerified: false,
+        phoneVerifiedAt: null
+      },
+      { where: { id: userId } }
+    );
   }
 }
 

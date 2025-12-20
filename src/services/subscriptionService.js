@@ -1,9 +1,10 @@
-import subscriptionRepository from '#repositories/subscriptionRepository.js';
-import invoiceRepository from '#repositories/invoiceRepository.js';
-import transactionRepository from '#repositories/transactionRepository.js';
-import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '#utils/constants/messages.js';
-import { customSlugify } from '#utils/customSlugify.js';
-import db from '#models/index.js';
+import subscriptionRepository from "#repositories/subscriptionRepository.js";
+import invoiceRepository from "#repositories/invoiceRepository.js";
+import transactionRepository from "#repositories/transactionRepository.js";
+import quotaService from "#services/quotaService.js";
+import { SUCCESS_MESSAGES, ERROR_MESSAGES } from "#utils/constants/messages.js";
+import { customSlugify } from "#utils/customSlugify.js";
+import db from "#models/index.js";
 
 const { sequelize } = db;
 
@@ -15,14 +16,29 @@ class SubscriptionService {
   // Critical fields that require new version when changed
   CRITICAL_FIELDS = [
     // Pricing (5 fields)
-    'basePrice', 'discountAmount', 'finalPrice', 'billingCycle', 'durationDays',
+    "basePrice",
+    "discountAmount",
+    "finalPrice",
+    "billingCycle",
+    "durationDays",
     // Listing Quotas (4 fields)
-    'maxTotalListings', 'maxActiveListings', 'listingQuotaLimit', 'listingQuotaRollingDays',
+    "maxTotalListings",
+    "maxActiveListings",
+    "listingQuotaLimit",
+    "listingQuotaRollingDays",
     // Featured & Promotional (7 fields)
-    'maxFeaturedListings', 'maxBoostedListings', 'maxSpotlightListings', 'maxHomepageListings',
-    'featuredDays', 'boostedDays', 'spotlightDays',
+    "maxFeaturedListings",
+    "maxBoostedListings",
+    "maxSpotlightListings",
+    "maxHomepageListings",
+    "featuredDays",
+    "boostedDays",
+    "spotlightDays",
     // Listing Management (4 fields)
-    'listingDurationDays', 'autoRenewal', 'maxRenewals', 'supportLevel'
+    "listingDurationDays",
+    "autoRenewal",
+    "maxRenewals",
+    "supportLevel",
   ];
 
   // ==================== SUPER ADMIN OPERATIONS ====================
@@ -37,23 +53,23 @@ class SubscriptionService {
   async createPlan(planData, userId, userName) {
     // Validate required fields
     if (!planData.planCode || planData.planCode.trim().length < 2) {
-      throw new Error('Plan code must be at least 2 characters');
+      throw new Error("Plan code must be at least 2 characters");
     }
 
     if (!planData.name || planData.name.trim().length < 3) {
-      throw new Error('Plan name must be at least 3 characters');
+      throw new Error("Plan name must be at least 3 characters");
     }
 
     if (planData.basePrice === undefined || planData.basePrice < 0) {
-      throw new Error('Base price is required and must be non-negative');
+      throw new Error("Base price is required and must be non-negative");
     }
 
     if (planData.finalPrice === undefined || planData.finalPrice < 0) {
-      throw new Error('Final price is required and must be non-negative');
+      throw new Error("Final price is required and must be non-negative");
     }
 
     if (!planData.durationDays || planData.durationDays < 1) {
-      throw new Error('Duration days must be at least 1');
+      throw new Error("Duration days must be at least 1");
     }
 
     // Auto-generate slug from name if not provided
@@ -65,14 +81,16 @@ class SubscriptionService {
     // Check if slug already exists, if so append version
     let finalSlug = slug;
     let slugExists = await subscriptionRepository.slugExists(finalSlug);
-    
+
     if (slugExists) {
       // Try with -v1 suffix
       finalSlug = `${slug}-v1`;
       slugExists = await subscriptionRepository.slugExists(finalSlug);
-      
+
       if (slugExists) {
-        throw new Error(`Slug "${slug}" and "${finalSlug}" already exist. Please provide a unique slug.`);
+        throw new Error(
+          `Slug "${slug}" and "${finalSlug}" already exist. Please provide a unique slug.`
+        );
       }
     }
 
@@ -82,7 +100,7 @@ class SubscriptionService {
       slug: finalSlug,
       version: 1,
       discountAmount: planData.discountAmount || 0,
-      currency: planData.currency || 'INR',
+      currency: planData.currency || "INR",
       sortOrder: planData.sortOrder || 0,
       isActive: planData.isActive !== undefined ? planData.isActive : true,
       isPublic: planData.isPublic !== undefined ? planData.isPublic : true,
@@ -92,15 +110,19 @@ class SubscriptionService {
       features: planData.features || {},
       availableAddons: planData.availableAddons || [],
       upsellSuggestions: planData.upsellSuggestions || {},
-      metadata: planData.metadata || {}
+      metadata: planData.metadata || {},
     };
 
-    const plan = await subscriptionRepository.createPlan(planToCreate, userId, userName);
+    const plan = await subscriptionRepository.createPlan(
+      planToCreate,
+      userId,
+      userName
+    );
 
     return {
       success: true,
       message: SUCCESS_MESSAGES.SUBSCRIPTION_PLAN_CREATED,
-      data: plan
+      data: plan,
     };
   }
 
@@ -120,15 +142,25 @@ class SubscriptionService {
     }
 
     // Check if any critical field is being changed
-    const hasCriticalChanges = this._hasCriticalFieldChanges(existingPlan, updateData);
+    const hasCriticalChanges = this._hasCriticalFieldChanges(
+      existingPlan,
+      updateData
+    );
 
     if (hasCriticalChanges) {
       // Auto-create new version (slug will be auto-generated in _createNewVersion)
-      return await this._createNewVersion(existingPlan, updateData, userId, userName);
+      return await this._createNewVersion(
+        existingPlan,
+        updateData,
+        userId,
+        userName
+      );
     } else {
       // Non-critical update - keep existing slug, don't allow slug changes
       if (updateData.slug && updateData.slug !== existingPlan.slug) {
-        throw new Error('Cannot change slug during non-critical update. Slug changes only allowed when creating new version.');
+        throw new Error(
+          "Cannot change slug during non-critical update. Slug changes only allowed when creating new version."
+        );
       }
 
       // Remove slug from updateData to prevent accidental changes
@@ -145,7 +177,7 @@ class SubscriptionService {
       return {
         success: true,
         message: SUCCESS_MESSAGES.SUBSCRIPTION_PLAN_UPDATED,
-        data: updatedPlan
+        data: updatedPlan,
       };
     }
   }
@@ -161,7 +193,7 @@ class SubscriptionService {
     return {
       success: true,
       message: SUCCESS_MESSAGES.DATA_RETRIEVED,
-      data: plans
+      data: plans,
     };
   }
 
@@ -180,7 +212,7 @@ class SubscriptionService {
     return {
       success: true,
       message: SUCCESS_MESSAGES.DATA_RETRIEVED,
-      data: plan
+      data: plan,
     };
   }
 
@@ -198,13 +230,16 @@ class SubscriptionService {
     }
 
     if (plan.isSystemPlan) {
-      throw new Error('Cannot delete system plan');
+      throw new Error("Cannot delete system plan");
     }
 
     // Check if plan has active subscriptions
-    const activeSubscriptions = await subscriptionRepository.countActiveSubscriptionsForPlan(planId);
+    const activeSubscriptions =
+      await subscriptionRepository.countActiveSubscriptionsForPlan(planId);
     if (activeSubscriptions > 0) {
-      throw new Error(`Cannot delete plan with ${activeSubscriptions} active subscriptions`);
+      throw new Error(
+        `Cannot delete plan with ${activeSubscriptions} active subscriptions`
+      );
     }
 
     await subscriptionRepository.deletePlan(planId, userId);
@@ -212,7 +247,7 @@ class SubscriptionService {
     return {
       success: true,
       message: SUCCESS_MESSAGES.SUBSCRIPTION_PLAN_DELETED,
-      data: null
+      data: null,
     };
   }
 
@@ -225,8 +260,8 @@ class SubscriptionService {
    * @returns {Promise<Object>} Service response
    */
   async updatePlanStatus(planId, isActive, userId, userName) {
-    if (typeof isActive !== 'boolean') {
-      throw new Error('isActive must be a boolean value');
+    if (typeof isActive !== "boolean") {
+      throw new Error("isActive must be a boolean value");
     }
 
     const plan = await subscriptionRepository.findPlanById(planId);
@@ -244,8 +279,8 @@ class SubscriptionService {
 
     return {
       success: true,
-      message: `Plan ${isActive ? 'activated' : 'deactivated'} successfully`,
-      data: updatedPlan
+      message: `Plan ${isActive ? "activated" : "deactivated"} successfully`,
+      data: updatedPlan,
     };
   }
 
@@ -258,8 +293,8 @@ class SubscriptionService {
    * @returns {Promise<Object>} Service response
    */
   async updatePlanVisibility(planId, isPublic, userId, userName) {
-    if (typeof isPublic !== 'boolean') {
-      throw new Error('isPublic must be a boolean value');
+    if (typeof isPublic !== "boolean") {
+      throw new Error("isPublic must be a boolean value");
     }
 
     const plan = await subscriptionRepository.findPlanById(planId);
@@ -277,8 +312,10 @@ class SubscriptionService {
 
     return {
       success: true,
-      message: `Plan visibility ${isPublic ? 'enabled' : 'disabled'} successfully`,
-      data: updatedPlan
+      message: `Plan visibility ${
+        isPublic ? "enabled" : "disabled"
+      } successfully`,
+      data: updatedPlan,
     };
   }
 
@@ -294,7 +331,26 @@ class SubscriptionService {
     return {
       success: true,
       message: SUCCESS_MESSAGES.DATA_RETRIEVED,
-      data: plans
+      data: plans,
+    };
+  }
+
+  /**
+   * Get plans by category - For listing subscriptions
+   * @param {number} categoryId - Category ID
+   * @returns {Promise<Object>} Service response
+   */
+  async getPlansByCategory(categoryId) {
+    if (!categoryId) {
+      throw new Error("Category ID is required");
+    }
+
+    const plans = await subscriptionRepository.getPlansByCategory(categoryId);
+
+    return {
+      success: true,
+      message: SUCCESS_MESSAGES.DATA_RETRIEVED,
+      data: plans,
     };
   }
 
@@ -311,13 +367,13 @@ class SubscriptionService {
     }
 
     if (!plan.isActive || !plan.isPublic) {
-      throw new Error('Plan is not available');
+      throw new Error("Plan is not available");
     }
 
     return {
       success: true,
       message: SUCCESS_MESSAGES.DATA_RETRIEVED,
-      data: plan
+      data: plan,
     };
   }
 
@@ -332,26 +388,32 @@ class SubscriptionService {
     const transaction = await sequelize.transaction();
 
     try {
-      // Check if user already has active subscription
-      const hasActive = await subscriptionRepository.hasActiveSubscription(userId);
-      if (hasActive) {
-        throw new Error('User already has an active subscription');
-      }
-
-      // Get plan details
+      // Get plan details first
       const plan = await subscriptionRepository.findPlanById(planId);
 
       if (!plan) {
         throw new Error(ERROR_MESSAGES.SUBSCRIPTION_PLAN_NOT_FOUND);
       }
 
+      // Check if user already has active subscription for this plan's category
+      const existingCategorySubscription =
+        await subscriptionRepository.getUserActiveSubscriptionByCategory(
+          userId,
+          plan.categoryId
+        );
+      if (existingCategorySubscription) {
+        throw new Error(
+          "User already has an active subscription for this category"
+        );
+      }
+
       if (!plan.isActive || !plan.isPublic) {
-        throw new Error('Plan is not available for subscription');
+        throw new Error("Plan is not available for subscription");
       }
 
       // Validate payment gateway data
       if (!paymentData.paymentMethod || !paymentData.transactionId) {
-        throw new Error('Payment method and transaction ID are required');
+        throw new Error("Payment method and transaction ID are required");
       }
 
       // Verify payment with gateway
@@ -362,31 +424,32 @@ class SubscriptionService {
       );
 
       if (!paymentVerified.success) {
-        throw new Error('Payment verification failed: ' + paymentVerified.message);
+        throw new Error(
+          "Payment verification failed: " + paymentVerified.message
+        );
       }
 
       // Calculate subscription period
-      const startsAt = new Date();
-      const endsAt = new Date(startsAt);
+      const activatedAt = new Date();
+      const endsAt = new Date(activatedAt);
       endsAt.setDate(endsAt.getDate() + plan.durationDays);
 
       // Create subscription with ACTIVE status
       const subscriptionData = {
         userId,
         planId: plan.id,
-        startsAt,
         endsAt,
-        activatedAt: new Date(),
-        status: 'active',
+        activatedAt,
+        status: "active",
         isTrial: paymentData.isTrial || false,
         trialEndsAt: paymentData.trialEndsAt || null,
         autoRenew: paymentData.autoRenew || false,
-        
+
         // Snapshot plan identification
         planName: plan.name,
         planCode: plan.planCode,
         planVersion: plan.version,
-        
+
         // Snapshot pricing
         basePrice: plan.basePrice,
         discountAmount: plan.discountAmount,
@@ -394,13 +457,13 @@ class SubscriptionService {
         currency: plan.currency,
         billingCycle: plan.billingCycle,
         durationDays: plan.durationDays,
-        
+
         // Snapshot quotas
         maxTotalListings: plan.maxTotalListings,
         maxActiveListings: plan.maxActiveListings,
         listingQuotaLimit: plan.listingQuotaLimit,
         listingQuotaRollingDays: plan.listingQuotaRollingDays,
-        
+
         // Snapshot featured & promotional
         maxFeaturedListings: plan.maxFeaturedListings,
         maxBoostedListings: plan.maxBoostedListings,
@@ -409,14 +472,14 @@ class SubscriptionService {
         featuredDays: plan.featuredDays,
         boostedDays: plan.boostedDays,
         spotlightDays: plan.spotlightDays,
-        
+
         // Snapshot visibility & priority
         priorityScore: plan.priorityScore,
         searchBoostMultiplier: plan.searchBoostMultiplier,
         recommendationBoostMultiplier: plan.recommendationBoostMultiplier,
         crossCityVisibility: plan.crossCityVisibility,
         nationalVisibility: plan.nationalVisibility,
-        
+
         // Snapshot listing management
         autoRenewalEnabled: plan.autoRenewal,
         maxRenewals: plan.maxRenewals,
@@ -424,19 +487,19 @@ class SubscriptionService {
         autoRefreshEnabled: plan.autoRefreshEnabled,
         refreshFrequencyDays: plan.refreshFrequencyDays,
         manualRefreshPerCycle: plan.manualRefreshPerCycle,
-        
+
         // Snapshot support & features
         supportLevel: plan.supportLevel,
         features: plan.features,
-        
+
         // Payment info
         paymentMethod: paymentData.paymentMethod,
         transactionId: paymentData.transactionId,
         amountPaid: paymentVerified.amountPaid,
-        
+
         // Metadata
         metadata: paymentData.metadata || {},
-        notes: paymentData.notes || null
+        notes: paymentData.notes || null,
       };
 
       const subscription = await subscriptionRepository.createSubscription(
@@ -445,60 +508,66 @@ class SubscriptionService {
       );
 
       // Create invoice with PAID status using invoice repository
-      const invoice = await invoiceRepository.create({
-        userId,
-        subscriptionId: subscription.id,
-        invoiceType: 'new_subscription',
-        invoiceDate: new Date(),
-        customerName: paymentData.customerName || 'Customer',
-        customerMobile: paymentData.customerMobile || '',
-        planName: plan.name,
-        planCode: plan.planCode,
-        planVersion: plan.version,
-        planSnapshot: plan.toJSON(),
-        subtotal: plan.finalPrice,
-        discountAmount: 0,
-        adjustedSubtotal: plan.finalPrice,
-        taxAmount: 0,
-        taxPercentage: 0,
-        totalAmount: plan.finalPrice,
-        amountPaid: paymentVerified.amountPaid,
-        amountDue: 0,
-        currency: plan.currency,
-        status: 'paid',
-        paymentMethod: paymentData.paymentMethod,
-        paymentDate: new Date(),
-        metadata: {}
-      }, userId);
+      const invoice = await invoiceRepository.create(
+        {
+          userId,
+          subscriptionId: subscription.id,
+          invoiceType: "new_subscription",
+          invoiceDate: new Date(),
+          customerName: paymentData.customerName || "Customer",
+          customerMobile: paymentData.customerMobile || "",
+          planName: plan.name,
+          planCode: plan.planCode,
+          planVersion: plan.version,
+          planSnapshot: plan.toJSON(),
+          subtotal: plan.finalPrice,
+          discountAmount: 0,
+          adjustedSubtotal: plan.finalPrice,
+          taxAmount: 0,
+          taxPercentage: 0,
+          totalAmount: plan.finalPrice,
+          amountPaid: paymentVerified.amountPaid,
+          amountDue: 0,
+          currency: plan.currency,
+          status: "paid",
+          paymentMethod: paymentData.paymentMethod,
+          paymentDate: new Date(),
+          metadata: {},
+        },
+        userId
+      );
 
       // Create transaction with COMPLETED status using transaction repository
-      await transactionRepository.create({
-        invoiceId: invoice.id,
-        subscriptionId: subscription.id,
-        userId,
-        subscriptionPlanId: plan.id,
-        transactionType: 'payment',
-        transactionContext: 'new_subscription',
-        transactionMethod: 'online',
-        amount: paymentVerified.amountPaid,
-        currency: plan.currency,
-        paymentGateway: paymentData.paymentMethod,
-        gatewayOrderId: paymentVerified.orderId,
-        gatewayPaymentId: paymentData.transactionId,
-        gatewaySignature: paymentVerified.signature,
-        gatewayResponse: paymentVerified.rawResponse,
-        status: 'completed',
-        initiatedAt: new Date(),
-        completedAt: new Date(),
-        metadata: {}
-      }, userId);
+      await transactionRepository.create(
+        {
+          invoiceId: invoice.id,
+          subscriptionId: subscription.id,
+          userId,
+          subscriptionPlanId: plan.id,
+          transactionType: "payment",
+          transactionContext: "new_subscription",
+          transactionMethod: "online",
+          amount: paymentVerified.amountPaid,
+          currency: plan.currency,
+          paymentGateway: paymentData.paymentMethod,
+          gatewayOrderId: paymentVerified.orderId,
+          gatewayPaymentId: paymentData.transactionId,
+          gatewaySignature: paymentVerified.signature,
+          gatewayResponse: paymentVerified.rawResponse,
+          status: "completed",
+          initiatedAt: new Date(),
+          completedAt: new Date(),
+          metadata: {},
+        },
+        userId
+      );
 
       await transaction.commit();
 
       return {
         success: true,
         message: SUCCESS_MESSAGES.SUBSCRIPTION_CREATED,
-        data: subscription
+        data: subscription,
       };
     } catch (error) {
       await transaction.rollback();
@@ -514,7 +583,11 @@ class SubscriptionService {
    * @returns {Promise<Object>} Verification result
    * @private
    */
-  async _verifyPaymentWithGateway(paymentMethod, transactionId, expectedAmount) {
+  async _verifyPaymentWithGateway(
+    paymentMethod,
+    transactionId,
+    expectedAmount
+  ) {
     // TODO: Implement actual payment gateway verification
     // Example for Razorpay:
     // const razorpay = new Razorpay({ key_id: process.env.RAZORPAY_KEY_ID, key_secret: process.env.RAZORPAY_KEY_SECRET });
@@ -523,25 +596,30 @@ class SubscriptionService {
     //   return { success: true, amountPaid: payment.amount / 100, orderId: payment.order_id, signature: payment.signature, rawResponse: payment };
     // }
     // return { success: false, message: 'Payment verification failed' };
-    
-    throw new Error('Payment gateway verification not implemented');
+
+    throw new Error("Payment gateway verification not implemented");
   }
 
   /**
-   * Get user's active subscription
+   * Get user's active subscription (legacy - use category-specific methods)
    * @param {number} userId - User ID
    * @returns {Promise<Object>} Service response
    */
   async getActiveSubscription(userId) {
-    const subscription = await subscriptionRepository.getUserActiveSubscription(userId);
+    const subscription = await subscriptionRepository.getUserActiveSubscription(
+      userId
+    );
 
     if (!subscription) {
-      throw new Error('No active subscription found');
+      throw new Error("No active subscription found");
     }
 
     // Check if plan is deprecated and suggest upgrade
     let upgradeAvailable = null;
-    if (subscription.plan?.deprecatedAt && subscription.plan?.replacedByPlanId) {
+    if (
+      subscription.plan?.deprecatedAt &&
+      subscription.plan?.replacedByPlanId
+    ) {
       const upgradePlan = await subscriptionRepository.findPlanById(
         subscription.plan.replacedByPlanId
       );
@@ -551,7 +629,7 @@ class SubscriptionService {
           name: upgradePlan.name,
           slug: upgradePlan.slug,
           finalPrice: upgradePlan.finalPrice,
-          version: upgradePlan.version
+          version: upgradePlan.version,
         };
       }
     }
@@ -561,8 +639,94 @@ class SubscriptionService {
       message: SUCCESS_MESSAGES.DATA_RETRIEVED,
       data: {
         subscription,
-        upgradeAvailable
+        upgradeAvailable,
+      },
+    };
+  }
+
+  /**
+   * Get user's active subscription for specific category
+   * @param {number} userId - User ID
+   * @param {number} categoryId - Category ID
+   * @returns {Promise<Object>} Service response
+   */
+  async getActiveSubscriptionByCategory(userId, categoryId) {
+    if (!categoryId) {
+      throw new Error("Category ID is required");
+    }
+
+    const subscription =
+      await subscriptionRepository.getUserActiveSubscriptionByCategory(
+        userId,
+        categoryId
+      );
+
+    if (!subscription) {
+      // Try to get free plan for category
+      const freePlan = await subscriptionRepository.getFreePlanForCategory(
+        categoryId
+      );
+      if (freePlan) {
+        return {
+          success: true,
+          message: "User is on free plan for this category",
+          data: {
+            subscription: null,
+            freePlan,
+            needsSubscription: true,
+          },
+        };
       }
+      throw new Error("No subscription found for this category");
+    }
+
+    return {
+      success: true,
+      message: SUCCESS_MESSAGES.DATA_RETRIEVED,
+      data: {
+        subscription,
+        needsSubscription: false,
+      },
+    };
+  }
+
+  /**
+   * Get all user's active subscriptions (all categories)
+   * @param {number} userId - User ID
+   * @returns {Promise<Object>} Service response
+   */
+  async getAllActiveSubscriptions(userId) {
+    const subscriptions =
+      await subscriptionRepository.getUserAllActiveSubscriptions(userId);
+
+    return {
+      success: true,
+      message: SUCCESS_MESSAGES.DATA_RETRIEVED,
+      data: {
+        subscriptions,
+        totalActive: subscriptions.length,
+      },
+    };
+  }
+
+  /**
+   * Get subscriptions by category (Admin)
+   * @param {Object} filters - Filter options including categoryId
+   * @param {Object} pagination - Pagination options
+   * @returns {Promise<Object>} Service response
+   */
+  async getSubscriptionsByCategory(filters, pagination) {
+    // We'll need to add this method to repository
+    const result = await subscriptionRepository.getSubscriptionsByCategory(
+      filters,
+      pagination
+    );
+
+    return {
+      success: true,
+      message: SUCCESS_MESSAGES.DATA_RETRIEVED,
+      data: result.subscriptions,
+      pagination: result.pagination,
     };
   }
 
@@ -573,13 +737,16 @@ class SubscriptionService {
    * @returns {Promise<Object>} Service response
    */
   async getSubscriptionHistory(userId, options = {}) {
-    const result = await subscriptionRepository.getUserSubscriptionHistory(userId, options);
+    const result = await subscriptionRepository.getUserSubscriptionHistory(
+      userId,
+      options
+    );
 
     return {
       success: true,
       message: SUCCESS_MESSAGES.DATA_RETRIEVED,
       data: result.subscriptions,
-      pagination: result.pagination
+      pagination: result.pagination,
     };
   }
 
@@ -591,27 +758,29 @@ class SubscriptionService {
    * @returns {Promise<Object>} Service response
    */
   async cancelSubscription(userId, subscriptionId, reason = null) {
-    const subscription = await subscriptionRepository.findSubscriptionById(subscriptionId);
+    const subscription = await subscriptionRepository.findSubscriptionById(
+      subscriptionId
+    );
 
     if (!subscription) {
       throw new Error(ERROR_MESSAGES.SUBSCRIPTION_NOT_FOUND);
     }
 
     if (subscription.userId !== userId) {
-      throw new Error('Unauthorized to cancel this subscription');
+      throw new Error("Unauthorized to cancel this subscription");
     }
 
-    if (subscription.status !== 'active') {
-      throw new Error('Only active subscriptions can be cancelled');
+    if (subscription.status !== "active") {
+      throw new Error("Only active subscriptions can be cancelled");
     }
 
     const updatedSubscription = await subscriptionRepository.updateSubscription(
       subscriptionId,
       {
-        status: 'cancelled',
+        status: "cancelled",
         cancelledAt: new Date(),
         cancellationReason: reason,
-        autoRenew: false
+        autoRenew: false,
       },
       userId
     );
@@ -619,7 +788,7 @@ class SubscriptionService {
     return {
       success: true,
       message: SUCCESS_MESSAGES.SUBSCRIPTION_CANCELLED,
-      data: updatedSubscription
+      data: updatedSubscription,
     };
   }
 
@@ -632,13 +801,16 @@ class SubscriptionService {
    * @returns {Promise<Object>} Service response
    */
   async getAllSubscriptions(filters = {}, pagination = {}) {
-    const result = await subscriptionRepository.getAllSubscriptions(filters, pagination);
+    const result = await subscriptionRepository.getAllSubscriptions(
+      filters,
+      pagination
+    );
 
     return {
       success: true,
       message: SUCCESS_MESSAGES.DATA_RETRIEVED,
       data: result.subscriptions,
-      pagination: result.pagination
+      pagination: result.pagination,
     };
   }
 
@@ -648,7 +820,8 @@ class SubscriptionService {
    * @returns {Promise<Object>} Service response
    */
   async getSubscriptionById(subscriptionId) {
-    const subscription = await subscriptionRepository.getSubscriptionWithDetails(subscriptionId);
+    const subscription =
+      await subscriptionRepository.getSubscriptionWithDetails(subscriptionId);
 
     if (!subscription) {
       throw new Error(ERROR_MESSAGES.SUBSCRIPTION_NOT_FOUND);
@@ -657,7 +830,7 @@ class SubscriptionService {
     return {
       success: true,
       message: SUCCESS_MESSAGES.DATA_RETRIEVED,
-      data: subscription
+      data: subscription,
     };
   }
 
@@ -671,48 +844,56 @@ class SubscriptionService {
     const transaction = await sequelize.transaction();
 
     try {
-      const { userId, planId, startsAt, endsAt, notes } = subscriptionData;
+      const { userId, planId, endsAt, notes } = subscriptionData;
 
       // Validate required fields
       if (!userId || !planId) {
-        throw new Error('User ID and Plan ID are required');
+        throw new Error("User ID and Plan ID are required");
       }
 
-      // Check if user already has active subscription
-      const hasActive = await subscriptionRepository.hasActiveSubscription(userId);
-      if (hasActive) {
-        throw new Error('User already has an active subscription');
-      }
-
-      // Get plan details
+      // Get plan details first
       const plan = await subscriptionRepository.findPlanById(planId);
 
       if (!plan) {
         throw new Error(ERROR_MESSAGES.SUBSCRIPTION_PLAN_NOT_FOUND);
       }
 
+      // Check if user already has active subscription for this plan's category
+      const existingCategorySubscription =
+        await subscriptionRepository.getUserActiveSubscriptionByCategory(
+          userId,
+          plan.categoryId
+        );
+      if (existingCategorySubscription) {
+        throw new Error(
+          "User already has an active subscription for this category"
+        );
+      }
+
       // Calculate dates if not provided
-      const subscriptionStartsAt = startsAt ? new Date(startsAt) : new Date();
-      const subscriptionEndsAt = endsAt 
-        ? new Date(endsAt) 
-        : new Date(subscriptionStartsAt.getTime() + plan.durationDays * 24 * 60 * 60 * 1000);
+      const activatedAt = new Date();
+      const subscriptionEndsAt = endsAt
+        ? new Date(endsAt)
+        : new Date(
+            activatedAt.getTime() +
+              plan.durationDays * 24 * 60 * 60 * 1000
+          );
 
       // Create subscription with plan snapshot
       const newSubscriptionData = {
         userId,
         planId: plan.id,
-        startsAt: subscriptionStartsAt,
         endsAt: subscriptionEndsAt,
-        activatedAt: new Date(),
-        status: 'active',
+        activatedAt,
+        status: "active",
         isTrial: false,
         autoRenew: false,
-        
+
         // Snapshot plan identification
         planName: plan.name,
         planCode: plan.planCode,
         planVersion: plan.version,
-        
+
         // Snapshot pricing
         basePrice: plan.basePrice,
         discountAmount: plan.discountAmount,
@@ -720,13 +901,13 @@ class SubscriptionService {
         currency: plan.currency,
         billingCycle: plan.billingCycle,
         durationDays: plan.durationDays,
-        
+
         // Snapshot quotas
         maxTotalListings: plan.maxTotalListings,
         maxActiveListings: plan.maxActiveListings,
         listingQuotaLimit: plan.listingQuotaLimit,
         listingQuotaRollingDays: plan.listingQuotaRollingDays,
-        
+
         // Snapshot featured & promotional
         maxFeaturedListings: plan.maxFeaturedListings,
         maxBoostedListings: plan.maxBoostedListings,
@@ -735,14 +916,14 @@ class SubscriptionService {
         featuredDays: plan.featuredDays,
         boostedDays: plan.boostedDays,
         spotlightDays: plan.spotlightDays,
-        
+
         // Snapshot visibility & priority
         priorityScore: plan.priorityScore,
         searchBoostMultiplier: plan.searchBoostMultiplier,
         recommendationBoostMultiplier: plan.recommendationBoostMultiplier,
         crossCityVisibility: plan.crossCityVisibility,
         nationalVisibility: plan.nationalVisibility,
-        
+
         // Snapshot listing management
         autoRenewalEnabled: plan.autoRenewal,
         maxRenewals: plan.maxRenewals,
@@ -751,18 +932,18 @@ class SubscriptionService {
         refreshFrequencyDays: plan.refreshFrequencyDays,
         manualRefreshPerCycle: plan.manualRefreshPerCycle,
         isAutoApproveEnabled: plan.isAutoApproveEnabled,
-        
+
         // Snapshot support & features
         supportLevel: plan.supportLevel,
         features: plan.features,
-        
+
         // Payment info (manual assignment)
-        paymentMethod: 'manual',
+        paymentMethod: "manual",
         amountPaid: 0,
-        
+
         // Metadata
-        metadata: { assignedBy: 'admin', adminUserId },
-        notes: notes || 'Manually assigned by admin'
+        metadata: { assignedBy: "admin", adminUserId },
+        notes: notes || "Manually assigned by admin",
       };
 
       const subscription = await subscriptionRepository.createSubscription(
@@ -774,8 +955,8 @@ class SubscriptionService {
 
       return {
         success: true,
-        message: 'Subscription created successfully',
-        data: subscription
+        message: "Subscription created successfully",
+        data: subscription,
       };
     } catch (error) {
       await transaction.rollback();
@@ -791,31 +972,44 @@ class SubscriptionService {
    * @returns {Promise<Object>} Service response
    */
   async updateSubscriptionAdmin(subscriptionId, updateData, adminUserId) {
-    const subscription = await subscriptionRepository.findSubscriptionById(subscriptionId);
+    try {
+      const subscription = await subscriptionRepository.findSubscriptionById(
+        subscriptionId
+      );
 
-    if (!subscription) {
-      throw new Error(ERROR_MESSAGES.SUBSCRIPTION_NOT_FOUND);
-    }
-
-    // Validate status if being updated
-    if (updateData.status) {
-      const validStatuses = ['pending', 'active', 'expired', 'cancelled', 'suspended'];
-      if (!validStatuses.includes(updateData.status)) {
-        throw new Error('Invalid subscription status');
+      if (!subscription) {
+        throw new Error(ERROR_MESSAGES.SUBSCRIPTION_NOT_FOUND);
       }
+
+      // Validate status if being updated
+      if (updateData.status) {
+        const validStatuses = [
+          "pending",
+          "active",
+          "expired",
+          "cancelled",
+          "suspended",
+        ];
+        if (!validStatuses.includes(updateData.status)) {
+          throw new Error("Invalid subscription status");
+        }
+      }
+
+      const updatedSubscription =
+        await subscriptionRepository.updateSubscription(
+          subscriptionId,
+          updateData,
+          adminUserId
+        );
+
+      return {
+        success: true,
+        message: "Subscription updated successfully",
+        data: updatedSubscription,
+      };
+    } catch (error) {
+      throw error;
     }
-
-    const updatedSubscription = await subscriptionRepository.updateSubscription(
-      subscriptionId,
-      updateData,
-      adminUserId
-    );
-
-    return {
-      success: true,
-      message: 'Subscription updated successfully',
-      data: updatedSubscription
-    };
   }
 
   /**
@@ -825,19 +1019,28 @@ class SubscriptionService {
    * @returns {Promise<Object>} Service response
    */
   async deleteSubscriptionAdmin(subscriptionId, adminUserId) {
-    const subscription = await subscriptionRepository.findSubscriptionById(subscriptionId);
+    try {
+      const subscription = await subscriptionRepository.findSubscriptionById(
+        subscriptionId
+      );
 
-    if (!subscription) {
-      throw new Error(ERROR_MESSAGES.SUBSCRIPTION_NOT_FOUND);
+      if (!subscription) {
+        throw new Error(ERROR_MESSAGES.SUBSCRIPTION_NOT_FOUND);
+      }
+
+      await subscriptionRepository.deleteSubscription(
+        subscriptionId,
+        adminUserId
+      );
+
+      return {
+        success: true,
+        message: "Subscription deleted successfully",
+        data: null,
+      };
+    } catch (error) {
+      throw error;
     }
-
-    await subscriptionRepository.deleteSubscription(subscriptionId, adminUserId);
-
-    return {
-      success: true,
-      message: 'Subscription deleted successfully',
-      data: null
-    };
   }
 
   /**
@@ -848,37 +1051,50 @@ class SubscriptionService {
    * @returns {Promise<Object>} Service response
    */
   async updateSubscriptionStatus(subscriptionId, status, adminUserId) {
-    const validStatuses = ['pending', 'active', 'expired', 'cancelled', 'suspended'];
-    
-    if (!validStatuses.includes(status)) {
-      throw new Error('Invalid subscription status');
+    try {
+      const validStatuses = [
+        "pending",
+        "active",
+        "expired",
+        "cancelled",
+        "suspended",
+      ];
+
+      if (!validStatuses.includes(status)) {
+        throw new Error("Invalid subscription status");
+      }
+
+      const subscription = await subscriptionRepository.findSubscriptionById(
+        subscriptionId
+      );
+
+      if (!subscription) {
+        throw new Error(ERROR_MESSAGES.SUBSCRIPTION_NOT_FOUND);
+      }
+
+      const updateData = { status };
+
+      // If cancelling, add cancellation timestamp
+      if (status === "cancelled" && subscription.status !== "cancelled") {
+        updateData.cancelledAt = new Date();
+        updateData.autoRenew = false;
+      }
+
+      const updatedSubscription =
+        await subscriptionRepository.updateSubscription(
+          subscriptionId,
+          updateData,
+          adminUserId
+        );
+
+      return {
+        success: true,
+        message: `Subscription status updated to ${status}`,
+        data: updatedSubscription,
+      };
+    } catch (error) {
+      throw error;
     }
-
-    const subscription = await subscriptionRepository.findSubscriptionById(subscriptionId);
-
-    if (!subscription) {
-      throw new Error(ERROR_MESSAGES.SUBSCRIPTION_NOT_FOUND);
-    }
-
-    const updateData = { status };
-
-    // If cancelling, add cancellation timestamp
-    if (status === 'cancelled' && subscription.status !== 'cancelled') {
-      updateData.cancelledAt = new Date();
-      updateData.autoRenew = false;
-    }
-
-    const updatedSubscription = await subscriptionRepository.updateSubscription(
-      subscriptionId,
-      updateData,
-      adminUserId
-    );
-
-    return {
-      success: true,
-      message: `Subscription status updated to ${status}`,
-      data: updatedSubscription
-    };
   }
 
   /**
@@ -889,33 +1105,343 @@ class SubscriptionService {
    * @returns {Promise<Object>} Service response
    */
   async extendSubscription(subscriptionId, extensionDays, adminUserId) {
-    if (!extensionDays || extensionDays < 1) {
-      throw new Error('Extension days must be at least 1');
+    try {
+      if (!extensionDays || extensionDays < 1) {
+        throw new Error("Extension days must be at least 1");
+      }
+
+      const subscription = await subscriptionRepository.findSubscriptionById(
+        subscriptionId
+      );
+
+      if (!subscription) {
+        throw new Error(ERROR_MESSAGES.SUBSCRIPTION_NOT_FOUND);
+      }
+
+      // Calculate new end date
+      const currentEndsAt = new Date(subscription.endsAt);
+      const newEndsAt = new Date(
+        currentEndsAt.getTime() + extensionDays * 24 * 60 * 60 * 1000
+      );
+
+      const updatedSubscription =
+        await subscriptionRepository.updateSubscription(
+          subscriptionId,
+          {
+            endsAt: newEndsAt,
+            notes: `${
+              subscription.notes || ""
+            }\nExtended by ${extensionDays} days on ${new Date().toISOString()}`,
+          },
+          adminUserId
+        );
+
+      return {
+        success: true,
+        message: `Subscription extended by ${extensionDays} days`,
+        data: updatedSubscription,
+      };
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // ==================== USER REGISTRATION & FREE PLANS ====================
+
+  /**
+   * Auto-assign free plans to new user on registration
+   * @param {number} userId - User ID
+   * @returns {Promise<Object>} Service response
+   */
+  async assignFreePlansOnRegistration(userId) {
+    if (!userId) {
+      throw new Error('User ID is required');
     }
 
+    try {
+      // Get all active free plans (for all categories)
+      const freePlans = await subscriptionRepository.getAllFreePlans();
+
+      if (freePlans.length === 0) {
+        return {
+          success: true,
+          message: 'No free plans available to assign',
+          data: { assignedPlans: [] }
+        };
+      }
+
+      const assignedPlans = [];
+
+      // Assign free plan for each category
+      for (const plan of freePlans) {
+        try {
+          // Check if user already has subscription for this category
+          const existingSubscription = await subscriptionRepository.getUserActiveSubscriptionByCategory(
+            userId,
+            plan.categoryId
+          );
+
+          if (existingSubscription) {
+            continue; // Skip if already has subscription for this category
+          }
+
+          // Calculate dates for free plan (25 years duration)
+          const activatedAt = new Date();
+          const endsAt = new Date(activatedAt);
+          endsAt.setDate(endsAt.getDate() + 9125); // 25 years
+
+          // Create free subscription
+          const subscriptionData = {
+            userId,
+            planId: plan.id,
+            endsAt,
+            activatedAt,
+            status: 'active',
+            isTrial: false,
+            autoRenew: false,
+
+            // Snapshot plan identification
+            planName: plan.name,
+            planCode: plan.planCode,
+            planVersion: plan.version,
+
+            // Snapshot pricing (free)
+            basePrice: 0,
+            discountAmount: 0,
+            finalPrice: 0,
+            currency: plan.currency || 'INR',
+            billingCycle: 'lifetime',
+            durationDays: 9125,
+
+            // Snapshot quotas
+            maxTotalListings: plan.maxTotalListings,
+            maxActiveListings: plan.maxActiveListings,
+            listingQuotaLimit: plan.listingQuotaLimit,
+            listingQuotaRollingDays: plan.listingQuotaRollingDays,
+
+            // Snapshot features (minimal for free plans)
+            maxFeaturedListings: plan.maxFeaturedListings || 0,
+            maxBoostedListings: plan.maxBoostedListings || 0,
+            maxSpotlightListings: plan.maxSpotlightListings || 0,
+            maxHomepageListings: plan.maxHomepageListings || 0,
+            featuredDays: plan.featuredDays || 0,
+            boostedDays: plan.boostedDays || 0,
+            spotlightDays: plan.spotlightDays || 0,
+
+            // Snapshot visibility & priority
+            priorityScore: plan.priorityScore || 0,
+            searchBoostMultiplier: plan.searchBoostMultiplier || 1.0,
+            recommendationBoostMultiplier: plan.recommendationBoostMultiplier || 1.0,
+            crossCityVisibility: plan.crossCityVisibility || false,
+            nationalVisibility: plan.nationalVisibility || false,
+
+            // Snapshot listing management
+            autoRenewalEnabled: false,
+            maxRenewals: 0,
+            listingDurationDays: plan.listingDurationDays || 30,
+            autoRefreshEnabled: false,
+            refreshFrequencyDays: null,
+            manualRefreshPerCycle: 0,
+            isAutoApproveEnabled: plan.isAutoApproveEnabled || false,
+
+            // Snapshot support & features
+            supportLevel: plan.supportLevel || 'basic',
+            features: plan.features || {},
+
+            // Payment info (free assignment)
+            paymentMethod: 'free_assignment',
+            amountPaid: 0,
+
+            // Metadata
+            metadata: { 
+              assignedOnRegistration: true,
+              assignedAt: new Date().toISOString()
+            },
+            notes: 'Auto-assigned free plan on user registration'
+          };
+
+          const subscription = await subscriptionRepository.createSubscription(
+            subscriptionData,
+            userId
+          );
+
+          assignedPlans.push({
+            categoryId: plan.categoryId,
+            categoryName: plan.category?.name || 'Unknown',
+            planId: plan.id,
+            planName: plan.name,
+            subscriptionId: subscription.id
+          });
+
+        } catch (error) {
+          console.error(`Error assigning free plan ${plan.id} to user ${userId}:`, error);
+          // Continue with other plans if one fails
+        }
+      }
+
+      return {
+        success: true,
+        message: `${assignedPlans.length} free plans assigned successfully`,
+        data: { assignedPlans }
+      };
+
+    } catch (error) {
+      console.error('Error in assignFreePlansOnRegistration:', error);
+      throw error;
+    }
+  }
+
+  // ==================== FEATURE EXPIRY TRACKING ====================
+
+  /**
+   * Calculate feature expiry date for subscription
+   * @param {Object} subscription - Subscription object
+   * @param {string} featureType - Feature type (boost, spotlight, homepage, featured)
+   * @returns {Promise<Object>} Feature expiry details
+   */
+  async calculateFeatureExpiry(subscription, featureType) {
+    return await quotaService.calculateFeatureExpiry(subscription, featureType);
+  }
+
+  /**
+   * Get all feature expiry dates for subscription
+   * @param {number} subscriptionId - Subscription ID
+   * @returns {Promise<Object>} All feature expiry details
+   */
+  async getAllFeatureExpiries(subscriptionId) {
     const subscription = await subscriptionRepository.findSubscriptionById(subscriptionId);
 
     if (!subscription) {
       throw new Error(ERROR_MESSAGES.SUBSCRIPTION_NOT_FOUND);
     }
 
-    // Calculate new end date
-    const currentEndsAt = new Date(subscription.endsAt);
-    const newEndsAt = new Date(currentEndsAt.getTime() + extensionDays * 24 * 60 * 60 * 1000);
+    const features = ['boost', 'spotlight', 'homepage', 'featured'];
+    const featureExpiries = {};
 
-    const updatedSubscription = await subscriptionRepository.updateSubscription(
-      subscriptionId,
-      { 
-        endsAt: newEndsAt,
-        notes: `${subscription.notes || ''}\nExtended by ${extensionDays} days on ${new Date().toISOString()}`
-      },
-      adminUserId
-    );
+    for (const feature of features) {
+      try {
+        const expiry = await this.calculateFeatureExpiry(subscription, feature);
+        featureExpiries[feature] = expiry.data;
+      } catch (error) {
+        featureExpiries[feature] = null;
+      }
+    }
 
     return {
       success: true,
-      message: `Subscription extended by ${extensionDays} days`,
-      data: updatedSubscription
+      message: 'Feature expiries calculated successfully',
+      data: {
+        subscriptionId,
+        featureExpiries,
+        subscriptionStatus: subscription.status,
+        activatedAt: subscription.activatedAt
+      }
+    };
+  }
+
+  /**
+   * Check if subscription has active features
+   * @param {number} subscriptionId - Subscription ID
+   * @returns {Promise<Object>} Active features status
+   */
+  async getActiveFeatures(subscriptionId) {
+    const allExpiries = await this.getAllFeatureExpiries(subscriptionId);
+
+    if (!allExpiries.success) {
+      return allExpiries;
+    }
+
+    const activeFeatures = {};
+    const expiredFeatures = {};
+
+    Object.entries(allExpiries.data.featureExpiries).forEach(([feature, expiry]) => {
+      if (expiry && expiry.isActive) {
+        activeFeatures[feature] = expiry;
+      } else if (expiry && expiry.isExpired) {
+        expiredFeatures[feature] = expiry;
+      }
+    });
+
+    return {
+      success: true,
+      message: 'Active features retrieved successfully',
+      data: {
+        subscriptionId,
+        activeFeatures,
+        expiredFeatures,
+        totalActiveFeatures: Object.keys(activeFeatures).length,
+        totalExpiredFeatures: Object.keys(expiredFeatures).length
+      }
+    };
+  }
+
+  // ==================== QUOTA INTEGRATION ====================
+
+  /**
+   * Get subscription with quota status
+   * @param {number} userId - User ID
+   * @param {number} categoryId - Category ID
+   * @returns {Promise<Object>} Subscription with quota details
+   */
+  async getSubscriptionWithQuota(userId, categoryId) {
+    const subscription = await this.getActiveSubscriptionByCategory(userId, categoryId);
+    
+    if (!subscription.success) {
+      return subscription;
+    }
+
+    // Get quota status
+    const quotaStatus = await quotaService.getQuotaStatus(userId, categoryId);
+
+    return {
+      success: true,
+      message: 'Subscription with quota status retrieved successfully',
+      data: {
+        subscription: subscription.data.subscription,
+        quotaStatus: quotaStatus.data,
+        needsSubscription: subscription.data.needsSubscription
+      }
+    };
+  }
+
+  /**
+   * Get all subscriptions with quota status for user
+   * @param {number} userId - User ID
+   * @returns {Promise<Object>} All subscriptions with quota
+   */
+  async getAllSubscriptionsWithQuota(userId) {
+    const subscriptions = await this.getAllActiveSubscriptions(userId);
+    
+    if (!subscriptions.success) {
+      return subscriptions;
+    }
+
+    const subscriptionsWithQuota = [];
+
+    for (const subscription of subscriptions.data.subscriptions) {
+      if (subscription.plan?.categoryId) {
+        try {
+          const quotaStatus = await quotaService.getQuotaStatus(userId, subscription.plan.categoryId);
+          
+          subscriptionsWithQuota.push({
+            subscription,
+            quotaStatus: quotaStatus.data,
+            categoryId: subscription.plan.categoryId,
+            categoryName: subscription.plan.category?.name || 'Unknown'
+          });
+        } catch (error) {
+          console.error(`Error getting quota for subscription ${subscription.id}:`, error);
+        }
+      }
+    }
+
+    return {
+      success: true,
+      message: 'All subscriptions with quota retrieved successfully',
+      data: {
+        subscriptionsWithQuota,
+        totalSubscriptions: subscriptionsWithQuota.length
+      }
     };
   }
 
@@ -929,7 +1455,10 @@ class SubscriptionService {
    */
   _hasCriticalFieldChanges(existingPlan, updateData) {
     for (const field of this.CRITICAL_FIELDS) {
-      if (updateData[field] !== undefined && updateData[field] !== existingPlan[field]) {
+      if (
+        updateData[field] !== undefined &&
+        updateData[field] !== existingPlan[field]
+      ) {
         return true;
       }
     }
@@ -949,14 +1478,16 @@ class SubscriptionService {
 
     try {
       const newVersion = existingPlan.version + 1;
-      
+
       // Auto-generate slug for new version: planCode-v2, planCode-v3, etc.
       const newSlug = `${existingPlan.planCode}-v${newVersion}`;
 
       // Check if new slug already exists (shouldn't happen with version suffix)
       const slugExists = await subscriptionRepository.slugExists(newSlug);
       if (slugExists) {
-        throw new Error(`Slug ${newSlug} already exists. This is unexpected - please contact support.`);
+        throw new Error(
+          `Slug ${newSlug} already exists. This is unexpected - please contact support.`
+        );
       }
 
       // Create new version
@@ -968,15 +1499,20 @@ class SubscriptionService {
         version: newVersion,
         slug: newSlug, // Always use auto-generated slug for versions
         isActive: true,
-        isPublic: updateData.isPublic !== undefined ? updateData.isPublic : true,
+        isPublic:
+          updateData.isPublic !== undefined ? updateData.isPublic : true,
         deprecatedAt: null,
         replacedByPlanId: null,
         createdAt: undefined,
         updatedAt: undefined,
-        deletedAt: undefined
+        deletedAt: undefined,
       };
 
-      const newPlan = await subscriptionRepository.createPlan(newPlanData, userId, userName);
+      const newPlan = await subscriptionRepository.createPlan(
+        newPlanData,
+        userId,
+        userName
+      );
 
       // Deprecate old version
       await subscriptionRepository.updatePlan(
@@ -984,7 +1520,7 @@ class SubscriptionService {
         {
           isPublic: false,
           deprecatedAt: new Date(),
-          replacedByPlanId: newPlan.id
+          replacedByPlanId: newPlan.id,
         },
         userId,
         userName
@@ -995,7 +1531,7 @@ class SubscriptionService {
       return {
         success: true,
         message: `New plan version ${newVersion} created successfully`,
-        data: newPlan
+        data: newPlan,
       };
     } catch (error) {
       await transaction.rollback();

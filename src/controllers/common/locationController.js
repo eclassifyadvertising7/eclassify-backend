@@ -34,6 +34,20 @@ class LocationController {
       return errorResponse(res, error.message, 400);
     }
   }
+
+  /**
+   * Get all cities irrespective of state
+   * @route GET /api/common/all-cities
+   * @access Public
+   */
+  static async getAllCities(req, res) {
+    try {
+      const result = await locationService.getAllCities();
+      return successResponse(res, result.data, result.message);
+    } catch (error) {
+      return errorResponse(res, error.message, 500);
+    }
+  }
 }
 
 export default LocationController;

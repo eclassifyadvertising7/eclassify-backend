@@ -70,6 +70,20 @@ export const SUCCESS_MESSAGES = {
   FILE_UPLOADED: 'File uploaded successfully',
   FILE_DELETED: 'File deleted successfully',
   
+  // Notification operations
+  NOTIFICATION_CREATED: 'Notification created successfully',
+  NOTIFICATIONS_CREATED: 'Notifications created successfully',
+  NOTIFICATION_RETRIEVED: 'Notification retrieved successfully',
+  NOTIFICATIONS_RETRIEVED: 'Notifications retrieved successfully',
+  NOTIFICATION_MARKED_READ: 'Notification marked as read',
+  NOTIFICATIONS_MARKED_READ: 'Notifications marked as read',
+  ALL_NOTIFICATIONS_MARKED_READ: 'All notifications marked as read',
+  NOTIFICATION_DELETED: 'Notification deleted successfully',
+  UNREAD_COUNT_RETRIEVED: 'Unread count retrieved successfully',
+  NOTIFICATION_STATS_RETRIEVED: 'Notification statistics retrieved successfully',
+  PREFERENCES_RETRIEVED: 'Notification preferences retrieved successfully',
+  PREFERENCES_UPDATED: 'Notification preferences updated successfully',
+  
   // General operations
   OPERATION_SUCCESS: 'Operation completed successfully',
   DATA_RETRIEVED: 'Data retrieved successfully',
@@ -161,6 +175,19 @@ export const ERROR_MESSAGES = {
   RESOURCE_NOT_FOUND: 'Resource not found',
   RESOURCE_ALREADY_EXISTS: 'Resource already exists',
   RESOURCE_IN_USE: 'Resource is currently in use',
+  
+  // Notification errors
+  NOTIFICATION_NOT_FOUND: 'Notification not found',
+  NOTIFICATION_CREATE_FAILED: 'Failed to create notification',
+  NOTIFICATIONS_CREATE_FAILED: 'Failed to create notifications',
+  NOTIFICATIONS_FETCH_FAILED: 'Failed to fetch notifications',
+  NOTIFICATION_UPDATE_FAILED: 'Failed to update notification',
+  NOTIFICATIONS_UPDATE_FAILED: 'Failed to update notifications',
+  NOTIFICATION_DELETE_FAILED: 'Failed to delete notification',
+  UNREAD_COUNT_FAILED: 'Failed to get unread count',
+  NOTIFICATION_STATS_FAILED: 'Failed to get notification statistics',
+  PREFERENCES_FETCH_FAILED: 'Failed to fetch notification preferences',
+  PREFERENCES_UPDATE_FAILED: 'Failed to update notification preferences',
   
   // General errors
   OPERATION_FAILED: 'Operation failed',

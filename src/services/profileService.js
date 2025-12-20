@@ -204,7 +204,8 @@ class ProfileService {
         .toBuffer();
     } catch (error) {
       console.error('Image optimization error:', error);
-      return file.buffer || imageBuffer;
+      // Return original buffer or read from file path
+      return file.buffer || (await sharp(file.path).toBuffer());
     }
   }
 

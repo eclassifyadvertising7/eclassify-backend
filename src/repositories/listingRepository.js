@@ -5,8 +5,11 @@
 
 import models from '#models/index.js';
 import { Op } from 'sequelize';
+import sequelize from '#config/database.js';
+import SearchHelper from '#utils/searchHelper.js';
+import LocationHelper from '#utils/locationHelper.js';
 
-const { Listing, CarListing, PropertyListing, ListingMedia, Category, State, City, User, UserProfile } = models;
+const { Listing, CarListing, PropertyListing, ListingMedia, Category, State, City, User, UserProfile, UserFavorite } = models;
 
 class ListingRepository {
   /**
@@ -56,10 +59,22 @@ class ListingRepository {
       { model: ListingMedia, as: 'media', order: [['displayOrder', 'ASC']] }
     ] : [];
 
-    return await Listing.findByPk(id, {
+    const listing = await Listing.findByPk(id, {
       include,
       paranoid: options.includeDeleted ? false : true
     });
+
+    // Add favorite count if listing exists
+    if (listing && options.includeAll) {
+      const favoriteCount = await UserFavorite.count({
+        where: { listingId: id }
+      });
+      
+      // Add favoriteCount as a virtual field
+      listing.dataValues.favoriteCount = favoriteCount;
+    }
+
+    return listing;
   }
 
   /**
@@ -100,10 +115,22 @@ class ListingRepository {
       { model: ListingMedia, as: 'media', order: [['displayOrder', 'ASC']] }
     ] : [];
 
-    return await Listing.findOne({
+    const listing = await Listing.findOne({
       where: { slug },
       include
     });
+
+    // Add favorite count if listing exists
+    if (listing && options.includeAll) {
+      const favoriteCount = await UserFavorite.count({
+        where: { listingId: listing.id }
+      });
+      
+      // Add favoriteCount as a virtual field
+      listing.dataValues.favoriteCount = favoriteCount;
+    }
+
+    return listing;
   }
 
   /**
@@ -282,8 +309,21 @@ class ListingRepository {
       distinct: true
     });
 
+    // Add favorite counts to each listing
+    const listingsWithFavorites = await Promise.all(
+      rows.map(async (listing) => {
+        const favoriteCount = await UserFavorite.count({
+          where: { listingId: listing.id }
+        });
+        
+        // Add favoriteCount as a virtual field
+        listing.dataValues.favoriteCount = favoriteCount;
+        return listing;
+      })
+    );
+
     return {
-      listings: rows,
+      listings: listingsWithFavorites,
       pagination: {
         total: count,
         page,
@@ -425,6 +465,346 @@ class ListingRepository {
 
     const count = await Listing.count({ where });
     return count > 0;
+  }
+
+  /**
+   * Search listings with advanced filtering and ranking
+   * @param {Object} searchParams - Search parameters
+   * @param {Object} userLocation - User location for proximity scoring
+   * @param {Object} pagination - Pagination options
+   * @returns {Promise<Object>}
+   */
+  async searchListings(searchParams, userLocation = null, pagination = {}) {
+    const {
+      query,
+      categoryId,
+      priceMin,
+      priceMax,
+      stateId,
+      cityId,
+      locality,
+      postedByType,
+      featuredOnly,
+      sortBy = 'relevance',
+      filters = {} // Category-specific filters
+    } = searchParams;
+
+    const { page = 1, limit = 20 } = pagination;
+    const offset = (page - 1) * limit;
+
+    // Build WHERE clause using SearchHelper
+    const where = SearchHelper.buildSearchWhere(query, {
+      categoryId,
+      priceMin,
+      priceMax,
+      stateId,
+      cityId,
+      postedByType,
+      featuredOnly
+    });
+
+    // Add locality filter if provided
+    if (locality) {
+      where.locality = { [Op.iLike]: `%${locality}%` };
+    }
+
+    // Build includes for associations
+    const include = [
+      { 
+        model: User, 
+        as: 'user', 
+        attributes: ['id', 'fullName', 'mobile']
+      },
+      { 
+        model: Category, 
+        as: 'category', 
+        attributes: ['id', 'name', 'slug']
+      },
+      { 
+        model: State, 
+        as: 'state', 
+        attributes: ['id', 'name', 'slug']
+      },
+      { 
+        model: City, 
+        as: 'city', 
+        attributes: ['id', 'name', 'slug']
+      },
+      { 
+        model: ListingMedia, 
+        as: 'media', 
+        where: { isPrimary: true },
+        required: false,
+        attributes: ['id', 'mediaUrl', 'thumbnailUrl', 'mediaType', 'storageType', 'mimeType', 'thumbnailMimeType']
+      }
+    ];
+
+    // Add category-specific includes and filters
+    if (categoryId) {
+      const { CarBrand, CarModel, CarVariant } = models;
+      
+      // Car category filters
+      if (filters.brandId || filters.modelId || filters.variantId || filters.year || 
+          filters.fuelType || filters.transmission || filters.condition) {
+        
+        const carWhere = {};
+        if (filters.brandId) carWhere.brandId = filters.brandId;
+        if (filters.modelId) carWhere.modelId = filters.modelId;
+        if (filters.variantId) carWhere.variantId = filters.variantId;
+        if (filters.year) carWhere.year = filters.year;
+        if (filters.fuelType) carWhere.fuelType = filters.fuelType;
+        if (filters.transmission) carWhere.transmission = filters.transmission;
+        if (filters.condition) carWhere.condition = filters.condition;
+        if (filters.minMileage) carWhere.mileageKm = { [Op.gte]: filters.minMileage };
+        if (filters.maxMileage) {
+          carWhere.mileageKm = carWhere.mileageKm || {};
+          carWhere.mileageKm[Op.lte] = filters.maxMileage;
+        }
+
+        include.push({
+          model: CarListing,
+          as: 'carListing',
+          where: carWhere,
+          required: true,
+          include: [
+            { model: CarBrand, as: 'brand', attributes: ['id', 'name', 'slug'] },
+            { model: CarModel, as: 'model', attributes: ['id', 'name', 'slug'] },
+            { model: CarVariant, as: 'variant', attributes: ['id', 'variantName', 'slug'], required: false }
+          ]
+        });
+      }
+
+      // Property category filters
+      if (filters.propertyType || filters.bedrooms || filters.bathrooms || filters.areaSqft) {
+        const propertyWhere = {};
+        if (filters.propertyType) propertyWhere.propertyType = filters.propertyType;
+        if (filters.bedrooms) propertyWhere.bedrooms = filters.bedrooms;
+        if (filters.bathrooms) propertyWhere.bathrooms = filters.bathrooms;
+        if (filters.minArea) propertyWhere.areaSqft = { [Op.gte]: filters.minArea };
+        if (filters.maxArea) {
+          propertyWhere.areaSqft = propertyWhere.areaSqft || {};
+          propertyWhere.areaSqft[Op.lte] = filters.maxArea;
+        }
+
+        include.push({
+          model: PropertyListing,
+          as: 'propertyListing',
+          where: propertyWhere,
+          required: true
+        });
+      }
+    }
+
+    // Build ORDER BY clause using SearchHelper
+    const order = SearchHelper.buildSearchOrder(query, sortBy, userLocation);
+
+    // Execute search query
+    const { count, rows } = await Listing.findAndCountAll({
+      where,
+      include,
+      order,
+      limit,
+      offset,
+      distinct: true
+    });
+
+    // Calculate search scores and location matches for each result, and add favorite counts
+    const enrichedResults = await Promise.all(
+      rows.map(async (listing) => {
+        const listingData = listing.toJSON();
+        
+        // Get favorite count
+        const favoriteCount = await UserFavorite.count({
+          where: { listingId: listing.id }
+        });
+        
+        // Calculate location match
+        const locationMatch = LocationHelper.getLocationMatch(
+          userLocation,
+          { stateId: listing.stateId, cityId: listing.cityId }
+        );
+
+        // Calculate search score components
+        const locationScore = SearchHelper.calculateLocationScore(
+          userLocation,
+          { stateId: listing.stateId, cityId: listing.cityId }
+        );
+        const paidScore = SearchHelper.calculatePaidListingScore(listing.isPaidListing);
+        const featuredScore = SearchHelper.calculateFeaturedScore(listing.isFeatured, listing.featuredUntil);
+        const freshnessScore = SearchHelper.calculateFreshnessScore(listing.createdAt);
+
+        // Total search score
+        const searchScore = locationScore + paidScore + featuredScore + freshnessScore;
+
+        return {
+          ...listingData,
+          favoriteCount,
+          searchScore,
+          locationMatch: locationMatch.type,
+          locationScore,
+          paidScore,
+          featuredScore,
+          freshnessScore
+        };
+      })
+    );
+
+    return {
+      listings: enrichedResults,
+      pagination: {
+        total: count,
+        page,
+        limit,
+        totalPages: Math.ceil(count / limit)
+      },
+      searchMeta: {
+        query: query || '',
+        totalResults: count,
+        hasLocationFilter: !!(stateId || cityId),
+        userLocation: userLocation || null
+      }
+    };
+  }
+
+  /**
+   * Get search suggestions based on query
+   * @param {string} query - Search query
+   * @param {Object} userLocation - User location
+   * @param {number} limit - Number of suggestions
+   * @returns {Promise<Array>}
+   */
+  async getSearchSuggestions(query, userLocation = null, limit = 5) {
+    if (!query || query.length < 2) {
+      return SearchHelper.getSearchSuggestions('', limit);
+    }
+
+    // Get suggestions from existing listing titles and keywords
+    const suggestions = await Listing.findAll({
+      where: {
+        status: 'active',
+        [Op.or]: [
+          { title: { [Op.iLike]: `%${query}%` } },
+          { keywords: { [Op.iLike]: `%${query}%` } }
+        ]
+      },
+      attributes: ['title', 'keywords'],
+      limit: limit * 2, // Get more to filter and deduplicate
+      order: [['view_count', 'DESC']]
+    });
+
+    // Extract unique suggestions
+    const suggestionSet = new Set();
+    
+    suggestions.forEach(listing => {
+      // Add title words that match
+      const titleWords = listing.title.toLowerCase().split(' ');
+      titleWords.forEach(word => {
+        if (word.includes(query.toLowerCase()) && word.length > 2) {
+          suggestionSet.add(word);
+        }
+      });
+
+      // Add keyword matches
+      if (listing.keywords) {
+        const keywords = listing.keywords.toLowerCase().split(' ');
+        keywords.forEach(keyword => {
+          if (keyword.includes(query.toLowerCase()) && keyword.length > 2) {
+            suggestionSet.add(keyword);
+          }
+        });
+      }
+    });
+
+    return Array.from(suggestionSet).slice(0, limit);
+  }
+
+  /**
+   * Get available search filters for a category
+   * @param {number} categoryId - Category ID
+   * @param {Object} userLocation - User location
+   * @returns {Promise<Object>}
+   */
+  async getSearchFilters(categoryId, userLocation = null) {
+    const filters = {
+      priceRanges: [
+        { label: 'Under ₹1 Lakh', min: 0, max: 100000 },
+        { label: '₹1-5 Lakh', min: 100000, max: 500000 },
+        { label: '₹5-10 Lakh', min: 500000, max: 1000000 },
+        { label: '₹10-20 Lakh', min: 1000000, max: 2000000 },
+        { label: 'Above ₹20 Lakh', min: 2000000, max: null }
+      ],
+      postedByTypes: [
+        { value: 'owner', label: 'Owner' },
+        { value: 'agent', label: 'Agent' },
+        { value: 'dealer', label: 'Dealer' }
+      ]
+    };
+
+    // Add category-specific filters
+    if (categoryId) {
+      const { CarBrand, CarModel } = models;
+      
+      // Car category filters
+      const carBrands = await CarBrand.findAll({
+        attributes: ['id', 'name', 'slug'],
+        order: [['name', 'ASC']]
+      });
+
+      if (carBrands.length > 0) {
+        filters.carFilters = {
+          brands: carBrands,
+          fuelTypes: [
+            { value: 'petrol', label: 'Petrol' },
+            { value: 'diesel', label: 'Diesel' },
+            { value: 'cng', label: 'CNG' },
+            { value: 'electric', label: 'Electric' },
+            { value: 'hybrid', label: 'Hybrid' }
+          ],
+          transmissions: [
+            { value: 'manual', label: 'Manual' },
+            { value: 'automatic', label: 'Automatic' },
+            { value: 'cvt', label: 'CVT' }
+          ],
+          conditions: [
+            { value: 'excellent', label: 'Excellent' },
+            { value: 'good', label: 'Good' },
+            { value: 'fair', label: 'Fair' }
+          ]
+        };
+      }
+
+      // Property category filters
+      filters.propertyFilters = {
+        propertyTypes: [
+          { value: 'apartment', label: 'Apartment' },
+          { value: 'house', label: 'House' },
+          { value: 'villa', label: 'Villa' },
+          { value: 'plot', label: 'Plot' }
+        ],
+        bedrooms: [
+          { value: 1, label: '1 BHK' },
+          { value: 2, label: '2 BHK' },
+          { value: 3, label: '3 BHK' },
+          { value: 4, label: '4+ BHK' }
+        ]
+      };
+    }
+
+    return filters;
+  }
+
+  /**
+   * Update listing keywords
+   * @param {number} id - Listing ID
+   * @param {string} keywords - Keywords string
+   * @returns {Promise<boolean>}
+   */
+  async updateKeywords(id, keywords) {
+    const listing = await Listing.findByPk(id);
+    if (!listing) return false;
+
+    await listing.update({ keywords });
+    return true;
   }
 
   /**

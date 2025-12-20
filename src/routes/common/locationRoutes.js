@@ -11,6 +11,13 @@ const router = express.Router();
 router.get('/states', LocationController.getStates);
 
 /**
+ * @route GET /api/common/all-cities
+ * @desc Get all cities irrespective of state
+ * @access Public
+ */
+router.get('/all-cities', LocationController.getAllCities);
+
+/**
  * @route GET /api/common/cities/:stateId
  * @desc Get cities by state ID
  * @access Public

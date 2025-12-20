@@ -26,11 +26,7 @@ export async function up(queryInterface, Sequelize) {
       onUpdate: 'CASCADE',
       onDelete: 'RESTRICT'
     },
-    // Subscription Period
-    starts_at: {
-      type: Sequelize.DATE,
-      allowNull: false
-    },
+
     ends_at: {
       type: Sequelize.DATE,
       allowNull: false
@@ -369,9 +365,9 @@ export async function up(queryInterface, Sequelize) {
     name: 'idx_user_subscriptions_user_status'
   });
 
-  // Unique constraint: Only one active subscription per user
-  await queryInterface.addIndex('user_subscriptions', ['user_id', 'status'], {
-    name: 'unique_user_active_subscription',
+  // Unique constraint: Only one active subscription per user per category
+  await queryInterface.addIndex('user_subscriptions', ['user_id', 'plan_id'], {
+    name: 'unique_user_category_active_subscription',
     unique: true,
     where: {
       status: 'active',

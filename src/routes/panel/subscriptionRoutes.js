@@ -18,6 +18,14 @@ router.use(allowRoles(['super_admin']));
 router.get('/', SubscriptionController.getAllSubscriptions);
 
 /**
+ * @route   GET /api/panel/subscriptions/category/:categoryId
+ * @desc    Get subscriptions by category
+ * @access  Super Admin
+ * @query   status, userId, search, page, limit
+ */
+router.get('/category/:categoryId', SubscriptionController.getSubscriptionsByCategory);
+
+/**
  * @route   GET /api/panel/subscriptions/:id
  * @desc    Get subscription by ID
  * @access  Super Admin

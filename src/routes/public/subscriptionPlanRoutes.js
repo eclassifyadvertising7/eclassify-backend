@@ -11,6 +11,13 @@ const router = express.Router();
 router.get('/', SubscriptionPlanController.getAvailablePlans);
 
 /**
+ * @route   GET /api/public/subscription-plans/category/:categoryId
+ * @desc    Get subscription plans by category
+ * @access  Public
+ */
+router.get('/category/:categoryId', SubscriptionPlanController.getPlansByCategory);
+
+/**
  * @route   GET /api/public/subscription-plans/:id
  * @desc    Get subscription plan details by ID
  * @access  Public

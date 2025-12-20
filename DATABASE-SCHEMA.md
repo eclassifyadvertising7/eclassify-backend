@@ -509,3 +509,42 @@ AND table_name IN ('roles', 'permissions', 'user_subscriptions');
 - status: 'initiated', 'pending', 'processing', 'completed', 'failed', 'refunded', 'partially_refunded', 'cancelled', 'expired'
 
 **Notes:** Transaction-first tracking; transaction_number format: TXN/2025/0001; manual_payment_metadata stores payer name, UPI ID, transaction ID, payment proof for manual payments; verified_by tracks admin who verified manual payments; gateway_response stores full gateway response for debugging
+
+---
+
+### user_notifications
+**Columns:** id (BIGINT PK), user_id (BIGINT FK→users), notification_type (VARCHAR(50)), category (VARCHAR(30)), title (VARCHAR(200)), message (TEXT), data (JSONB), listing_id (BIGINT FK→listings), chat_room_id (BIGINT FK→chat_rooms), subscription_id (BIGINT FK→user_subscriptions), invoice_id (BIGINT FK→invoices), transaction_id (BIGINT FK→transactions), status (VARCHAR(20)), priority (VARCHAR(10)), is_read (BOOLEAN), read_at (TIMESTAMP), delivery_method (VARCHAR(20)), email_sent (BOOLEAN), email_sent_at (TIMESTAMP), push_sent (BOOLEAN), push_sent_at (TIMESTAMP), sms_sent (BOOLEAN), sms_sent_at (TIMESTAMP), scheduled_for (TIMESTAMP), expires_at (TIMESTAMP), metadata (JSONB), created_by (BIGINT FK→users), updated_by (BIGINT FK→users), deleted_by (BIGINT FK→users), created_at (TIMESTAMP), updated_at (TIMESTAMP), deleted_at (TIMESTAMP)
+
+**Relationships:**
+- belongsTo → users (via user_id)
+- belongsTo → listings (via listing_id)
+- belongsTo → chat_rooms (via chat_room_id)
+- belongsTo → user_subscriptions (via subscription_id)
+- belongsTo → invoices (via invoice_id)
+- belongsTo → transactions (via transaction_id)
+- belongsTo → users (via created_by, updated_by, deleted_by)
+
+**Hooks:**
+- beforeUpdate: Set updated_by from options.userId
+
+**Config:** paranoid: true (soft delete)
+
+**Indexes:** (user_id, status), (user_id, created_at DESC), (notification_type, category), scheduled_for, expires_at, listing_id, chat_room_id, deleted_at
+
+**Notes:** High-volume table (BIGINT PK); status values: 'unread', 'read', 'scheduled'; priority values: 'low', 'normal', 'high', 'urgent'; category values: 'listing', 'chat', 'subscription', 'system', 'security', 'marketing'; delivery_method values: 'in_app', 'email', 'push', 'sms'; data field contains notification-specific information; scheduled_for enables delayed delivery; expires_at for automatic cleanup; all related entity FKs are nullable and SET NULL on delete
+
+---
+
+### user_notification_preferences
+**Columns:** id (BIGINT PK), user_id (BIGINT UNIQUE FK→users), notifications_enabled (BOOLEAN), email_notifications (BOOLEAN), push_notifications (BOOLEAN), sms_notifications (BOOLEAN), listing_notifications (JSONB), chat_notifications (JSONB), subscription_notifications (JSONB), system_notifications (JSONB), security_notifications (JSONB), marketing_notifications (JSONB), quiet_hours_enabled (BOOLEAN), quiet_hours_start (TIME), quiet_hours_end (TIME), timezone (VARCHAR(50)), max_emails_per_day (INT), max_push_per_hour (INT), created_at (TIMESTAMP), updated_at (TIMESTAMP)
+
+**Relationships:**
+- belongsTo → users (via user_id)
+
+**Hooks:** None
+
+**Config:** paranoid: false
+
+**Indexes:** user_id (UNIQUE)
+
+**Notes:** Small table (one record per user); category notification preferences stored as JSONB with structure: {in_app: boolean, email: boolean, push: boolean, sms: boolean}; default values set for all preferences; quiet hours respect timezone setting; frequency limits prevent spam; created automatically when first accessed

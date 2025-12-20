@@ -119,6 +119,64 @@ class SubscriptionRepository {
   }
 
   /**
+   * Get plans by category - For listing subscriptions
+   * @param {number} categoryId - Category ID
+   * @returns {Promise<Array>} Category-specific plans
+   */
+  async getPlansByCategory(categoryId) {
+    return await SubscriptionPlan.findAll({
+      where: {
+        categoryId,
+        isActive: true,
+        isPublic: true,
+        deprecatedAt: null
+      },
+      order: [
+        ['sort_order', 'ASC'],
+        ['final_price', 'ASC']
+      ]
+    });
+  }
+
+
+
+  /**
+   * Get free plan for category
+   * @param {number} categoryId - Category ID
+   * @returns {Promise<Object|null>} Free plan for category
+   */
+  async getFreePlanForCategory(categoryId) {
+    return await SubscriptionPlan.findOne({
+      where: {
+        categoryId,
+        isFreePlan: true,
+        isActive: true
+      }
+    });
+  }
+
+  /**
+   * Get all active free plans (for all categories)
+   * @returns {Promise<Array>} All free plans
+   */
+  async getAllFreePlans() {
+    return await SubscriptionPlan.findAll({
+      where: {
+        isFreePlan: true,
+        isActive: true
+      },
+      include: [
+        {
+          model: Category,
+          as: 'category',
+          attributes: ['id', 'name', 'slug']
+        }
+      ],
+      order: [['categoryId', 'ASC']]
+    });
+  }
+
+  /**
    * Get all versions of a plan
    * @param {string} planCode - Plan code
    * @returns {Promise<Array>} All versions
@@ -228,7 +286,7 @@ class SubscriptionRepository {
   }
 
   /**
-   * Get user's active subscription
+   * Get user's active subscription (legacy - use getUserActiveSubscriptionByCategory)
    * @param {number} userId - User ID
    * @returns {Promise<Object|null>} Active subscription or null
    */
@@ -246,6 +304,133 @@ class SubscriptionRepository {
         }
       ]
     });
+  }
+
+  /**
+   * Get user's active subscription for specific category
+   * @param {number} userId - User ID
+   * @param {number} categoryId - Category ID
+   * @returns {Promise<Object|null>} Active subscription for category or null
+   */
+  async getUserActiveSubscriptionByCategory(userId, categoryId) {
+    return await UserSubscription.findOne({
+      where: {
+        userId,
+        status: 'active'
+      },
+      include: [
+        {
+          model: SubscriptionPlan,
+          as: 'plan',
+          where: { categoryId },
+          attributes: ['id', 'name', 'slug', 'planCode', 'version', 'categoryId', 'isFreePlan', 'isQuotaBased']
+        }
+      ]
+    });
+  }
+
+
+
+  /**
+   * Get all user's active subscriptions (all categories)
+   * @param {number} userId - User ID
+   * @returns {Promise<Array>} All active subscriptions
+   */
+  async getUserAllActiveSubscriptions(userId) {
+    return await UserSubscription.findAll({
+      where: {
+        userId,
+        status: 'active'
+      },
+      include: [
+        {
+          model: SubscriptionPlan,
+          as: 'plan',
+          attributes: ['id', 'name', 'slug', 'planCode', 'version', 'categoryId', 'isFreePlan', 'isQuotaBased']
+        }
+      ]
+    });
+  }
+
+  /**
+   * Get subscriptions by category (Admin)
+   * @param {Object} filters - Filter options including categoryId
+   * @param {Object} pagination - Pagination options
+   * @returns {Promise<Object>} Subscriptions with pagination
+   */
+  async getSubscriptionsByCategory(filters = {}, pagination = {}) {
+    const { page = 1, limit = 10 } = pagination;
+    const offset = (page - 1) * limit;
+    const where = {};
+    const userWhere = {};
+    const planWhere = {};
+
+    // Category filter (required)
+    if (filters.categoryId) {
+      planWhere.categoryId = filters.categoryId;
+    }
+
+    // Status filter
+    if (filters.status) {
+      where.status = filters.status;
+    }
+
+    // User filter
+    if (filters.userId) {
+      where.userId = filters.userId;
+    }
+
+    // Date range filter
+    if (filters.dateFrom || filters.dateTo) {
+      where.createdAt = {};
+      if (filters.dateFrom) {
+        where.createdAt[Op.gte] = new Date(filters.dateFrom);
+      }
+      if (filters.dateTo) {
+        where.createdAt[Op.lte] = new Date(filters.dateTo);
+      }
+    }
+
+    // Search filter (name or mobile)
+    if (filters.search) {
+      userWhere[Op.or] = [
+        { fullName: { [Op.iLike]: `%${filters.search}%` } },
+        { mobile: { [Op.like]: `%${filters.search}%` } }
+      ];
+    }
+
+    const { count, rows } = await UserSubscription.findAndCountAll({
+      where,
+      include: [
+        {
+          model: User,
+          as: 'user',
+          attributes: ['id', 'fullName', 'mobile', 'email'],
+          where: Object.keys(userWhere).length > 0 ? userWhere : undefined,
+          required: Object.keys(userWhere).length > 0
+        },
+        {
+          model: SubscriptionPlan,
+          as: 'plan',
+          attributes: ['id', 'name', 'slug', 'planCode', 'version', 'categoryId'],
+          where: Object.keys(planWhere).length > 0 ? planWhere : undefined,
+          required: true
+        }
+      ],
+      order: [['created_at', 'DESC']],
+      limit,
+      offset
+    });
+
+    return {
+      subscriptions: rows,
+      pagination: {
+        total: count,
+        page,
+        limit,
+        totalPages: Math.ceil(count / limit)
+      }
+    };
   }
 
   /**
