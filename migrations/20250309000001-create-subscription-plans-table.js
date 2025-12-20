@@ -94,12 +94,10 @@ export async function up(queryInterface, Sequelize) {
       },
       onUpdate: 'CASCADE',
       onDelete: 'RESTRICT',
-      comment: 'Plan is restricted to this category'
     },
     category_name: {
       type: Sequelize.STRING(255),
       allowNull: false,
-      comment: 'Cached category name for display'
     },
     state_id: {
       type: Sequelize.INTEGER,
@@ -110,7 +108,6 @@ export async function up(queryInterface, Sequelize) {
       },
       onUpdate: 'CASCADE',
       onDelete: 'SET NULL',
-      comment: 'If set, plan is restricted to this state only'
     },
     city_id: {
       type: Sequelize.INTEGER,
@@ -121,7 +118,6 @@ export async function up(queryInterface, Sequelize) {
       },
       onUpdate: 'CASCADE',
       onDelete: 'SET NULL',
-      comment: 'If set, plan is restricted to this city only'
     },
     // Listing Quotas
     max_total_listings: {
@@ -277,6 +273,19 @@ export async function up(queryInterface, Sequelize) {
     terms_and_conditions: {
       type: Sequelize.TEXT,
       allowNull: true
+    },
+    // Plan Type Flags
+    is_free_plan: {
+      type: Sequelize.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+      comment: 'True for free plans with rolling quotas'
+    },
+    is_quota_based: {
+      type: Sequelize.BOOLEAN,
+      allowNull: false,
+      defaultValue: true,
+      comment: 'True for quota-based plans, false for time-based plans'
     },
     // Status & Visibility
     is_active: {

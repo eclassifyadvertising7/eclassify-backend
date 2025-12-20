@@ -46,6 +46,20 @@ class LocationService {
       data: cities
     };
   }
+
+  /**
+   * Get all cities irrespective of state
+   * @returns {Promise<Object>}
+   */
+  async getAllCities() {
+    const cities = await locationRepository.getAllCities();
+
+    return {
+      success: true,
+      message: SUCCESS_MESSAGES.DATA_RETRIEVED,
+      data: cities
+    };
+  }
 }
 
 export default new LocationService();

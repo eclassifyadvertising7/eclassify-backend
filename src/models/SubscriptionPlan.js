@@ -308,6 +308,19 @@ export default (sequelize) => {
       allowNull: true,
       field: 'terms_and_conditions'
     },
+    // Plan Type Flags
+    isFreePlan: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+      field: 'is_free_plan'
+    },
+    isQuotaBased: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: true,
+      field: 'is_quota_based'
+    },
     // Status & Visibility
     isActive: {
       type: DataTypes.BOOLEAN,

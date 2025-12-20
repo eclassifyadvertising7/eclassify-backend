@@ -4,7 +4,8 @@
  */
 
 import listingService from '#services/listingService.js';
-import { successResponse, errorResponse } from '#utils/responseFormatter.js';
+import { successResponse, errorResponse, validationErrorResponse } from '#utils/responseFormatter.js';
+import LocationHelper from '#utils/locationHelper.js';
 
 class ListingController {
   /**
@@ -129,6 +130,180 @@ class ListingController {
       return successResponse(res, result.data, result.message);
     } catch (error) {
       return errorResponse(res, error.message, 400);
+    }
+  }
+
+  /**
+   * Advanced search for admin panel
+   * GET /api/panel/listings/search
+   */
+  static async searchListings(req, res) {
+    try {
+      const {
+        query,
+        categoryId,
+        priceMin,
+        priceMax,
+        stateId,
+        cityId,
+        locality,
+        postedByType,
+        featuredOnly,
+        status, // Admin can search by any status
+        userId, // Admin can search by specific user
+        sortBy = 'relevance',
+        page = 1,
+        limit = 20,
+        // Car-specific filters
+        brandId,
+        modelId,
+        variantId,
+        year,
+        fuelType,
+        transmission,
+        condition,
+        minMileage,
+        maxMileage,
+        // Property-specific filters
+        propertyType,
+        bedrooms,
+        bathrooms,
+        minArea,
+        maxArea
+      } = req.query;
+
+      // Validate pagination
+      const pageNum = parseInt(page);
+      const limitNum = Math.min(parseInt(limit), 100); // Higher limit for admin
+
+      if (pageNum < 1 || limitNum < 1) {
+        return validationErrorResponse(res, [{ field: 'pagination', message: 'Invalid pagination parameters' }]);
+      }
+
+      // Build search parameters (admin can search all statuses)
+      const searchParams = {
+        query: query?.trim() || null,
+        categoryId: categoryId ? parseInt(categoryId) : null,
+        priceMin: priceMin ? parseFloat(priceMin) : null,
+        priceMax: priceMax ? parseFloat(priceMax) : null,
+        stateId: stateId ? parseInt(stateId) : null,
+        cityId: cityId ? parseInt(cityId) : null,
+        locality: locality?.trim() || null,
+        postedByType,
+        featuredOnly: featuredOnly === 'true',
+        status: status || null, // Admin can filter by any status
+        userId: userId ? parseInt(userId) : null, // Admin can filter by user
+        sortBy,
+        filters: {
+          // Car filters
+          brandId: brandId ? parseInt(brandId) : null,
+          modelId: modelId ? parseInt(modelId) : null,
+          variantId: variantId ? parseInt(variantId) : null,
+          year: year ? parseInt(year) : null,
+          fuelType,
+          transmission,
+          condition,
+          minMileage: minMileage ? parseInt(minMileage) : null,
+          maxMileage: maxMileage ? parseInt(maxMileage) : null,
+          // Property filters
+          propertyType,
+          bedrooms: bedrooms ? parseInt(bedrooms) : null,
+          bathrooms: bathrooms ? parseInt(bathrooms) : null,
+          minArea: minArea ? parseInt(minArea) : null,
+          maxArea: maxArea ? parseInt(maxArea) : null
+        }
+      };
+
+      // Build admin user context
+      const userContext = {
+        userId: req.user.id,
+        sessionId: `admin_${req.user.id}`,
+        userLocation: LocationHelper.parseUserLocation(req),
+        ipAddress: req.activityData?.ipAddress,
+        userAgent: req.activityData?.userAgent,
+        user: req.user,
+        isAdmin: true
+      };
+
+      const pagination = { page: pageNum, limit: limitNum };
+
+      // Use the existing getAll method for admin searches (more appropriate for admin panel)
+      const filters = {
+        ...searchParams,
+        search: searchParams.query,
+        // Remove null values
+        ...Object.fromEntries(
+          Object.entries(searchParams).filter(([_, v]) => v !== null && v !== undefined)
+        )
+      };
+
+      const result = await listingService.getAll(filters, pagination);
+
+      return successResponse(res, result.data, 'Admin search results retrieved successfully', result.pagination);
+    } catch (error) {
+      console.error('Error in admin searchListings:', error);
+      return errorResponse(res, 'Failed to search listings', 500);
+    }
+  }
+
+  /**
+   * Get search analytics for admin
+   * GET /api/panel/listings/search/analytics
+   */
+  static async getSearchAnalytics(req, res) {
+    try {
+      const {
+        startDate,
+        endDate,
+        categoryId
+      } = req.query;
+
+      // This would integrate with the search analytics from user search logs
+      // For now, return basic listing statistics
+      const result = await listingService.getStats();
+
+      // Add search-specific analytics here
+      const analytics = {
+        ...result.data,
+        searchPeriod: {
+          startDate: startDate || null,
+          endDate: endDate || null
+        },
+        categoryFilter: categoryId ? parseInt(categoryId) : null
+      };
+
+      return successResponse(res, analytics, 'Search analytics retrieved successfully');
+    } catch (error) {
+      console.error('Error in getSearchAnalytics:', error);
+      return errorResponse(res, 'Failed to get search analytics', 500);
+    }
+  }
+
+  /**
+   * Get popular search keywords from listings
+   * GET /api/panel/listings/search/keywords
+   */
+  static async getPopularKeywords(req, res) {
+    try {
+      const { limit = 20 } = req.query;
+
+      // This would analyze keywords from listings and search logs
+      // For now, return a placeholder response
+      const keywords = [
+        { keyword: 'honda city', count: 245, category: 'Cars' },
+        { keyword: 'maruti swift', count: 189, category: 'Cars' },
+        { keyword: '2bhk apartment', count: 156, category: 'Properties' },
+        { keyword: 'automatic transmission', count: 134, category: 'Cars' },
+        { keyword: 'furnished house', count: 98, category: 'Properties' }
+      ];
+
+      return successResponse(res, { 
+        keywords: keywords.slice(0, parseInt(limit)),
+        totalAnalyzed: 1000 
+      }, 'Popular keywords retrieved successfully');
+    } catch (error) {
+      console.error('Error in getPopularKeywords:', error);
+      return errorResponse(res, 'Failed to get popular keywords', 500);
     }
   }
 

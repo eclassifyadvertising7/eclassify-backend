@@ -26,6 +26,28 @@ class SubscriptionController {
   }
 
   /**
+   * Get plans by category - For listing subscriptions
+   * GET /api/end-user/subscriptions/plans/category/:categoryId
+   */
+  static async getPlansByCategory(req, res) {
+    try {
+      const categoryId = parseInt(req.params.categoryId);
+
+      if (isNaN(categoryId)) {
+        return errorResponse(res, 'Invalid category ID', 400);
+      }
+
+      const result = await subscriptionService.getPlansByCategory(categoryId);
+
+      return successResponse(res, result.data, result.message);
+    } catch (error) {
+      return errorResponse(res, error.message, 500);
+    }
+  }
+
+
+
+  /**
    * Get plan details
    * GET /api/end-user/subscriptions/plans/:id
    */
@@ -81,7 +103,7 @@ class SubscriptionController {
   }
 
   /**
-   * Get user's active subscription
+   * Get user's active subscription (legacy)
    * GET /api/end-user/subscriptions/active
    */
   static async getMySubscription(req, res) {
@@ -95,6 +117,46 @@ class SubscriptionController {
       if (error.message.includes('not found')) {
         return notFoundResponse(res, error.message);
       }
+      return errorResponse(res, error.message, 500);
+    }
+  }
+
+  /**
+   * Get user's active subscription for specific category
+   * GET /api/end-user/subscriptions/active/category/:categoryId
+   */
+  static async getMySubscriptionByCategory(req, res) {
+    try {
+      const userId = req.user.userId;
+      const categoryId = parseInt(req.params.categoryId);
+
+      if (isNaN(categoryId)) {
+        return errorResponse(res, 'Invalid category ID', 400);
+      }
+
+      const result = await subscriptionService.getActiveSubscriptionByCategory(userId, categoryId);
+
+      return successResponse(res, result.data, result.message);
+    } catch (error) {
+      if (error.message.includes('not found')) {
+        return notFoundResponse(res, error.message);
+      }
+      return errorResponse(res, error.message, 500);
+    }
+  }
+
+  /**
+   * Get all user's active subscriptions (all categories)
+   * GET /api/end-user/subscriptions/active/all
+   */
+  static async getAllMyActiveSubscriptions(req, res) {
+    try {
+      const userId = req.user.userId;
+
+      const result = await subscriptionService.getAllActiveSubscriptions(userId);
+
+      return successResponse(res, result.data, result.message);
+    } catch (error) {
       return errorResponse(res, error.message, 500);
     }
   }

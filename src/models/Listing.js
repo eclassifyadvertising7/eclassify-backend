@@ -152,6 +152,12 @@ const Listing = sequelize.define(
       defaultValue: 0,
       field: 'contact_count'
     },
+    totalFavorites: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+      field: 'total_favorites'
+    },
     isAutoApproved: {
       type: DataTypes.BOOLEAN,
       allowNull: false,
@@ -163,6 +169,17 @@ const Listing = sequelize.define(
       allowNull: false,
       defaultValue: 'owner',
       field: 'posted_by_type'
+    },
+    userSubscriptionId: {
+      type: DataTypes.BIGINT,
+      allowNull: true,
+      field: 'user_subscription_id'
+    },
+    isPaidListing: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+      field: 'is_paid_listing'
     },
     createdBy: {
       type: DataTypes.BIGINT,
@@ -183,6 +200,28 @@ const Listing = sequelize.define(
       type: DataTypes.DATE,
       allowNull: true,
       field: 'deleted_at'
+    },
+    keywords: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      field: 'keywords'
+    },
+    republishCount: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+      field: 'republish_count'
+    },
+    republishHistory: {
+      type: DataTypes.JSONB,
+      allowNull: true,
+      field: 'republish_history'
+    },
+    republishedAt: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: DataTypes.NOW,
+      field: 'republished_at'
     }
   },
   {
@@ -206,11 +245,38 @@ const Listing = sequelize.define(
           const randomSuffix = crypto.randomBytes(3).toString('hex');
           listing.slug = `${baseSlug}-${randomSuffix}`;
         }
+
+        // Set initial republished_at to created_at
+        if (!listing.republishedAt) {
+          listing.republishedAt = new Date();
+        }
+
+        // Set created_by from options
+        if (options.userId) {
+          listing.createdBy = options.userId;
+        }
       },
       beforeUpdate: async (listing, options) => {
         // Set updated_by from options
         if (options.userId) {
           listing.updatedBy = options.userId;
+        }
+
+        // Handle republish history tracking
+        if (options.isRepublish) {
+          // Increment republish count
+          listing.republishCount = (listing.republishCount || 0) + 1;
+          
+          // Update republished_at timestamp
+          listing.republishedAt = new Date();
+          
+          // Add to republish history
+          const currentHistory = listing.republishHistory || [];
+          const newHistoryEntry = {
+            timestamp: new Date().toISOString()
+          };
+          
+          listing.republishHistory = [...currentHistory, newHistoryEntry];
         }
       },
       beforeDestroy: async (listing, options) => {
@@ -275,6 +341,12 @@ Listing.associate = (models) => {
   Listing.belongsTo(models.User, {
     foreignKey: 'rejected_by',
     as: 'rejecter'
+  });
+
+  // Belongs to UserSubscription (for quota tracking)
+  Listing.belongsTo(models.UserSubscription, {
+    foreignKey: 'user_subscription_id',
+    as: 'userSubscription'
   });
 };
 

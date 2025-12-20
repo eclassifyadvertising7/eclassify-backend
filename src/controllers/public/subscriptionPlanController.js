@@ -27,10 +27,29 @@ class SubscriptionPlanController {
   static async getPlanById(req, res) {
     try {
       const { id } = req.params;
-      const result = await subscriptionService.getPlanById(parseInt(id), true);
+      const result = await subscriptionService.getPlanDetails(parseInt(id));
       return successResponse(res, result.data, result.message);
     } catch (error) {
       return errorResponse(res, error.message, 404);
+    }
+  }
+
+  /**
+   * Get subscription plans by category
+   * GET /api/public/subscription-plans/category/:categoryId
+   */
+  static async getPlansByCategory(req, res) {
+    try {
+      const categoryId = parseInt(req.params.categoryId);
+
+      if (isNaN(categoryId)) {
+        return errorResponse(res, 'Invalid category ID', 400);
+      }
+
+      const result = await subscriptionService.getPlansByCategory(categoryId);
+      return successResponse(res, result.data, result.message);
+    } catch (error) {
+      return errorResponse(res, error.message, 400);
     }
   }
 }

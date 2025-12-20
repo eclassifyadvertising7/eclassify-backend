@@ -13,7 +13,7 @@ export async function up(queryInterface, Sequelize) {
     },
     mobile: {
       type: Sequelize.STRING(15),
-      allowNull: false,
+      allowNull: true,
       unique: true
     },
     full_name: {
@@ -64,6 +64,11 @@ export async function up(queryInterface, Sequelize) {
       allowNull: false,
       defaultValue: false
     },
+    is_profile_complete: {
+      type: Sequelize.BOOLEAN,
+      allowNull: false,
+      defaultValue: false
+    },
     phone_verified_at: {
       type: Sequelize.DATE,
       allowNull: true
@@ -87,19 +92,8 @@ export async function up(queryInterface, Sequelize) {
       defaultValue: false,
       comment: 'Platform verified badge - manually set by admin'
     },
-    profile_photo: {
-      type: Sequelize.TEXT,
-      allowNull: true
-    },
-    subscription_type: {
-      type: Sequelize.ENUM('free', 'paid'),
-      allowNull: false,
-      defaultValue: 'free'
-    },
-    subscription_expires_at: {
-      type: Sequelize.DATE,
-      allowNull: true
-    },
+
+
     max_devices: {
       type: Sequelize.SMALLINT,
       allowNull: false,
@@ -116,6 +110,21 @@ export async function up(queryInterface, Sequelize) {
       allowNull: false,
       defaultValue: 0,
       comment: 'Total number of listings created by user'
+    },
+    unread_chat_count: {
+      type: Sequelize.INTEGER,
+      allowNull: false,
+      defaultValue: 0
+    },
+    unread_notification_count: {
+      type: Sequelize.INTEGER,
+      allowNull: false,
+      defaultValue: 0
+    },
+    new_favorite_count: {
+      type: Sequelize.INTEGER,
+      allowNull: false,
+      defaultValue: 0
     },
     created_by: {
       type: Sequelize.BIGINT,

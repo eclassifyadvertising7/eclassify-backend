@@ -54,15 +54,14 @@ class ManualPaymentService {
       }
 
       // Calculate temporary dates (will be recalculated on verification)
-      const tempStartsAt = new Date();
-      const tempEndsAt = new Date(tempStartsAt);
+      const tempActivatedAt = new Date();
+      const tempEndsAt = new Date(tempActivatedAt);
       tempEndsAt.setDate(tempEndsAt.getDate() + plan.durationDays);
 
       // Create subscription with PENDING status
       const subscriptionData = {
         userId,
         planId: plan.id,
-        startsAt: tempStartsAt, // Temporary - will be updated when admin verifies
         endsAt: tempEndsAt, // Temporary - will be recalculated when admin verifies
         activatedAt: null, // Will be set when admin verifies
         status: 'pending', // PENDING until admin verifies
@@ -257,7 +256,6 @@ class ManualPaymentService {
           subscriptionId,
           {
             status: 'active',
-            startsAt: verificationTime, // Update to verification time
             endsAt: newEndsAt, // Recalculate from verification time
             activatedAt: verificationTime,
             amountPaid: subscription.finalPrice,

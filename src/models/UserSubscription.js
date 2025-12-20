@@ -18,12 +18,7 @@ export default (sequelize) => {
       allowNull: false,
       field: 'plan_id'
     },
-    // Subscription Period
-    startsAt: {
-      type: DataTypes.DATE,
-      allowNull: false,
-      field: 'starts_at'
-    },
+
     endsAt: {
       type: DataTypes.DATE,
       allowNull: false,
@@ -380,6 +375,12 @@ export default (sequelize) => {
     UserSubscription.belongsTo(models.UserSubscription, {
       foreignKey: 'previousSubscriptionId',
       as: 'previousSubscription'
+    });
+
+    // Has many Listings (for quota tracking)
+    UserSubscription.hasMany(models.Listing, {
+      foreignKey: 'userSubscriptionId',
+      as: 'listings'
     });
 
     // Audit associations

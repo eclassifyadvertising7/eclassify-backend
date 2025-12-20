@@ -1,6 +1,8 @@
 import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
+import session from 'express-session';
+import passport from '#config/passport.js';
 import routes from '#routes/index.js';
 import errorHandler from '#middleware/errorHandler.js';
 
@@ -30,6 +32,21 @@ app.use(cors(corsOptions));
 // Add body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Session middleware for OAuth (only needed for temporary state storage)
+app.use(session({
+  secret: process.env.JWT_SECRET || 'fallback-session-secret',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 10 * 60 * 1000 // 10 minutes (just for OAuth flow)
+  }
+}));
+
+// Initialize Passport middleware
+app.use(passport.initialize());
+app.use(passport.session());
 
 // Serve static files from uploads directory with CORS headers
 app.use('/uploads', cors(corsOptions), express.static('uploads'));

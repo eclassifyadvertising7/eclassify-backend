@@ -62,7 +62,7 @@ City.init(
       field: "display_order",
     },
     createdBy: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.BIGINT,
       allowNull: true,
       field: "created_by",
     },
@@ -77,7 +77,7 @@ City.init(
       field: "is_deleted",
     },
     deletedBy: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.BIGINT,
       allowNull: true,
       field: "deleted_by",
     },

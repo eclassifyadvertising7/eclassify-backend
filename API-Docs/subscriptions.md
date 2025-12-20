@@ -463,7 +463,6 @@ GET /api/panel/subscriptions?userId=42&dateFrom=2025-01-01
       "userId": 42,
       "planId": 4,
       "status": "active",
-      "startsAt": "2025-01-15T12:00:00.000Z",
       "endsAt": "2025-02-14T12:00:00.000Z",
       "activatedAt": "2025-01-15T12:00:00.000Z",
       "planName": "Premium Plan",
@@ -581,7 +580,6 @@ Manually assign a subscription plan to a user (admin assignment).
 {
   "userId": 42,
   "planId": 4,
-  "startsAt": "2025-01-20T00:00:00.000Z",  // Optional - defaults to now
   "endsAt": "2025-02-19T23:59:59.000Z",    // Optional - calculated from plan duration
   "notes": "Complimentary subscription for beta tester"
 }
@@ -597,7 +595,6 @@ Manually assign a subscription plan to a user (admin assignment).
     "userId": 42,
     "planId": 4,
     "status": "active",
-    "startsAt": "2025-01-20T00:00:00.000Z",
     "endsAt": "2025-02-19T23:59:59.000Z",
     "activatedAt": "2025-01-20T10:30:00.000Z",
     "planName": "Premium Plan",
@@ -789,7 +786,6 @@ Verify manual payment and activate or reject subscription. This endpoint will be
     "userId": 42,
     "planId": 4,
     "status": "active",
-    "startsAt": "2025-01-20T10:00:00.000Z",
     "endsAt": "2025-02-19T10:00:00.000Z",
     "activatedAt": "2025-01-20T10:00:00.000Z",
     "amountPaid": "899.00",
@@ -823,7 +819,7 @@ Verify manual payment and activate or reject subscription. This endpoint will be
 
 **What Happens on Approval:**
 1. Subscription status changed from `pending` to `active`
-2. `startsAt` set to current time
+2. `activatedAt` set to current time
 3. `endsAt` calculated based on plan duration
 4. `activatedAt` set to current time
 5. `amountPaid` set to plan's finalPrice
@@ -965,7 +961,7 @@ Create a new subscription for the authenticated user with manual payment verific
 6. User submits form
 7. Entries created with PENDING status in user_subscriptions, invoices, and transactions tables
 8. Admin manually verifies payment and activates subscription
-9. User subscription's startsAt and activatedAt will be same (when admin approves), createdAt can be different
+9. User subscription's activatedAt is set when admin approves, createdAt can be different (when user initially submitted)
 
 **Request Body (Manual Payment):**
 ```json
@@ -989,7 +985,6 @@ Create a new subscription for the authenticated user with manual payment verific
     "userId": 42,
     "planId": 4,
     "status": "pending",
-    "startsAt": null,
     "endsAt": null,
     "activatedAt": null,
     "planName": "Premium Plan",
@@ -1409,7 +1404,6 @@ Get detailed information about a specific subscription (must be owned by user).
   userId: number,
   planId: number,
   status: enum,               // "pending", "active", "expired", "cancelled", "suspended"
-  startsAt: timestamp,
   endsAt: timestamp,
   activatedAt: timestamp,
   planName: string,           // Snapshot

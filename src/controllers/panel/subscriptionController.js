@@ -205,6 +205,37 @@ class SubscriptionController {
     }
   }
 
+  /**
+   * Get user subscriptions by category (Admin)
+   * GET /api/panel/subscriptions/category/:categoryId
+   */
+  static async getSubscriptionsByCategory(req, res) {
+    try {
+      const categoryId = parseInt(req.params.categoryId);
+
+      if (isNaN(categoryId)) {
+        return errorResponse(res, 'Invalid category ID', 400);
+      }
+
+      const filters = {
+        ...req.query,
+        categoryId
+      };
+
+      const pagination = {
+        page: parseInt(req.query.page) || 1,
+        limit: parseInt(req.query.limit) || 10
+      };
+
+      // We'll need to add this method to the service
+      const result = await subscriptionService.getSubscriptionsByCategory(filters, pagination);
+
+      return paginatedResponse(res, result.data, result.pagination, result.message);
+    } catch (error) {
+      return errorResponse(res, error.message, 500);
+    }
+  }
+
 }
 
 export default SubscriptionController;

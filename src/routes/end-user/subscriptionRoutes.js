@@ -15,6 +15,13 @@ router.use(authenticate);
 router.get('/plans', SubscriptionController.getAvailablePlans);
 
 /**
+ * @route   GET /api/end-user/subscriptions/plans/category/:categoryId
+ * @desc    Get plans by category
+ * @access  Authenticated Users
+ */
+router.get('/plans/category/:categoryId', SubscriptionController.getPlansByCategory);
+
+/**
  * @route   GET /api/end-user/subscriptions/plans/:id
  * @desc    Get plan details
  * @access  Authenticated Users
@@ -22,8 +29,22 @@ router.get('/plans', SubscriptionController.getAvailablePlans);
 router.get('/plans/:id', SubscriptionController.getPlanDetails);
 
 /**
+ * @route   GET /api/end-user/subscriptions/active/all
+ * @desc    Get all user's active subscriptions
+ * @access  Authenticated Users
+ */
+router.get('/active/all', SubscriptionController.getAllMyActiveSubscriptions);
+
+/**
+ * @route   GET /api/end-user/subscriptions/active/category/:categoryId
+ * @desc    Get user's active subscription by category
+ * @access  Authenticated Users
+ */
+router.get('/active/category/:categoryId', SubscriptionController.getMySubscriptionByCategory);
+
+/**
  * @route   GET /api/end-user/subscriptions/active
- * @desc    Get user's active subscription
+ * @desc    Get user's active subscription (legacy)
  * @access  Authenticated Users
  */
 router.get('/active', SubscriptionController.getMySubscription);

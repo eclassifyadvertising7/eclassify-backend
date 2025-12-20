@@ -13,12 +13,17 @@ OtpVerification.init(
       },
       mobile: {
         type: DataTypes.STRING(15),
-        allowNull: false,
+        allowNull: true,
         field: 'mobile'
+      },
+      email: {
+        type: DataTypes.STRING(255),
+        allowNull: true,
+        field: 'email'
       },
       countryCode: {
         type: DataTypes.STRING(5),
-        allowNull: false,
+        allowNull: true,
         defaultValue: '+91',
         field: 'country_code'
       },
@@ -92,6 +97,10 @@ OtpVerification.init(
       {
         fields: ['mobile', 'type', 'is_verified'],
         name: 'idx_otp_mobile_type_verified'
+      },
+      {
+        fields: ['email', 'type', 'is_verified'],
+        name: 'idx_otp_email_type_verified'
       },
       {
         fields: ['expires_at'],

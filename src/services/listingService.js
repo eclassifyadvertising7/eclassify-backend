@@ -7,8 +7,12 @@ import listingRepository from '#repositories/listingRepository.js';
 import carListingRepository from '#repositories/carListingRepository.js';
 import propertyListingRepository from '#repositories/propertyListingRepository.js';
 import listingMediaRepository from '#repositories/listingMediaRepository.js';
+import quotaService from '#services/quotaService.js';
+import userSearchService from '#services/userSearchService.js';
 import models from '#models/index.js';
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '#utils/constants/messages.js';
+import SearchHelper from '#utils/searchHelper.js';
+import LocationHelper from '#utils/locationHelper.js';
 
 const { User } = models;
 
@@ -53,9 +57,8 @@ class ListingService {
     // Validate required fields
     this._validateRequiredFields(listingData);
 
-    // Check if user has auto-approve enabled
-    const user = await User.findByPk(userId, { attributes: ['isAutoApproveEnabled'] });
-    const isAutoApproveEnabled = user?.isAutoApproveEnabled || false;
+    // Check listing eligibility (quota + auto-approve)
+    const eligibility = await quotaService.checkListingEligibility(userId, listingData.categoryId);
 
     // Set audit fields
     listingData.userId = userId;
@@ -66,44 +69,54 @@ class ListingService {
     let quotaExceeded = false;
     let quotaMessage = null;
 
-    // If auto-approve is enabled, check quota
-    if (isAutoApproveEnabled) {
-      const { canUserCreateListing } = await import('#utils/subscriptionQuotaHelper.js');
-      const quotaCheck = await canUserCreateListing(userId);
-
-      if (quotaCheck.canCreate) {
-        // Quota available - set listing to active immediately
-        listingData.status = 'active';
-        listingData.isAutoApproved = true;
-        listingData.approvedAt = new Date();
-        listingData.approvedBy = userId;
-        listingData.publishedAt = new Date();
-        
-        // Set expiry to 30 days from now
-        const expiresAt = new Date();
-        expiresAt.setDate(expiresAt.getDate() + 30);
-        listingData.expiresAt = expiresAt;
-      } else {
-        // Quota exceeded - create as draft instead
-        quotaExceeded = true;
-        quotaMessage = `${quotaCheck.message}. Your listing has been saved as draft.`;
-      }
+    if (!eligibility.data.canCreate) {
+      // No quota available - create as draft
+      quotaExceeded = true;
+      quotaMessage = `${eligibility.message}. Your listing has been saved as draft.`;
+    } else if (eligibility.data.hasAutoApprove) {
+      // Quota available and auto-approve enabled - set to active immediately
+      listingData.status = 'active';
+      listingData.isAutoApproved = true;
+      listingData.approvedAt = new Date();
+      listingData.approvedBy = userId;
+      listingData.publishedAt = new Date();
+      
+      // Set expiry to 30 days from now
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 30);
+      listingData.expiresAt = expiresAt;
     }
 
     // Create base listing
     const listing = await listingRepository.create(listingData);
 
     // Create category-specific data
+    let categorySpecificData = null;
     if (categoryData.type === 'car') {
       await carListingRepository.create({
         listingId: listing.id,
         ...categoryData.data
       });
+      categorySpecificData = categoryData.data;
     } else if (categoryData.type === 'property') {
       await propertyListingRepository.create({
         listingId: listing.id,
         ...categoryData.data
       });
+      categorySpecificData = categoryData.data;
+    }
+
+    // Generate and update keywords
+    await this.updateListingKeywords(listing.id, listingData, categorySpecificData);
+
+    // Consume quota if listing was auto-approved
+    if (listingData.status === 'active') {
+      try {
+        await quotaService.consumeQuota(userId, listingData.categoryId, listing.id);
+      } catch (error) {
+        console.error('Error consuming quota:', error);
+        // Don't fail the listing creation if quota consumption fails
+      }
     }
 
     // Fetch complete listing with associations
@@ -112,7 +125,7 @@ class ListingService {
     let message;
     if (quotaExceeded) {
       message = quotaMessage;
-    } else if (isAutoApproveEnabled && completeListing.status === 'active') {
+    } else if (listingData.status === 'active') {
       message = 'Listing created and auto-approved successfully';
     } else {
       message = SUCCESS_MESSAGES.LISTING_CREATED;
@@ -278,51 +291,54 @@ class ListingService {
       throw new Error('At least one image is required to submit listing');
     }
 
-    // Check if user has auto-approve enabled
-    const user = await User.findByPk(userId, { attributes: ['isAutoApproveEnabled'] });
-    const isAutoApproveEnabled = user?.isAutoApproveEnabled || false;
+    // Check listing eligibility (quota + auto-approve)
+    const eligibility = await quotaService.checkListingEligibility(userId, listing.categoryId);
 
-    if (isAutoApproveEnabled) {
-      // Check quota before auto-approving
-      const { canUserCreateListing } = await import('#utils/subscriptionQuotaHelper.js');
-      const quotaCheck = await canUserCreateListing(userId);
+    if (!eligibility.data.canCreate) {
+      // No quota - submit for manual approval
+      await listingRepository.updateStatus(id, 'pending', { userId });
 
-      if (quotaCheck.canCreate) {
-        // Quota available - auto-approve the listing
-        const expiresAt = new Date();
-        expiresAt.setDate(expiresAt.getDate() + 30);
+      const updatedListing = await listingRepository.getById(id, { includeAll: true });
 
-        await listingRepository.update(id, {
-          status: 'active',
-          isAutoApproved: true,
-          approvedAt: new Date(),
-          approvedBy: userId,
-          publishedAt: new Date(),
-          expiresAt
-        }, { userId });
-
-        const updatedListing = await listingRepository.getById(id, { includeAll: true });
-
-        return {
-          success: true,
-          message: 'Listing submitted and auto-approved successfully',
-          data: updatedListing
-        };
-      } else {
-        // Quota exceeded - submit for manual approval instead
-        await listingRepository.updateStatus(id, 'pending', { userId });
-
-        const updatedListing = await listingRepository.getById(id, { includeAll: true });
-
-        return {
-          success: true,
-          message: `${quotaCheck.message}. Your listing has been submitted for manual approval.`,
-          data: updatedListing
-        };
-      }
+      return {
+        success: true,
+        message: `${eligibility.message}. Your listing has been submitted for manual approval.`,
+        data: updatedListing
+      };
     }
 
-    // Update status to pending for manual approval
+    if (eligibility.data.hasAutoApprove) {
+      // Quota available and auto-approve enabled - auto-approve the listing
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 30);
+
+      await listingRepository.update(id, {
+        status: 'active',
+        isAutoApproved: true,
+        approvedAt: new Date(),
+        approvedBy: userId,
+        publishedAt: new Date(),
+        expiresAt
+      }, { userId });
+
+      // Consume quota
+      try {
+        await quotaService.consumeQuota(userId, listing.categoryId, id);
+      } catch (error) {
+        console.error('Error consuming quota:', error);
+        // Don't fail the submission if quota consumption fails
+      }
+
+      const updatedListing = await listingRepository.getById(id, { includeAll: true });
+
+      return {
+        success: true,
+        message: 'Listing submitted and auto-approved successfully',
+        data: updatedListing
+      };
+    }
+
+    // Quota available but no auto-approve - submit for manual approval
     await listingRepository.updateStatus(id, 'pending', { userId });
 
     const updatedListing = await listingRepository.getById(id, { includeAll: true });
@@ -351,22 +367,30 @@ class ListingService {
       throw new Error('Only pending listings can be approved');
     }
 
-    // Check user's subscription quota before approving
-    const { canUserCreateListing } = await import('#utils/subscriptionQuotaHelper.js');
-    const quotaCheck = await canUserCreateListing(listing.userId, { thirdPerson: true });
+    // Check user's quota availability before approving
+    const quotaCheck = await quotaService.checkQuotaAvailability(listing.userId, listing.categoryId);
 
-    if (!quotaCheck.canCreate) {
+    if (!quotaCheck.data.hasQuota) {
       return {
         success: false,
-        message: quotaCheck.message,
+        message: `Cannot approve listing: ${quotaCheck.message}`,
         data: {
           listing,
-          quotaDetails: quotaCheck.details
+          quotaUsage: quotaCheck.data.quotaUsage
         }
       };
     }
 
+    // Approve the listing
     await listingRepository.approve(id, approvedBy);
+
+    // Consume quota after approval
+    try {
+      await quotaService.consumeQuota(listing.userId, listing.categoryId, id);
+    } catch (error) {
+      console.error('Error consuming quota after approval:', error);
+      // Don't fail the approval if quota consumption fails
+    }
 
     const updatedListing = await listingRepository.getById(id, { includeAll: true });
 
@@ -564,6 +588,331 @@ class ListingService {
       message: 'View count updated',
       data: { incremented: true }
     };
+  }
+
+  /**
+   * Get quota status for user in category
+   * @param {number} userId - User ID
+   * @param {number} categoryId - Category ID
+   * @returns {Promise<Object>}
+   */
+  async getQuotaStatus(userId, categoryId) {
+    if (!userId || !categoryId) {
+      throw new Error('User ID and Category ID are required');
+    }
+
+    const quotaStatus = await quotaService.getQuotaStatus(userId, categoryId);
+
+    return quotaStatus;
+  }
+
+  /**
+   * Get all quota statuses for user (all categories)
+   * @param {number} userId - User ID
+   * @returns {Promise<Object>}
+   */
+  async getAllQuotaStatus(userId) {
+    if (!userId) {
+      throw new Error('User ID is required');
+    }
+
+    const allQuotaStatus = await quotaService.getAllQuotaStatus(userId);
+
+    return allQuotaStatus;
+  }
+
+  /**
+   * Check if user can create listing in category
+   * @param {number} userId - User ID
+   * @param {number} categoryId - Category ID
+   * @returns {Promise<Object>}
+   */
+  async checkCreationEligibility(userId, categoryId) {
+    if (!userId || !categoryId) {
+      throw new Error('User ID and Category ID are required');
+    }
+
+    const eligibility = await quotaService.checkListingEligibility(userId, categoryId);
+
+    return eligibility;
+  }
+
+  /**
+   * Search listings with advanced filtering and ranking
+   * @param {Object} searchParams - Search parameters
+   * @param {Object} userContext - User context (location, authentication)
+   * @param {Object} pagination - Pagination options
+   * @returns {Promise<Object>}
+   */
+  async searchListings(searchParams, userContext = {}, pagination = {}) {
+    try {
+      const {
+        query,
+        categoryId,
+        priceMin,
+        priceMax,
+        stateId,
+        cityId,
+        locality,
+        postedByType,
+        featuredOnly,
+        sortBy = 'relevance',
+        filters = {}
+      } = searchParams;
+
+      const { userId, sessionId, userLocation, ipAddress, userAgent } = userContext;
+
+      // Parse user location if not provided
+      const effectiveUserLocation = userLocation || LocationHelper.parseUserLocation({ 
+        query: { stateId, cityId },
+        user: userContext.user 
+      });
+
+      // Perform search
+      const searchResult = await listingRepository.searchListings(
+        searchParams,
+        effectiveUserLocation,
+        pagination
+      );
+
+      // Log search activity (integrate with search logging system)
+      if (query || Object.keys(filters).length > 0) {
+        try {
+          await userSearchService.logSearch({
+            userId: userId || null,
+            sessionId: sessionId || 'anonymous',
+            searchQuery: query || null,
+            filtersApplied: {
+              categoryId,
+              priceMin,
+              priceMax,
+              stateId,
+              cityId,
+              locality,
+              postedByType,
+              featuredOnly,
+              ...filters
+            },
+            resultsCount: searchResult.pagination.total,
+            categoryId: categoryId || null,
+            locationFilters: effectiveUserLocation ? {
+              stateId: effectiveUserLocation.stateId,
+              cityId: effectiveUserLocation.cityId
+            } : {},
+            priceRange: priceMin || priceMax ? { min: priceMin, max: priceMax } : {},
+            ipAddress,
+            userAgent
+          });
+        } catch (error) {
+          console.error('Error logging search activity:', error);
+          // Don't fail search if logging fails
+        }
+      }
+
+      return {
+        success: true,
+        message: 'Search results retrieved successfully',
+        data: {
+          listings: searchResult.listings,
+          pagination: searchResult.pagination,
+          searchMeta: {
+            ...searchResult.searchMeta,
+            searchTime: Date.now(), // Could be calculated properly
+            appliedFilters: {
+              query,
+              categoryId,
+              priceRange: priceMin || priceMax ? { min: priceMin, max: priceMax } : null,
+              location: effectiveUserLocation,
+              postedByType,
+              featuredOnly,
+              ...filters
+            }
+          }
+        }
+      };
+    } catch (error) {
+      console.error('Error in searchListings:', error);
+      return {
+        success: false,
+        message: 'Failed to search listings',
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Get search suggestions
+   * @param {string} query - Search query
+   * @param {Object} userLocation - User location
+   * @param {number} limit - Number of suggestions
+   * @returns {Promise<Object>}
+   */
+  async getSearchSuggestions(query, userLocation = null, limit = 5) {
+    try {
+      const suggestions = await listingRepository.getSearchSuggestions(query, userLocation, limit);
+
+      return {
+        success: true,
+        message: 'Search suggestions retrieved successfully',
+        data: {
+          suggestions,
+          query: query || ''
+        }
+      };
+    } catch (error) {
+      console.error('Error in getSearchSuggestions:', error);
+      return {
+        success: false,
+        message: 'Failed to get search suggestions',
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Get available search filters for category
+   * @param {number} categoryId - Category ID
+   * @param {Object} userLocation - User location
+   * @returns {Promise<Object>}
+   */
+  async getSearchFilters(categoryId, userLocation = null) {
+    try {
+      const filters = await listingRepository.getSearchFilters(categoryId, userLocation);
+
+      return {
+        success: true,
+        message: 'Search filters retrieved successfully',
+        data: filters
+      };
+    } catch (error) {
+      console.error('Error in getSearchFilters:', error);
+      return {
+        success: false,
+        message: 'Failed to get search filters',
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Get featured listings
+   * @param {Object} filters - Filter options
+   * @param {Object} userLocation - User location
+   * @param {Object} pagination - Pagination options
+   * @returns {Promise<Object>}
+   */
+  async getFeaturedListings(filters = {}, userLocation = null, pagination = {}) {
+    try {
+      const searchParams = {
+        ...filters,
+        featuredOnly: true,
+        sortBy: 'relevance'
+      };
+
+      const result = await listingRepository.searchListings(
+        searchParams,
+        userLocation,
+        pagination
+      );
+
+      return {
+        success: true,
+        message: 'Featured listings retrieved successfully',
+        data: {
+          listings: result.listings,
+          pagination: result.pagination
+        }
+      };
+    } catch (error) {
+      console.error('Error in getFeaturedListings:', error);
+      return {
+        success: false,
+        message: 'Failed to get featured listings',
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Update listing keywords (called when listing is created/updated)
+   * @param {number} listingId - Listing ID
+   * @param {Object} listingData - Listing data
+   * @param {Object} categoryData - Category-specific data
+   * @returns {Promise<boolean>}
+   */
+  async updateListingKeywords(listingId, listingData, categoryData = null) {
+    try {
+      // Generate keywords using SearchHelper
+      const keywords = SearchHelper.generateKeywords(listingData, categoryData);
+      
+      // Update keywords in database
+      await listingRepository.updateKeywords(listingId, keywords);
+      
+      return true;
+    } catch (error) {
+      console.error('Error updating listing keywords:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Get similar listings based on current listing
+   * @param {number} listingId - Current listing ID
+   * @param {number} limit - Number of similar listings
+   * @returns {Promise<Object>}
+   */
+  async getSimilarListings(listingId, limit = 5) {
+    try {
+      const listing = await listingRepository.getById(listingId, { includeAll: true });
+      
+      if (!listing) {
+        throw new Error('Listing not found');
+      }
+
+      // Search for similar listings
+      const searchParams = {
+        categoryId: listing.categoryId,
+        priceMin: listing.price * 0.7, // 30% lower
+        priceMax: listing.price * 1.3, // 30% higher
+        stateId: listing.stateId,
+        sortBy: 'relevance'
+      };
+
+      const userLocation = {
+        stateId: listing.stateId,
+        cityId: listing.cityId
+      };
+
+      const result = await listingRepository.searchListings(
+        searchParams,
+        userLocation,
+        { page: 1, limit: limit + 1 } // Get one extra to exclude current listing
+      );
+
+      // Filter out the current listing
+      const similarListings = result.listings.filter(l => l.id !== listingId).slice(0, limit);
+
+      return {
+        success: true,
+        message: 'Similar listings retrieved successfully',
+        data: {
+          listings: similarListings,
+          baseListing: {
+            id: listing.id,
+            title: listing.title,
+            price: listing.price,
+            categoryId: listing.categoryId
+          }
+        }
+      };
+    } catch (error) {
+      console.error('Error in getSimilarListings:', error);
+      return {
+        success: false,
+        message: 'Failed to get similar listings',
+        error: error.message
+      };
+    }
   }
 
   /**

@@ -24,7 +24,7 @@ export default (sequelize) => {
       },
       mobile: {
         type: DataTypes.STRING(15),
-        allowNull: false,
+        allowNull: true,
         unique: true,
         field: "mobile",
       },
@@ -74,6 +74,12 @@ export default (sequelize) => {
         defaultValue: false,
         field: "is_email_verified",
       },
+      isProfileComplete: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false,
+        field: "is_profile_complete",
+      },
       phoneVerifiedAt: {
         type: DataTypes.DATE,
         allowNull: true,
@@ -101,17 +107,7 @@ export default (sequelize) => {
         defaultValue: false,
         field: "is_verified",
       },
-      subscriptionType: {
-        type: DataTypes.ENUM("free", "paid"),
-        allowNull: false,
-        defaultValue: "free",
-        field: "subscription_type",
-      },
-      subscriptionExpiresAt: {
-        type: DataTypes.DATE,
-        allowNull: true,
-        field: "subscription_expires_at",
-      },
+
       maxDevices: {
         type: DataTypes.SMALLINT,
         allowNull: false,
@@ -130,6 +126,24 @@ export default (sequelize) => {
         defaultValue: 0,
         field: "total_listings",
       },
+      unreadChatCount: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0,
+        field: "unread_chat_count",
+      },
+      unreadNotificationCount: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0,
+        field: "unread_notification_count",
+      },
+      newFavoriteCount: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0,
+        field: "new_favorite_count",
+      },
       createdBy: {
         type: DataTypes.BIGINT,
         allowNull: true,
@@ -139,6 +153,32 @@ export default (sequelize) => {
         type: DataTypes.BIGINT,
         allowNull: true,
         field: "deleted_by",
+      },
+      // Virtual field for profile photo (combines UserProfile and UserSocialAccount photos)
+      profilePhoto: {
+        type: DataTypes.VIRTUAL,
+        get() {
+          // Priority: Google profile picture > UserProfile photo > null
+          const socialAccounts = this.socialAccounts;
+          const profile = this.profile;
+          
+          // Check for Google profile picture first
+          if (socialAccounts && socialAccounts.length > 0) {
+            const googleAccount = socialAccounts.find(account => 
+              account.provider === 'google' && account.profilePictureUrl
+            );
+            if (googleAccount) {
+              return googleAccount.profilePictureUrl;
+            }
+          }
+          
+          // Fallback to UserProfile photo
+          if (profile && profile.profilePhoto) {
+            return profile.profilePhoto;
+          }
+          
+          return null;
+        }
       },
     },
     {
