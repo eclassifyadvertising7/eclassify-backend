@@ -13,6 +13,43 @@ const { Listing, CarListing, PropertyListing, ListingMedia, Category, State, Cit
 
 class ListingRepository {
   /**
+   * Add isFavorited field to listings for a specific user
+   * @param {Array} listings - Array of listing objects
+   * @param {number|null} userId - User ID to check favorites for
+   * @returns {Promise<Array>} Listings with isFavorited field
+   */
+  async addIsFavoritedField(listings, userId = null) {
+    if (!userId || !listings || listings.length === 0) {
+      // If no user or no listings, set isFavorited to false for all
+      return listings.map(listing => {
+        listing.dataValues.isFavorited = false;
+        return listing;
+      });
+    }
+
+    // Get all listing IDs
+    const listingIds = listings.map(listing => listing.id);
+
+    // Get user's favorites for these listings
+    const userFavorites = await UserFavorite.findAll({
+      where: {
+        userId,
+        listingId: { [Op.in]: listingIds }
+      },
+      attributes: ['listingId']
+    });
+
+    // Create a Set for faster lookup
+    const favoritedListingIds = new Set(userFavorites.map(fav => fav.listingId));
+
+    // Add isFavorited field to each listing
+    return listings.map(listing => {
+      listing.dataValues.isFavorited = favoritedListingIds.has(listing.id);
+      return listing;
+    });
+  }
+
+  /**
    * Create new listing
    * @param {Object} listingData - Listing data
    * @returns {Promise<Object>}
@@ -25,9 +62,10 @@ class ListingRepository {
    * Get listing by ID with associations
    * @param {number} id - Listing ID
    * @param {Object} options - Query options
+   * @param {number|null} userId - User ID to check favorites for
    * @returns {Promise<Object|null>}
    */
-  async getById(id, options = {}) {
+  async getById(id, options = {}, userId = null) {
     const { CarBrand, CarModel, CarVariant } = models;
     
     const include = options.includeAll ? [
@@ -72,6 +110,16 @@ class ListingRepository {
       
       // Add favoriteCount as a virtual field
       listing.dataValues.favoriteCount = favoriteCount;
+
+      // Add isFavorited field for the current user
+      if (userId) {
+        const userFavorite = await UserFavorite.findOne({
+          where: { userId, listingId: id }
+        });
+        listing.dataValues.isFavorited = !!userFavorite;
+      } else {
+        listing.dataValues.isFavorited = false;
+      }
     }
 
     return listing;
@@ -81,9 +129,10 @@ class ListingRepository {
    * Get listing by slug
    * @param {string} slug - Listing slug
    * @param {Object} options - Query options
+   * @param {number|null} userId - User ID to check favorites for
    * @returns {Promise<Object|null>}
    */
-  async getBySlug(slug, options = {}) {
+  async getBySlug(slug, options = {}, userId = null) {
     const { CarBrand, CarModel, CarVariant } = models;
     
     const include = options.includeAll ? [
@@ -128,6 +177,16 @@ class ListingRepository {
       
       // Add favoriteCount as a virtual field
       listing.dataValues.favoriteCount = favoriteCount;
+
+      // Add isFavorited field for the current user
+      if (userId) {
+        const userFavorite = await UserFavorite.findOne({
+          where: { userId, listingId: listing.id }
+        });
+        listing.dataValues.isFavorited = !!userFavorite;
+      } else {
+        listing.dataValues.isFavorited = false;
+      }
     }
 
     return listing;
@@ -137,9 +196,10 @@ class ListingRepository {
    * Get all listings with filters and pagination
    * @param {Object} filters - Filter options
    * @param {Object} pagination - Pagination options
+   * @param {number|null} userId - User ID to check favorites for
    * @returns {Promise<Object>}
    */
-  async getAll(filters = {}, pagination = {}) {
+  async getAll(filters = {}, pagination = {}, userId = null) {
     const where = {};
     const { page = 1, limit = 20 } = pagination;
     const offset = (page - 1) * limit;
@@ -322,8 +382,11 @@ class ListingRepository {
       })
     );
 
+    // Add isFavorited field for the current user
+    const listingsWithFavoritedStatus = await this.addIsFavoritedField(listingsWithFavorites, userId);
+
     return {
-      listings: listingsWithFavorites,
+      listings: listingsWithFavoritedStatus,
       pagination: {
         total: count,
         page,
@@ -472,9 +535,10 @@ class ListingRepository {
    * @param {Object} searchParams - Search parameters
    * @param {Object} userLocation - User location for proximity scoring
    * @param {Object} pagination - Pagination options
+   * @param {number|null} userId - User ID to check favorites for
    * @returns {Promise<Object>}
    */
-  async searchListings(searchParams, userLocation = null, pagination = {}) {
+  async searchListings(searchParams, userLocation = null, pagination = {}, userId = null) {
     const {
       query,
       categoryId,
@@ -636,9 +700,19 @@ class ListingRepository {
         // Total search score
         const searchScore = locationScore + paidScore + featuredScore + freshnessScore;
 
+        // Check if user has favorited this listing
+        let isFavorited = false;
+        if (userId) {
+          const userFavorite = await UserFavorite.findOne({
+            where: { userId, listingId: listing.id }
+          });
+          isFavorited = !!userFavorite;
+        }
+
         return {
           ...listingData,
           favoriteCount,
+          isFavorited,
           searchScore,
           locationMatch: locationMatch.type,
           locationScore,

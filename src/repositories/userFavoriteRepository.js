@@ -1,6 +1,8 @@
-import UserFavorite from '#models/UserFavorite.js';
+import models from '#models/index.js';
 import { Op } from 'sequelize';
 import sequelize from '#config/database.js';
+
+const { UserFavorite } = models;
 
 class UserFavoriteRepository {
   /**

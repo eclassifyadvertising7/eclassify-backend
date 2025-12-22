@@ -148,4 +148,54 @@ const UserNotification = sequelize.define('UserNotification', {
   }
 });
 
+UserNotification.associate = (models) => {
+  // User who receives the notification
+  UserNotification.belongsTo(models.User, {
+    foreignKey: 'userId',
+    as: 'user'
+  });
+
+  // Related entities (optional associations)
+  UserNotification.belongsTo(models.Listing, {
+    foreignKey: 'listingId',
+    as: 'listing'
+  });
+
+  UserNotification.belongsTo(models.ChatRoom, {
+    foreignKey: 'chatRoomId',
+    as: 'chatRoom'
+  });
+
+  UserNotification.belongsTo(models.UserSubscription, {
+    foreignKey: 'subscriptionId',
+    as: 'subscription'
+  });
+
+  UserNotification.belongsTo(models.Invoice, {
+    foreignKey: 'invoiceId',
+    as: 'invoice'
+  });
+
+  UserNotification.belongsTo(models.Transaction, {
+    foreignKey: 'transactionId',
+    as: 'transaction'
+  });
+
+  // Audit field associations
+  UserNotification.belongsTo(models.User, {
+    foreignKey: 'createdBy',
+    as: 'creator'
+  });
+
+  UserNotification.belongsTo(models.User, {
+    foreignKey: 'updatedBy',
+    as: 'updater'
+  });
+
+  UserNotification.belongsTo(models.User, {
+    foreignKey: 'deletedBy',
+    as: 'deleter'
+  });
+};
+
 export default UserNotification;

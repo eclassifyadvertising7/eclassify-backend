@@ -79,7 +79,7 @@ class ListingController {
 
       // TODO: Add personalization logic based on user preferences, browsing history, location
       // For now, returns active listings with optional filters
-      const result = await listingService.getAll(filters, pagination);
+      const result = await listingService.getAll(filters, pagination, userId);
       return successResponse(res, result.data, 'Personalized feed retrieved successfully', result.pagination);
     } catch (error) {
       return errorResponse(res, error.message, 400);
@@ -106,7 +106,7 @@ class ListingController {
         limit: req.query.limit ? parseInt(req.query.limit) : 20
       };
 
-      const result = await listingService.getAll(filters, pagination);
+      const result = await listingService.getAll(filters, pagination, userId);
       return successResponse(res, result.data, result.message, result.pagination);
     } catch (error) {
       return errorResponse(res, error.message, 400);
@@ -364,8 +364,8 @@ class ListingController {
 
       // Build user context with authentication
       const userContext = {
-        userId: req.user.id,
-        sessionId: req.activityData?.sessionId || `user_${req.user.id}`,
+        userId: req.user.userId,
+        sessionId: req.activityData?.sessionId || `user_${req.user.userId}`,
         userLocation: LocationHelper.parseUserLocation(req),
         ipAddress: req.activityData?.ipAddress,
         userAgent: req.activityData?.userAgent,

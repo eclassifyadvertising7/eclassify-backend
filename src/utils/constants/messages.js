@@ -84,6 +84,14 @@ export const SUCCESS_MESSAGES = {
   PREFERENCES_RETRIEVED: 'Notification preferences retrieved successfully',
   PREFERENCES_UPDATED: 'Notification preferences updated successfully',
   
+  // Favorite operations
+  FAVORITE_ADDED: 'Listing added to favorites',
+  FAVORITE_REMOVED: 'Listing removed from favorites',
+  FAVORITES_RETRIEVED: 'Favorites retrieved successfully',
+  FAVORITE_STATUS_CHECKED: 'Favorite status checked successfully',
+  FAVORITE_STATS_RETRIEVED: 'Favorite statistics retrieved successfully',
+  FAVORITE_COUNT_RETRIEVED: 'Favorite count retrieved successfully',
+  
   // General operations
   OPERATION_SUCCESS: 'Operation completed successfully',
   DATA_RETRIEVED: 'Data retrieved successfully',
@@ -188,6 +196,17 @@ export const ERROR_MESSAGES = {
   NOTIFICATION_STATS_FAILED: 'Failed to get notification statistics',
   PREFERENCES_FETCH_FAILED: 'Failed to fetch notification preferences',
   PREFERENCES_UPDATE_FAILED: 'Failed to update notification preferences',
+  
+  // Favorite errors
+  FAVORITE_ALREADY_EXISTS: 'Listing is already in your favorites',
+  FAVORITE_NOT_FOUND: 'Listing not found in your favorites',
+  FAVORITE_OWN_LISTING: 'You cannot favorite your own listing',
+  FAVORITE_INACTIVE_LISTING: 'Only active listings can be favorited',
+  FAVORITE_ADD_FAILED: 'Failed to add listing to favorites',
+  FAVORITE_REMOVE_FAILED: 'Failed to remove listing from favorites',
+  FAVORITES_FETCH_FAILED: 'Failed to retrieve favorites',
+  FAVORITE_STATUS_FAILED: 'Failed to check favorite status',
+  FAVORITE_STATS_FAILED: 'Failed to retrieve favorite statistics',
   
   // General errors
   OPERATION_FAILED: 'Operation failed',

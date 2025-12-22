@@ -234,7 +234,6 @@ export async function up(queryInterface, Sequelize) {
       type: Sequelize.DATE,
       allowNull: false,
       defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
-      comment: 'Last republish timestamp, defaults to created_at'
     },
     created_at: {
       type: Sequelize.DATE,

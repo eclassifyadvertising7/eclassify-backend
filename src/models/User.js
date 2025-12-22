@@ -219,6 +219,17 @@ export default (sequelize) => {
       as: "socialAccounts",
     });
 
+    // Notification associations
+    User.hasMany(models.UserNotification, {
+      foreignKey: "userId",
+      as: "notifications",
+    });
+
+    User.hasOne(models.UserNotificationPreference, {
+      foreignKey: "userId",
+      as: "notificationPreferences",
+    });
+
     // Self-referencing associations
     User.belongsTo(models.User, {
       foreignKey: "createdBy",

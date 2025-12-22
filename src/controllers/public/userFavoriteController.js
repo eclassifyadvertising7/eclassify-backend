@@ -1,6 +1,6 @@
 import userFavoriteService from '#services/userFavoriteService.js';
 import { successResponse, errorResponse, validationErrorResponse } from '#utils/responseFormatter.js';
-import { ERROR_MESSAGES } from '#utils/constants/messages.js';
+import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '#utils/constants/messages.js';
 
 class PublicUserFavoriteController {
   /**
