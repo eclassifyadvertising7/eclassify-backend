@@ -300,8 +300,6 @@ class AuthService {
         isPhoneVerified: user.isPhoneVerified,
         isEmailVerified: user.isEmailVerified,
         is_password_reset: user.isPasswordReset,
-        subscriptionType: user.subscriptionType,
-        subscriptionExpiresAt: user.subscriptionExpiresAt,
         last_login_at: user.lastLoginAt,
         createdAt: user.createdAt
       },

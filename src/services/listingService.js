@@ -146,7 +146,7 @@ class ListingService {
    * @returns {Promise<Object>}
    */
   async getById(id, userId = null, isAdmin = false) {
-    const listing = await listingRepository.getById(id, { includeAll: true });
+    const listing = await listingRepository.getById(id, { includeAll: true }, userId);
 
     if (!listing) {
       throw new Error(ERROR_MESSAGES.LISTING_NOT_FOUND);
@@ -169,8 +169,8 @@ class ListingService {
    * @param {string} slug - Listing slug
    * @returns {Promise<Object>}
    */
-  async getBySlug(slug) {
-    const listing = await listingRepository.getBySlug(slug, { includeAll: true });
+  async getBySlug(slug, userId = null) {
+    const listing = await listingRepository.getBySlug(slug, { includeAll: true }, userId);
 
     if (!listing) {
       throw new Error(ERROR_MESSAGES.LISTING_NOT_FOUND);
@@ -192,10 +192,11 @@ class ListingService {
    * Get all listings with filters
    * @param {Object} filters - Filter options
    * @param {Object} pagination - Pagination options
+   * @param {number|null} userId - User ID to check favorites for
    * @returns {Promise<Object>}
    */
-  async getAll(filters = {}, pagination = {}) {
-    const result = await listingRepository.getAll(filters, pagination);
+  async getAll(filters = {}, pagination = {}, userId = null) {
+    const result = await listingRepository.getAll(filters, pagination, userId);
 
     return {
       success: true,
@@ -672,7 +673,8 @@ class ListingService {
       const searchResult = await listingRepository.searchListings(
         searchParams,
         effectiveUserLocation,
-        pagination
+        pagination,
+        userId
       );
 
       // Log search activity (integrate with search logging system)
@@ -799,9 +801,10 @@ class ListingService {
    * @param {Object} filters - Filter options
    * @param {Object} userLocation - User location
    * @param {Object} pagination - Pagination options
+   * @param {number|null} userId - User ID to check favorites for
    * @returns {Promise<Object>}
    */
-  async getFeaturedListings(filters = {}, userLocation = null, pagination = {}) {
+  async getFeaturedListings(filters = {}, userLocation = null, pagination = {}, userId = null) {
     try {
       const searchParams = {
         ...filters,
@@ -812,7 +815,8 @@ class ListingService {
       const result = await listingRepository.searchListings(
         searchParams,
         userLocation,
-        pagination
+        pagination,
+        userId
       );
 
       return {
@@ -859,9 +863,10 @@ class ListingService {
    * Get similar listings based on current listing
    * @param {number} listingId - Current listing ID
    * @param {number} limit - Number of similar listings
+   * @param {number|null} userId - User ID to check favorites for
    * @returns {Promise<Object>}
    */
-  async getSimilarListings(listingId, limit = 5) {
+  async getSimilarListings(listingId, limit = 5, userId = null) {
     try {
       const listing = await listingRepository.getById(listingId, { includeAll: true });
       
@@ -886,7 +891,8 @@ class ListingService {
       const result = await listingRepository.searchListings(
         searchParams,
         userLocation,
-        { page: 1, limit: limit + 1 } // Get one extra to exclude current listing
+        { page: 1, limit: limit + 1 }, // Get one extra to exclude current listing
+        userId
       );
 
       // Filter out the current listing

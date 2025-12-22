@@ -87,4 +87,12 @@ const UserNotificationPreference = sequelize.define('UserNotificationPreference'
   timestamps: true
 });
 
+UserNotificationPreference.associate = (models) => {
+  // User who owns these notification preferences
+  UserNotificationPreference.belongsTo(models.User, {
+    foreignKey: 'userId',
+    as: 'user'
+  });
+};
+
 export default UserNotificationPreference;

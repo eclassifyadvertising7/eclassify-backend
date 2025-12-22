@@ -24,9 +24,7 @@ class ProfileRepository {
         'status',
         'isPhoneVerified',
         'isEmailVerified',
-        'kycStatus',
-        'subscriptionType',
-        'subscriptionExpiresAt'
+        'kycStatus'
       ],
       include: [
         {

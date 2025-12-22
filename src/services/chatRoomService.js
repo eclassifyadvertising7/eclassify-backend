@@ -5,10 +5,7 @@
 
 import chatRoomRepository from '#repositories/chatRoomRepository.js';
 import listingRepository from '#repositories/listingRepository.js';
-import models from '#models/index.js';
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '#utils/constants/messages.js';
-
-const { User } = models;
 
 class ChatRoomService {
   /**
@@ -48,17 +45,13 @@ class ChatRoomService {
       };
     }
 
-    // Get buyer and seller subscription tiers
-    const buyer = await User.findByPk(buyerId, { attributes: ['subscriptionType'] });
-    const seller = await User.findByPk(listing.userId, { attributes: ['subscriptionType'] });
-
     // Create new room
     const room = await chatRoomRepository.create({
       listingId,
       buyerId,
       sellerId: listing.userId,
-      buyerSubscriptionTier: buyer?.subscriptionType || null,
-      sellerSubscriptionTier: seller?.subscriptionType || null,
+      buyerSubscriptionTier: null,
+      sellerSubscriptionTier: null,
       isActive: true
     });
 

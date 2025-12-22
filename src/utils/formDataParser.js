@@ -74,10 +74,16 @@ export const parseJSON = (value, defaultValue = null) => {
   if (value === undefined || value === null || value === '') {
     return defaultValue;
   }
+  
+  // If already an object or array, return as-is
+  if (typeof value === 'object') {
+    return value;
+  }
+  
   try {
     return JSON.parse(value);
   } catch (error) {
-    console.error('Failed to parse JSON:', error.message);
+    // Don't log error here - let parseArray handle it
     return defaultValue;
   }
 };
@@ -98,23 +104,33 @@ export const parseArray = (value, defaultValue = []) => {
     return value;
   }
 
-  // Try parsing as JSON
-  if (typeof value === 'string') {
-    // Check if it's JSON array
-    if (value.trim().startsWith('[')) {
-      try {
-        const parsed = JSON.parse(value);
-        return Array.isArray(parsed) ? parsed : defaultValue;
-      } catch (error) {
-        // Fall through to comma-separated parsing
-      }
-    }
-
-    // Parse as comma-separated
-    return value.split(',').map(item => item.trim()).filter(Boolean);
+  // If it's an object but not an array, return default
+  if (typeof value === 'object') {
+    return defaultValue;
   }
 
-  return defaultValue;
+  // Convert to string and process
+  const stringValue = String(value).trim();
+  
+  if (stringValue === '') {
+    return defaultValue;
+  }
+
+  // Try parsing as JSON array first
+  if (stringValue.startsWith('[') && stringValue.endsWith(']')) {
+    try {
+      const parsed = JSON.parse(stringValue);
+      return Array.isArray(parsed) ? parsed : defaultValue;
+    } catch (error) {
+      // If JSON parsing fails, fall through to comma-separated parsing
+    }
+  }
+
+  // Parse as comma-separated string
+  return stringValue
+    .split(',')
+    .map(item => item.trim())
+    .filter(item => item.length > 0); // Remove empty strings
 };
 
 /**
@@ -164,7 +180,7 @@ export const parseCarListingData = (body) => {
     registrationStateId: parseInteger(body.registrationStateId),
     vinNumber: parseString(body.vinNumber),
     insuranceValidUntil: parseString(body.insuranceValidUntil),
-    features: parseJSON(body.features) || parseArray(body.features)
+    features: parseArray(body.features) // Always use parseArray for features to handle both JSON arrays and comma-separated strings
   };
 };
 
@@ -189,7 +205,7 @@ export const parsePropertyListingData = (body) => {
     facing: parseString(body.facing),
     furnished: parseString(body.furnished, 'unfurnished'),
     parkingSpaces: parseInteger(body.parkingSpaces, 0),
-    amenities: parseJSON(body.amenities) || parseArray(body.amenities),
+    amenities: parseArray(body.amenities), // Always use parseArray for amenities to handle both JSON arrays and comma-separated strings
     availableFrom: parseString(body.availableFrom),
     ownershipType: parseString(body.ownershipType),
     reraApproved: parseBoolean(body.reraApproved, false),

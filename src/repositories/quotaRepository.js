@@ -5,6 +5,7 @@
 
 import models from '#models/index.js';
 import { Op } from 'sequelize';
+import sequelize from '#config/database.js';
 
 const { Listing, UserSubscription, SubscriptionPlan, User } = models;
 
@@ -25,9 +26,9 @@ class QuotaRepository {
         userId,
         categoryId,
         status: {
-          [Op.in]: ['pending', 'approved', 'active', 'sold']
+          [Op.in]: ['pending', 'active', 'sold']
         },
-        createdAt: {
+        created_at: {
           [Op.gte]: startDate
         }
       }
@@ -48,7 +49,7 @@ class QuotaRepository {
         userId,
         userSubscriptionId: subscriptionId,
         status: {
-          [Op.in]: ['pending', 'approved', 'active', 'sold']
+          [Op.in]: ['pending', 'active', 'sold']
         }
       }
     });
@@ -248,7 +249,7 @@ class QuotaRepository {
       },
       attributes: [
         'status',
-        [models.sequelize.fn('COUNT', models.sequelize.col('id')), 'count']
+        [sequelize.fn('COUNT', sequelize.col('id')), 'count']
       ],
       group: ['status'],
       raw: true
@@ -258,7 +259,6 @@ class QuotaRepository {
     const statusCounts = {
       draft: 0,
       pending: 0,
-      approved: 0,
       active: 0,
       expired: 0,
       sold: 0,

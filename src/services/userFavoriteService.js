@@ -1,6 +1,9 @@
-import UserFavorite from '#models/UserFavorite.js';
+import models from '#models/index.js';
 import { Op } from 'sequelize';
 import sequelize from '#config/database.js';
+import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '#utils/constants/messages.js';
+
+const { UserFavorite, Listing } = models;
 
 class UserFavoriteService {
   /**
@@ -11,7 +14,51 @@ class UserFavoriteService {
    */
   async addFavorite(userId, listingId) {
     try {
-      // Check if already favorited (including soft deleted)
+      // Validate input parameters with explicit checks
+      if (userId === undefined || userId === null || userId === '') {
+        return {
+          success: false,
+          message: 'User ID is required'
+        };
+      }
+      
+      if (listingId === undefined || listingId === null || listingId === '') {
+        return {
+          success: false,
+          message: 'Listing ID is required'
+        };
+      }
+
+      // Check if listing exists and get listing details
+      const listing = await Listing.findByPk(listingId, {
+        attributes: ['id', 'userId', 'status'],
+        paranoid: true // Only active listings
+      });
+
+      if (!listing) {
+        return {
+          success: false,
+          message: ERROR_MESSAGES.LISTING_NOT_FOUND
+        };
+      }
+
+      // Check if listing is active
+      if (listing.status !== 'active') {
+        return {
+          success: false,
+          message: ERROR_MESSAGES.FAVORITE_INACTIVE_LISTING
+        };
+      }
+
+      // VALIDATION CHECK 2: Listing owner shouldn't be able to favorite their own listing
+      if (listing.userId === userId) {
+        return {
+          success: false,
+          message: ERROR_MESSAGES.FAVORITE_OWN_LISTING
+        };
+      }
+
+      // VALIDATION CHECK 3: Check if already favorited (including soft deleted)
       const existingFavorite = await UserFavorite.findOne({
         where: { userId, listingId },
         paranoid: false // Include soft deleted records
@@ -23,13 +70,14 @@ class UserFavoriteService {
           await existingFavorite.restore();
           return {
             success: true,
-            message: 'Listing added to favorites',
+            message: SUCCESS_MESSAGES.FAVORITE_ADDED,
             data: { favoriteId: existingFavorite.id, restored: true }
           };
         } else {
+          // VALIDATION CHECK 3: Prevent duplicate favorites
           return {
             success: false,
-            message: 'Listing is already in favorites'
+            message: ERROR_MESSAGES.FAVORITE_ALREADY_EXISTS
           };
         }
       }
@@ -43,14 +91,14 @@ class UserFavoriteService {
 
       return {
         success: true,
-        message: 'Listing added to favorites',
+        message: SUCCESS_MESSAGES.FAVORITE_ADDED,
         data: { favoriteId: favorite.id, restored: false }
       };
     } catch (error) {
       console.error('Error adding favorite:', error);
       return {
         success: false,
-        message: 'Failed to add listing to favorites',
+        message: ERROR_MESSAGES.FAVORITE_ADD_FAILED,
         error: error.message
       };
     }
@@ -64,6 +112,14 @@ class UserFavoriteService {
    */
   async removeFavorite(userId, listingId) {
     try {
+      // Validate input parameters
+      if (!userId || !listingId) {
+        return {
+          success: false,
+          message: ERROR_MESSAGES.MISSING_REQUIRED_FIELDS
+        };
+      }
+
       const favorite = await UserFavorite.findOne({
         where: { userId, listingId }
       });
@@ -71,7 +127,7 @@ class UserFavoriteService {
       if (!favorite) {
         return {
           success: false,
-          message: 'Listing not found in favorites'
+          message: ERROR_MESSAGES.FAVORITE_NOT_FOUND
         };
       }
 
@@ -80,13 +136,13 @@ class UserFavoriteService {
 
       return {
         success: true,
-        message: 'Listing removed from favorites'
+        message: SUCCESS_MESSAGES.FAVORITE_REMOVED
       };
     } catch (error) {
       console.error('Error removing favorite:', error);
       return {
         success: false,
-        message: 'Failed to remove listing from favorites',
+        message: ERROR_MESSAGES.FAVORITE_REMOVE_FAILED,
         error: error.message
       };
     }
@@ -144,7 +200,7 @@ class UserFavoriteService {
 
       return {
         success: true,
-        message: 'Favorites retrieved successfully',
+        message: SUCCESS_MESSAGES.FAVORITES_RETRIEVED,
         data: {
           favorites: rows,
           pagination: {
@@ -159,7 +215,7 @@ class UserFavoriteService {
       console.error('Error getting user favorites:', error);
       return {
         success: false,
-        message: 'Failed to retrieve favorites',
+        message: ERROR_MESSAGES.FAVORITES_FETCH_FAILED,
         error: error.message
       };
     }
@@ -179,13 +235,14 @@ class UserFavoriteService {
 
       return {
         success: true,
+        message: SUCCESS_MESSAGES.FAVORITE_STATUS_CHECKED,
         data: { isFavorited: !!favorite }
       };
     } catch (error) {
       console.error('Error checking favorite status:', error);
       return {
         success: false,
-        message: 'Failed to check favorite status',
+        message: ERROR_MESSAGES.FAVORITE_STATUS_FAILED,
         error: error.message
       };
     }
@@ -226,7 +283,7 @@ class UserFavoriteService {
 
       return {
         success: true,
-        message: 'Favorite statistics retrieved successfully',
+        message: SUCCESS_MESSAGES.FAVORITE_STATS_RETRIEVED,
         data: {
           totalFavorites,
           favoritesByCategory
@@ -236,7 +293,7 @@ class UserFavoriteService {
       console.error('Error getting favorite stats:', error);
       return {
         success: false,
-        message: 'Failed to retrieve favorite statistics',
+        message: ERROR_MESSAGES.FAVORITE_STATS_FAILED,
         error: error.message
       };
     }
@@ -255,7 +312,7 @@ class UserFavoriteService {
 
       return {
         success: true,
-        message: 'Listing favorite count retrieved successfully',
+        message: SUCCESS_MESSAGES.FAVORITE_COUNT_RETRIEVED,
         data: {
           listingId,
           favoriteCount
@@ -265,7 +322,7 @@ class UserFavoriteService {
       console.error('Error getting listing favorite count:', error);
       return {
         success: false,
-        message: 'Failed to retrieve listing favorite count',
+        message: ERROR_MESSAGES.FAVORITE_STATS_FAILED,
         error: error.message
       };
     }

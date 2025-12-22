@@ -26,6 +26,11 @@ import ChatMessage from './ChatMessage.js';
 import ListingOffer from './ListingOffer.js';
 import InvoiceModel from './Invoice.js';
 import TransactionModel from './Transaction.js';
+import UserFavorite from './UserFavorite.js';
+import UserActivityLog from './UserActivityLog.js';
+import UserLocationPreference from './UserLocationPreference.js';
+import UserNotification from './UserNotification.js';
+import UserNotificationPreference from './UserNotificationPreference.js';
 import OtherMedia from './OtherMedia.js';
 import OtpVerification from './OtpVerification.js';
 
@@ -67,6 +72,11 @@ const models = {
   ChatRoom,
   ChatMessage,
   ListingOffer,
+  UserFavorite,
+  UserActivityLog,
+  UserLocationPreference,
+  UserNotification,
+  UserNotificationPreference,
   OtherMedia,
   OtpVerification
 };
@@ -145,6 +155,15 @@ ListingMedia.associate(models);
 ChatRoom.associate(models);
 ChatMessage.associate(models);
 ListingOffer.associate(models);
+
+// UserFavorite associations
+UserFavorite.associate(models);
+
+// User activity and notification associations
+UserActivityLog.associate(models);
+UserLocationPreference.associate(models);
+UserNotification.associate(models);
+UserNotificationPreference.associate(models);
 
 // Invoice and Transaction associations
 Invoice.associate(models);

@@ -10,14 +10,19 @@ class UserFavoriteController {
   static async addFavorite(req, res) {
     try {
       const { listingId } = req.body;
-      const userId = req.user.id;
+      const userId = req.user?.userId; // ✅ Fixed: use userId instead of id
 
       // Validate required fields
       if (!listingId) {
         return validationErrorResponse(res, [{ field: 'listingId', message: 'Listing ID is required' }]);
       }
 
-      const result = await userFavoriteService.addFavorite(userId, listingId);
+      // Check if user is authenticated
+      if (!userId) {
+        return errorResponse(res, 'User not authenticated', 401);
+      }
+
+      const result = await userFavoriteService.addFavorite(parseInt(userId), parseInt(listingId));
 
       if (result.success) {
         return successResponse(res, result.data, result.message);
@@ -37,14 +42,19 @@ class UserFavoriteController {
   static async removeFavorite(req, res) {
     try {
       const { listingId } = req.params;
-      const userId = req.user.id;
+      const userId = req.user?.userId; // ✅ Fixed: use userId instead of id
 
       // Validate listing ID
       if (!listingId || isNaN(listingId)) {
         return validationErrorResponse(res, [{ field: 'listingId', message: 'Valid listing ID is required' }]);
       }
 
-      const result = await userFavoriteService.removeFavorite(userId, parseInt(listingId));
+      // Check if user is authenticated
+      if (!userId) {
+        return errorResponse(res, 'User not authenticated', 401);
+      }
+
+      const result = await userFavoriteService.removeFavorite(parseInt(userId), parseInt(listingId));
 
       if (result.success) {
         return successResponse(res, null, result.message);
@@ -63,7 +73,7 @@ class UserFavoriteController {
    */
   static async getUserFavorites(req, res) {
     try {
-      const userId = req.user.id;
+      const userId = req.user?.userId; // ✅ Fixed: use userId instead of id
       const {
         page = 1,
         limit = 20,
@@ -73,6 +83,11 @@ class UserFavoriteController {
         sortBy = 'created_at',
         sortOrder = 'DESC'
       } = req.query;
+
+      // Check if user is authenticated
+      if (!userId) {
+        return errorResponse(res, 'User not authenticated', 401);
+      }
 
       // Validate pagination
       const pageNum = parseInt(page);
@@ -92,7 +107,7 @@ class UserFavoriteController {
         sortOrder: sortOrder.toUpperCase()
       };
 
-      const result = await userFavoriteService.getUserFavorites(userId, options);
+      const result = await userFavoriteService.getUserFavorites(parseInt(userId), options);
 
       if (result.success) {
         return successResponse(res, result.data, result.message);
@@ -112,14 +127,19 @@ class UserFavoriteController {
   static async checkFavoriteStatus(req, res) {
     try {
       const { listingId } = req.params;
-      const userId = req.user.id;
+      const userId = req.user?.userId; // ✅ Fixed: use userId instead of id
 
       // Validate listing ID
       if (!listingId || isNaN(listingId)) {
         return validationErrorResponse(res, [{ field: 'listingId', message: 'Valid listing ID is required' }]);
       }
 
-      const result = await userFavoriteService.isFavorited(userId, parseInt(listingId));
+      // Check if user is authenticated
+      if (!userId) {
+        return errorResponse(res, 'User not authenticated', 401);
+      }
+
+      const result = await userFavoriteService.isFavorited(parseInt(userId), parseInt(listingId));
 
       if (result.success) {
         return successResponse(res, result.data);
@@ -138,9 +158,14 @@ class UserFavoriteController {
    */
   static async getFavoriteStats(req, res) {
     try {
-      const userId = req.user.id;
+      const userId = req.user?.userId; // ✅ Fixed: use userId instead of id
 
-      const result = await userFavoriteService.getFavoriteStats(userId);
+      // Check if user is authenticated
+      if (!userId) {
+        return errorResponse(res, 'User not authenticated', 401);
+      }
+
+      const result = await userFavoriteService.getFavoriteStats(parseInt(userId));
 
       if (result.success) {
         return successResponse(res, result.data, result.message);

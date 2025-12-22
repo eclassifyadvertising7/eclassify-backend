@@ -16,6 +16,8 @@ class ListingController {
    */
   static async homepage(req, res) {
     try {
+      const userId = req.user?.userId || null; // Get user ID if authenticated
+
       const pagination = {
         page: req.query.page ? parseInt(req.query.page) : 1,
         limit: req.query.limit ? parseInt(req.query.limit) : 20
@@ -26,7 +28,7 @@ class ListingController {
         sortBy: 'date_desc' // Newest first
       };
 
-      const result = await listingService.getAll(filters, pagination);
+      const result = await listingService.getAll(filters, pagination, userId);
       return successResponse(res, result.data, result.message, result.pagination);
     } catch (error) {
       return errorResponse(res, error.message, 400);
@@ -40,6 +42,7 @@ class ListingController {
   static async browseByCategory(req, res) {
     try {
       const { categorySlugOrId } = req.params;
+      const userId = req.user?.userId || null; // Get user ID if authenticated
       
       // Determine if it's a slug or ID and validate category exists
       const isNumeric = /^\d+$/.test(categorySlugOrId);
@@ -115,7 +118,7 @@ class ListingController {
         limit: req.query.limit ? parseInt(req.query.limit) : 20
       };
 
-      const result = await listingService.getAll(filters, pagination);
+      const result = await listingService.getAll(filters, pagination, userId);
       return successResponse(res, result.data, result.message, result.pagination);
     } catch (error) {
       return errorResponse(res, error.message, 400);
@@ -128,6 +131,8 @@ class ListingController {
    */
   static async browse(req, res) {
     try {
+      const userId = req.user?.userId || null; // Get user ID if authenticated
+      
       // Validate category if provided
       if (req.query.categoryId) {
         const categoryId = parseInt(req.query.categoryId);
@@ -195,7 +200,7 @@ class ListingController {
         limit: req.query.limit ? parseInt(req.query.limit) : 20
       };
 
-      const result = await listingService.getAll(filters, pagination);
+      const result = await listingService.getAll(filters, pagination, userId);
       return successResponse(res, result.data, result.message, result.pagination);
     } catch (error) {
       return errorResponse(res, error.message, 400);
@@ -208,6 +213,8 @@ class ListingController {
    */
   static async getFeatured(req, res) {
     try {
+      const userId = req.user?.userId || null; // Get user ID if authenticated
+      
       // Validate category if provided
       if (req.query.categoryId) {
         const categoryId = parseInt(req.query.categoryId);
@@ -236,7 +243,7 @@ class ListingController {
         limit: req.query.limit ? parseInt(req.query.limit) : 10
       };
 
-      const result = await listingService.getAll(filters, pagination);
+      const result = await listingService.getAll(filters, pagination, userId);
       return successResponse(res, result.data, result.message, result.pagination);
     } catch (error) {
       return errorResponse(res, error.message, 400);
@@ -250,8 +257,9 @@ class ListingController {
   static async getBySlug(req, res) {
     try {
       const { slug } = req.params;
+      const userId = req.user?.userId || null; // Get user ID if authenticated
 
-      const result = await listingService.getBySlug(slug);
+      const result = await listingService.getBySlug(slug, userId);
       return successResponse(res, result.data, result.message);
     } catch (error) {
       return errorResponse(res, error.message, 404);
@@ -337,7 +345,7 @@ class ListingController {
 
       // Build user context
       const userContext = {
-        userId: req.user?.id || null,
+        userId: req.user?.userId || null,
         sessionId: req.activityData?.sessionId || 'anonymous',
         userLocation: LocationHelper.parseUserLocation(req),
         ipAddress: req.activityData?.ipAddress,
@@ -419,6 +427,8 @@ class ListingController {
    */
   static async getFeatured(req, res) {
     try {
+      const userId = req.user?.userId || null; // Get user ID if authenticated
+      
       const {
         categoryId,
         stateId,
@@ -452,7 +462,7 @@ class ListingController {
       const userLocation = LocationHelper.parseUserLocation(req);
       const pagination = { page: 1, limit: Math.min(parseInt(limit), 20) };
 
-      const result = await listingService.getFeaturedListings(filters, userLocation, pagination);
+      const result = await listingService.getFeaturedListings(filters, userLocation, pagination, userId);
 
       if (result.success) {
         return successResponse(res, result.data, result.message);
@@ -473,6 +483,7 @@ class ListingController {
     try {
       const { id } = req.params;
       const { limit = 5 } = req.query;
+      const userId = req.user?.userId || null; // Get user ID if authenticated
 
       if (!id || isNaN(id)) {
         return validationErrorResponse(res, [{ field: 'id', message: 'Valid listing ID is required' }]);
@@ -480,7 +491,7 @@ class ListingController {
 
       const limitNum = Math.min(parseInt(limit), 10);
 
-      const result = await listingService.getSimilarListings(parseInt(id), limitNum);
+      const result = await listingService.getSimilarListings(parseInt(id), limitNum, userId);
 
       if (result.success) {
         return successResponse(res, result.data, result.message);

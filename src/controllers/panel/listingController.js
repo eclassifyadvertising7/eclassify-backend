@@ -32,7 +32,8 @@ class ListingController {
         limit: req.query.limit ? parseInt(req.query.limit) : 20
       };
 
-      const result = await listingService.getAll(filters, pagination);
+      // Admin users don't need isFavorited field, pass null
+      const result = await listingService.getAll(filters, pagination, null);
       return successResponse(res, result.data, result.message, result.pagination);
     } catch (error) {
       return errorResponse(res, error.message, 400);
@@ -237,7 +238,8 @@ class ListingController {
         )
       };
 
-      const result = await listingService.getAll(filters, pagination);
+      // Admin users don't need isFavorited field, pass null
+      const result = await listingService.getAll(filters, pagination, null);
 
       return successResponse(res, result.data, 'Admin search results retrieved successfully', result.pagination);
     } catch (error) {
