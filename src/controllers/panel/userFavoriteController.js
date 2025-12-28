@@ -3,10 +3,6 @@ import { successResponse, errorResponse, validationErrorResponse } from '#utils/
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '#utils/constants/messages.js';
 
 class PanelUserFavoriteController {
-  /**
-   * Get most favorited listings
-   * GET /api/panel/favorites/analytics/most-favorited
-   */
   static async getMostFavoritedListings(req, res) {
     try {
       const {
@@ -16,7 +12,7 @@ class PanelUserFavoriteController {
         endDate
       } = req.query;
 
-      const limitNum = Math.min(parseInt(limit), 50); // Max 50 results
+      const limitNum = Math.min(parseInt(limit), 50);
 
       const options = {
         limit: limitNum,
@@ -34,10 +30,6 @@ class PanelUserFavoriteController {
     }
   }
 
-  /**
-   * Get favorite analytics
-   * GET /api/panel/favorites/analytics/stats
-   */
   static async getFavoriteAnalytics(req, res) {
     try {
       const { startDate, endDate } = req.query;
@@ -56,10 +48,6 @@ class PanelUserFavoriteController {
     }
   }
 
-  /**
-   * Get user favorites (admin view)
-   * GET /api/panel/favorites/user/:userId
-   */
   static async getUserFavorites(req, res) {
     try {
       const { userId } = req.params;
@@ -71,7 +59,6 @@ class PanelUserFavoriteController {
         priceMax
       } = req.query;
 
-      // Validate user ID
       if (!userId || isNaN(userId)) {
         return validationErrorResponse(res, [{ field: 'userId', message: 'Valid user ID is required' }]);
       }
@@ -112,22 +99,15 @@ class PanelUserFavoriteController {
     }
   }
 
-  /**
-   * Get favorites by category breakdown
-   * GET /api/panel/favorites/analytics/by-category
-   */
   static async getFavoritesByCategory(req, res) {
     try {
       const { userId, startDate, endDate } = req.query;
 
-      // If userId provided, get for specific user, otherwise get overall stats
       let categoryBreakdown;
 
       if (userId) {
         categoryBreakdown = await userFavoriteRepository.getFavoritesByCategory(parseInt(userId));
       } else {
-        // This would need a method to get overall category breakdown
-        // For now, return empty array
         categoryBreakdown = [];
       }
 

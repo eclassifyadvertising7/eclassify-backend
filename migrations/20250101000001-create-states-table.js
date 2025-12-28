@@ -31,6 +31,11 @@ export async function up(queryInterface, Sequelize) {
       type: Sequelize.INTEGER,
       defaultValue: 0
     },
+    is_popular: {
+      type: Sequelize.BOOLEAN,
+      allowNull: false,
+      defaultValue: false
+    },
     created_by: {
       type: Sequelize.INTEGER,
       allowNull: true
@@ -64,6 +69,10 @@ export async function up(queryInterface, Sequelize) {
   // Add indexes
   await queryInterface.addIndex('states', ['slug'], {
     name: 'idx_states_slug'
+  });
+
+  await queryInterface.addIndex('states', ['is_popular', 'is_active'], {
+    name: 'idx_states_popular_active'
   });
 }
 

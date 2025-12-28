@@ -32,6 +32,11 @@ export async function up(queryInterface, Sequelize) {
       onUpdate: 'CASCADE',
       onDelete: 'RESTRICT'
     },
+    brand_name: {
+      type: Sequelize.STRING(100),
+      allowNull: false,
+      comment: 'Denormalized brand name for faster queries'
+    },
     model_id: {
       type: Sequelize.INTEGER,
       allowNull: false,
@@ -42,6 +47,11 @@ export async function up(queryInterface, Sequelize) {
       onUpdate: 'CASCADE',
       onDelete: 'RESTRICT'
     },
+    model_name: {
+      type: Sequelize.STRING(100),
+      allowNull: false,
+      comment: 'Denormalized model name for faster queries'
+    },
     variant_id: {
       type: Sequelize.INTEGER,
       allowNull: true,
@@ -51,6 +61,11 @@ export async function up(queryInterface, Sequelize) {
       },
       onUpdate: 'CASCADE',
       onDelete: 'SET NULL'
+    },
+    variant_name: {
+      type: Sequelize.STRING(100),
+      allowNull: true,
+      comment: 'Denormalized variant name for faster queries'
     },
     year: {
       type: Sequelize.INTEGER,
@@ -162,6 +177,14 @@ export async function up(queryInterface, Sequelize) {
 
   await queryInterface.addIndex('car_listings', ['fuel_type', 'transmission'], {
     name: 'idx_car_listings_fuel_transmission'
+  });
+
+  await queryInterface.addIndex('car_listings', ['brand_name'], {
+    name: 'idx_car_listings_brand_name'
+  });
+
+  await queryInterface.addIndex('car_listings', ['model_name'], {
+    name: 'idx_car_listings_model_name'
   });
 }
 

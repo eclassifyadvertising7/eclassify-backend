@@ -1,16 +1,7 @@
-/**
- * End-User ChatRoom Controller
- * Handles user's chat room operations
- */
-
 import chatRoomService from '#services/chatRoomService.js';
 import { successResponse, errorResponse, createResponse } from '#utils/responseFormatter.js';
 
 class ChatRoomController {
-  /**
-   * Get user's chat rooms with filters
-   * GET /api/end-user/chats/rooms
-   */
   static async getRooms(req, res) {
     try {
       const userId = req.user.userId;
@@ -33,10 +24,6 @@ class ChatRoomController {
     }
   }
 
-  /**
-   * Create or get existing chat room
-   * POST /api/end-user/chats/rooms/create
-   */
   static async createRoom(req, res) {
     try {
       const userId = req.user.userId;
@@ -58,10 +45,6 @@ class ChatRoomController {
     }
   }
 
-  /**
-   * Get specific room details
-   * GET /api/end-user/chats/rooms/view/:roomId
-   */
   static async viewRoom(req, res) {
     try {
       const userId = req.user.userId;
@@ -75,10 +58,6 @@ class ChatRoomController {
     }
   }
 
-  /**
-   * Delete chat room
-   * DELETE /api/end-user/chats/rooms/delete/:roomId
-   */
   static async deleteRoom(req, res) {
     try {
       const userId = req.user.userId;
@@ -92,10 +71,6 @@ class ChatRoomController {
     }
   }
 
-  /**
-   * Toggle important flag
-   * PATCH /api/end-user/chats/rooms/important/:roomId
-   */
   static async toggleImportant(req, res) {
     try {
       const userId = req.user.userId;
@@ -119,10 +94,6 @@ class ChatRoomController {
     }
   }
 
-  /**
-   * Block/unblock user
-   * PATCH /api/end-user/chats/rooms/block/:roomId
-   */
   static async blockUser(req, res) {
     try {
       const userId = req.user.userId;
@@ -147,10 +118,6 @@ class ChatRoomController {
     }
   }
 
-  /**
-   * Report user/room
-   * POST /api/end-user/chats/rooms/report/:roomId
-   */
   static async reportUser(req, res) {
     try {
       const userId = req.user.userId;

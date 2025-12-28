@@ -1,4 +1,5 @@
 import userNotificationService from '#services/userNotificationService.js';
+import SocketHelper from '#utils/socketHelper.js';
 import { 
   successResponse, 
   errorResponse, 
@@ -8,7 +9,6 @@ import {
 } from '#utils/responseFormatter.js';
 
 class UserNotificationController {
-  // Get user notifications with pagination and filters
   static async getUserNotifications(req, res) {
     try {
       const userId = req.user.userId;
@@ -24,7 +24,6 @@ class UserNotificationController {
         includeExpired = false
       } = req.query;
 
-      // Validate pagination parameters
       const pageNum = parseInt(page);
       const limitNum = parseInt(limit);
 
@@ -32,7 +31,6 @@ class UserNotificationController {
         return validationErrorResponse(res, 'Invalid pagination parameters');
       }
 
-      // Validate boolean parameters
       let isReadBool = undefined;
       if (isRead !== undefined) {
         if (isRead === 'true') isReadBool = true;
@@ -69,7 +67,6 @@ class UserNotificationController {
     }
   }
 
-  // Get single notification by ID
   static async getNotificationById(req, res) {
     try {
       const userId = req.user.userId;
@@ -94,7 +91,6 @@ class UserNotificationController {
     }
   }
 
-  // Get unread notifications count
   static async getUnreadCount(req, res) {
     try {
       const userId = req.user.userId;
@@ -111,7 +107,6 @@ class UserNotificationController {
     }
   }
 
-  // Mark notification as read
   static async markAsRead(req, res) {
     try {
       const userId = req.user.userId;
@@ -130,13 +125,14 @@ class UserNotificationController {
         return errorResponse(res, result.message, 400);
       }
 
+      await SocketHelper.emitNotificationCountUpdate(req, userId);
+
       return successResponse(res, result.data, result.message);
     } catch (error) {
       return errorResponse(res, 'Failed to mark notification as read', 500);
     }
   }
 
-  // Mark multiple notifications as read
   static async markMultipleAsRead(req, res) {
     try {
       const userId = req.user.userId;
@@ -146,7 +142,6 @@ class UserNotificationController {
         return validationErrorResponse(res, 'Valid notification IDs array is required');
       }
 
-      // Validate all IDs are numbers
       const validIds = notificationIds.every(id => !isNaN(id));
       if (!validIds) {
         return validationErrorResponse(res, 'All notification IDs must be valid numbers');
@@ -159,13 +154,14 @@ class UserNotificationController {
         return errorResponse(res, result.message, 400);
       }
 
+      await SocketHelper.emitNotificationCountUpdate(req, userId);
+
       return successResponse(res, result.data, result.message);
     } catch (error) {
       return errorResponse(res, 'Failed to mark notifications as read', 500);
     }
   }
 
-  // Mark all notifications as read
   static async markAllAsRead(req, res) {
     try {
       const userId = req.user.userId;
@@ -176,13 +172,14 @@ class UserNotificationController {
         return errorResponse(res, result.message, 400);
       }
 
+      await SocketHelper.emitNotificationCountUpdate(req, userId);
+
       return successResponse(res, result.data, result.message);
     } catch (error) {
       return errorResponse(res, 'Failed to mark all notifications as read', 500);
     }
   }
 
-  // Delete notification
   static async deleteNotification(req, res) {
     try {
       const userId = req.user.userId;
@@ -207,7 +204,6 @@ class UserNotificationController {
     }
   }
 
-  // Get notification statistics
   static async getNotificationStats(req, res) {
     try {
       const userId = req.user.userId;
@@ -230,7 +226,6 @@ class UserNotificationController {
     }
   }
 
-  // Get user notification preferences
   static async getUserPreferences(req, res) {
     try {
       const userId = req.user.userId;
@@ -247,13 +242,11 @@ class UserNotificationController {
     }
   }
 
-  // Update user notification preferences
   static async updateUserPreferences(req, res) {
     try {
       const userId = req.user.userId;
       const preferencesData = req.body;
 
-      // Only allow users to update category preferences (not channel preferences)
       const allowedFields = [
         'notificationsEnabled',
         'listingNotificationsEnabled',
@@ -264,7 +257,6 @@ class UserNotificationController {
         'marketingNotificationsEnabled'
       ];
 
-      // Filter out any fields that aren't allowed
       const filteredData = {};
       for (const field of allowedFields) {
         if (preferencesData[field] !== undefined) {

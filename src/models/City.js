@@ -61,6 +61,12 @@ City.init(
       defaultValue: 0,
       field: "display_order",
     },
+    isPopular: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+      field: "is_popular"
+    },
     createdBy: {
       type: DataTypes.BIGINT,
       allowNull: true,
@@ -107,6 +113,14 @@ City.init(
         name: "idx_cities_state_active",
         fields: ["state_id", "is_active"],
       },
+      {
+        name: "idx_cities_popular_active",
+        fields: ["is_popular", "is_active"]
+      },
+      {
+        name: "idx_cities_state_popular_active",
+        fields: ["state_id", "is_popular", "is_active"]
+      }
     ],
   },
   {

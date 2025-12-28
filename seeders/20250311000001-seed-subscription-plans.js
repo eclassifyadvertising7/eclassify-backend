@@ -20,18 +20,18 @@ export async function up(queryInterface, Sequelize) {
     {
       category: carsCategory,
       categoryType: 'cars',
-      freeQuota: { limit: 2, activeListings: 5 },
-      basicQuota: { total: 15, activeListings: 10, price: 299 },
-      standardQuota: { total: 30, activeListings: 20, price: 599 },
-      premiumQuota: { total: 50, activeListings: 35, price: 999 }
+      freeQuota: { limit: 1, activeListings: 1 },
+      basicQuota: { total: 15, activeListings: 15, price: 299 },
+      standardQuota: { total: 30, activeListings: 30, price: 599 },
+      premiumQuota: { total: 50, activeListings: 50, price: 999 }
     },
     {
       category: propertiesCategory,
       categoryType: 'properties',
-      freeQuota: { limit: 1, activeListings: 3 },
-      basicQuota: { total: 8, activeListings: 6, price: 499 },
-      standardQuota: { total: 20, activeListings: 15, price: 899 },
-      premiumQuota: { total: 40, activeListings: 30, price: 1499 }
+      freeQuota: { limit: 1, activeListings: 1 },
+      basicQuota: { total: 15, activeListings: 15, price: 499 },
+      standardQuota: { total: 30, activeListings: 30, price: 899 },
+      premiumQuota: { total: 50, activeListings: 50, price: 1499 }
     }
   ];
 

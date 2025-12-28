@@ -19,10 +19,11 @@ Quick reference for all database tables, columns, relationships, and hooks.
 ---
 
 ### cities
-**Columns:** id (INT PK), slug (VARCHAR(255) UNIQUE), name (VARCHAR(255)), state_id (INT FK→states), state_name (VARCHAR(255)), latitude (DECIMAL(10,8)), longitude (DECIMAL(11,8)), is_active (BOOLEAN), display_order (INT), created_by (INT), updated_by (JSON - array of {userId, userName, timestamp}), is_deleted (BOOLEAN), deleted_by (INT), created_at (TIMESTAMP), updated_at (TIMESTAMP), deleted_at (TIMESTAMP)
+**Columns:** id (INT PK), slug (VARCHAR(255) UNIQUE), name (VARCHAR(255)), state_id (INT FK→states), district_id (INT FK→districts), state_name (VARCHAR(255)), district (VARCHAR(255)), pincode (VARCHAR(10)), latitude (DECIMAL(11,8)), longitude (DECIMAL(12,8)), is_active (BOOLEAN), display_order (INT), is_popular (BOOLEAN DEFAULT false), created_by (BIGINT), updated_by (JSON - array of {userId, userName, timestamp}), is_deleted (BOOLEAN), deleted_by (BIGINT), created_at (TIMESTAMP), updated_at (TIMESTAMP), deleted_at (TIMESTAMP)
 
 **Relationships:**
 - belongsTo → states (via state_id)
+- belongsTo → districts (via district_id)
 - hasMany → users (via city_id)
 - hasMany → listings (via city_id)
 
@@ -33,6 +34,10 @@ Quick reference for all database tables, columns, relationships, and hooks.
 **Constraints:** FK state_id RESTRICT on delete
 
 **Config:** paranoid: false
+
+**Indexes:** slug (UNIQUE), state_id, (state_id, is_active), (is_popular, is_active), (state_id, is_popular, is_active)
+
+**Notes:** is_popular flag is used to mark cities for homepage display; only super_admin can toggle popularity; popular cities are ordered by display_order then name
 
 **Indexes:** slug, state_id, (state_id, is_active)
 
@@ -83,7 +88,7 @@ Quick reference for all database tables, columns, relationships, and hooks.
 ---
 
 ### users
-**Columns:** id (BIGINT PK), country_code (VARCHAR(5)), mobile (VARCHAR(15) UNIQUE), full_name (VARCHAR(150)), email (VARCHAR(150) UNIQUE), password_hash (TEXT), role_id (INT FK→roles), status (ENUM), is_active (BOOLEAN), is_password_reset (BOOLEAN), is_phone_verified (BOOLEAN), is_email_verified (BOOLEAN), phone_verified_at (TIMESTAMP), email_verified_at (TIMESTAMP), last_login_at (TIMESTAMP), kyc_status (ENUM), is_verified (BOOLEAN - platform verified badge), subscription_type (ENUM), subscription_expires_at (TIMESTAMP), max_devices (SMALLINT), is_auto_approve_enabled (BOOLEAN - auto-approve user listings), created_by (BIGINT FK→users), deleted_by (BIGINT FK→users), created_at (TIMESTAMP), updated_at (TIMESTAMP), deleted_at (TIMESTAMP)
+**Columns:** id (BIGINT PK), country_code (VARCHAR(5)), mobile (VARCHAR(15) UNIQUE), full_name (VARCHAR(150)), email (VARCHAR(150) UNIQUE), password_hash (TEXT), role_id (INT FK→roles), status (ENUM), is_active (BOOLEAN), is_password_reset (BOOLEAN), is_phone_verified (BOOLEAN), is_email_verified (BOOLEAN), phone_verified_at (TIMESTAMP), email_verified_at (TIMESTAMP), last_login_at (TIMESTAMP), kyc_status (ENUM), is_verified (BOOLEAN - platform verified badge), subscription_type (ENUM), subscription_expires_at (TIMESTAMP), max_devices (SMALLINT), is_auto_approve_enabled (BOOLEAN - auto-approve user listings), referral_code (VARCHAR(20) UNIQUE - user's unique referral code), referred_by (BIGINT FK→users - ID of referrer), referral_count (INT DEFAULT 0 - count of successful referrals), created_by (BIGINT FK→users), deleted_by (BIGINT FK→users), created_at (TIMESTAMP), updated_at (TIMESTAMP), deleted_at (TIMESTAMP)
 
 **Relationships:**
 - belongsTo → roles (via role_id)
@@ -92,6 +97,8 @@ Quick reference for all database tables, columns, relationships, and hooks.
 - hasMany → user_social_accounts (via user_id)
 - belongsTo → users (self-reference via created_by)
 - belongsTo → users (self-reference via deleted_by)
+- belongsTo → users (self-reference via referred_by as 'referrer')
+- hasMany → users (self-reference via referred_by as 'referrals')
 
 **Hooks:**
 - beforeCreate: Hash password with bcrypt (salt rounds: 10)
@@ -548,3 +555,46 @@ AND table_name IN ('roles', 'permissions', 'user_subscriptions');
 **Indexes:** user_id (UNIQUE)
 
 **Notes:** Small table (one record per user); category notification preferences stored as JSONB with structure: {in_app: boolean, email: boolean, push: boolean, sms: boolean}; default values set for all preferences; quiet hours respect timezone setting; frequency limits prevent spam; created automatically when first accessed
+
+
+---
+
+### listing_reports
+**Columns:** id (BIGINT PK), listing_id (BIGINT FK→listings), reported_by (BIGINT FK→users), report_type (VARCHAR(50)), reason (TEXT), status (VARCHAR(20)), reviewed_by (BIGINT FK→users), reviewed_at (TIMESTAMP), admin_notes (TEXT), action_taken (VARCHAR(50)), created_at (TIMESTAMP), updated_at (TIMESTAMP)
+
+**Relationships:**
+- belongsTo → listings (via listing_id)
+- belongsTo → users (via reported_by, as 'reporter')
+- belongsTo → users (via reviewed_by, as 'reviewer')
+
+**Hooks:** None
+
+**Constraints:** UNIQUE(listing_id, reported_by) - one user can only report a listing once; CASCADE on listing delete; CASCADE on reporter delete; SET NULL on reviewer delete
+
+**Config:** paranoid: false
+
+**Indexes:** listing_id, status, reported_by, report_type, created_at (DESC)
+
+**Notes:** High-volume table (BIGINT PK); report_type values: 'spam', 'fraud', 'offensive', 'duplicate', 'wrong_category', 'misleading', 'sold', 'other'; status values: 'pending', 'under_review', 'resolved', 'dismissed'; action_taken values: 'none', 'listing_removed', 'listing_edited', 'user_warned', 'user_suspended', 'false_report'; users cannot report their own listings; prevents duplicate reports from same user
+
+---
+
+### user_reports
+**Columns:** id (BIGINT PK), reported_user_id (BIGINT FK→users), reported_by (BIGINT FK→users), report_type (VARCHAR(50)), reason (TEXT), context (TEXT), related_listing_id (BIGINT FK→listings), related_chat_room_id (BIGINT FK→chat_rooms), status (VARCHAR(20)), reviewed_by (BIGINT FK→users), reviewed_at (TIMESTAMP), admin_notes (TEXT), action_taken (VARCHAR(50)), created_at (TIMESTAMP), updated_at (TIMESTAMP)
+
+**Relationships:**
+- belongsTo → users (via reported_user_id, as 'reportedUser')
+- belongsTo → users (via reported_by, as 'reporter')
+- belongsTo → users (via reviewed_by, as 'reviewer')
+- belongsTo → listings (via related_listing_id, as 'relatedListing')
+- belongsTo → chat_rooms (via related_chat_room_id, as 'relatedChatRoom')
+
+**Hooks:** None
+
+**Constraints:** UNIQUE(reported_user_id, reported_by) - one user can only report another user once; CHECK(reported_user_id != reported_by) - users cannot report themselves; CASCADE on reported user delete; CASCADE on reporter delete; SET NULL on reviewer delete; SET NULL on related listing/chat delete
+
+**Config:** paranoid: false
+
+**Indexes:** reported_user_id, status, reported_by, report_type, created_at (DESC), related_listing_id
+
+**Notes:** High-volume table (BIGINT PK); report_type values: 'scammer', 'fake_profile', 'harassment', 'spam', 'inappropriate_behavior', 'fake_listings', 'non_responsive', 'other'; status values: 'pending', 'under_review', 'resolved', 'dismissed'; action_taken values: 'none', 'warning_sent', 'user_suspended', 'user_banned', 'listings_removed', 'false_report'; context field provides additional details about where/how issue occurred; related_listing_id and related_chat_room_id provide context; prevents self-reporting and duplicate reports

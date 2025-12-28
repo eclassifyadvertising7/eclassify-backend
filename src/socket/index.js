@@ -6,6 +6,7 @@
 import { Server } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import ChatHandler from './chatHandler.js';
+import UnreadCountHandler from './unreadCountHandler.js';
 import logger from '#config/logger.js';
 
 /**
@@ -49,17 +50,19 @@ export const initializeSocket = (server) => {
     }
   });
 
-  // Initialize chat handler
+  // Initialize handlers
   const chatHandler = new ChatHandler(io);
+  const unreadCountHandler = new UnreadCountHandler(io);
 
   // Handle connections
   io.on('connection', (socket) => {
     chatHandler.handleConnection(socket);
+    unreadCountHandler.handleConnection(socket);
   });
 
   logger.info('Socket.io initialized successfully');
 
-  return { io, chatHandler };
+  return { io, chatHandler, unreadCountHandler };
 };
 
 export default initializeSocket;

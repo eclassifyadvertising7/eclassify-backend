@@ -1,8 +1,3 @@
-/**
- * End-User Listing Controller
- * Handles user's own listing operations
- */
-
 import listingService from '#services/listingService.js';
 import carListingService from '#services/carListingService.js';
 import propertyListingService from '#services/propertyListingService.js';
@@ -16,18 +11,12 @@ import {
 import LocationHelper from '#utils/locationHelper.js';
 
 class ListingController {
-  /**
-   * Create new listing
-   * POST /api/end-user/listings
-   */
   static async create(req, res) {
     try {
       const userId = req.user.userId;
 
-      // Parse and sanitize base listing data
       const listingData = parseListingData(req.body);
 
-      // Parse category-specific data
       let categoryData = null;
 
       if (req.body.categoryType === 'car') {
@@ -51,10 +40,6 @@ class ListingController {
     }
   }
 
-  /**
-   * Get personalized feed for authenticated user
-   * GET /api/end-user/listings/feed
-   */
   static async getFeed(req, res) {
     try {
       const userId = req.user.userId;
@@ -62,7 +47,6 @@ class ListingController {
       const filters = {
         status: 'active',
         
-        // Optional filters
         categoryId: req.query.categoryId ? parseInt(req.query.categoryId) : undefined,
         stateId: req.query.stateId ? parseInt(req.query.stateId) : undefined,
         cityId: req.query.cityId ? parseInt(req.query.cityId) : undefined,
@@ -78,7 +62,6 @@ class ListingController {
       };
 
       // TODO: Add personalization logic based on user preferences, browsing history, location
-      // For now, returns active listings with optional filters
       const result = await listingService.getAll(filters, pagination, userId);
       return successResponse(res, result.data, 'Personalized feed retrieved successfully', result.pagination);
     } catch (error) {
@@ -86,10 +69,6 @@ class ListingController {
     }
   }
 
-  /**
-   * Get my listings (management view)
-   * GET /api/end-user/listings
-   */
   static async getMyListings(req, res) {
     try {
       const userId = req.user.userId;
@@ -113,10 +92,6 @@ class ListingController {
     }
   }
 
-  /**
-   * Get my listing by ID
-   * GET /api/end-user/listings/:id
-   */
   static async getById(req, res) {
     try {
       const { id } = req.params;
@@ -129,16 +104,11 @@ class ListingController {
     }
   }
 
-  /**
-   * Update my listing
-   * PUT /api/end-user/listings/:id
-   */
   static async update(req, res) {
     try {
       const { id } = req.params;
       const userId = req.user.userId;
 
-      // Parse and sanitize update data (only include provided fields)
       const updateData = {};
       const body = req.body;
 
@@ -155,7 +125,6 @@ class ListingController {
       if (body.latitude !== undefined) updateData.latitude = body.latitude ? parseFloat(body.latitude) : null;
       if (body.longitude !== undefined) updateData.longitude = body.longitude ? parseFloat(body.longitude) : null;
 
-      // Parse category-specific data
       let categoryData = null;
 
       if (body.categoryType === 'car' && body.carData) {
@@ -179,17 +148,12 @@ class ListingController {
     }
   }
 
-  /**
-   * Submit listing for approval
-   * POST /api/end-user/listings/submit/:id
-   */
   static async submit(req, res) {
     try {
       const { id } = req.params;
       const { status } = req.body;
       const userId = req.user.userId;
 
-      // Validate explicit status
       if (status !== 'pending') {
         return errorResponse(res, 'Status must be "pending" to submit for approval', 400);
       }
@@ -201,17 +165,12 @@ class ListingController {
     }
   }
 
-  /**
-   * Mark listing as sold
-   * PATCH /api/end-user/listings/sold/:id
-   */
   static async markAsSold(req, res) {
     try {
       const { id } = req.params;
       const { status } = req.body;
       const userId = req.user.userId;
 
-      // Validate explicit status
       if (status !== 'sold') {
         return errorResponse(res, 'Status must be "sold" to mark listing as sold', 400);
       }
@@ -223,10 +182,6 @@ class ListingController {
     }
   }
 
-  /**
-   * Delete my listing
-   * DELETE /api/end-user/listings/:id
-   */
   static async delete(req, res) {
     try {
       const { id } = req.params;
@@ -239,10 +194,6 @@ class ListingController {
     }
   }
 
-  /**
-   * Upload media for listing (images and/or videos)
-   * POST /api/end-user/listings/media/:id
-   */
   static async uploadMedia(req, res) {
     try {
       const { id } = req.params;
@@ -254,7 +205,6 @@ class ListingController {
 
       const result = await listingMediaService.uploadMedia(parseInt(id), files);
       
-      // If there were partial errors, return 207 Multi-Status
       if (result.errors && result.errors.length > 0) {
         return res.status(207).json({
           success: true,
@@ -270,10 +220,6 @@ class ListingController {
     }
   }
 
-  /**
-   * Delete media from listing
-   * DELETE /api/end-user/listings/delete-media/:id/media/:mediaId
-   */
   static async deleteMedia(req, res) {
     try {
       const { id, mediaId } = req.params;
@@ -285,10 +231,6 @@ class ListingController {
     }
   }
 
-  /**
-   * Personalized search with user history and preferences
-   * GET /api/end-user/listings/search
-   */
   static async searchListings(req, res) {
     try {
       const {
@@ -322,15 +264,13 @@ class ListingController {
         maxArea
       } = req.query;
 
-      // Validate pagination
       const pageNum = parseInt(page);
-      const limitNum = Math.min(parseInt(limit), 50); // Max 50 items per page
+      const limitNum = Math.min(parseInt(limit), 50);
 
       if (pageNum < 1 || limitNum < 1) {
         return validationErrorResponse(res, [{ field: 'pagination', message: 'Invalid pagination parameters' }]);
       }
 
-      // Build search parameters
       const searchParams = {
         query: query?.trim() || null,
         categoryId: categoryId ? parseInt(categoryId) : null,
@@ -343,7 +283,6 @@ class ListingController {
         featuredOnly: featuredOnly === 'true',
         sortBy,
         filters: {
-          // Car filters
           brandId: brandId ? parseInt(brandId) : null,
           modelId: modelId ? parseInt(modelId) : null,
           variantId: variantId ? parseInt(variantId) : null,
@@ -353,7 +292,6 @@ class ListingController {
           condition,
           minMileage: minMileage ? parseInt(minMileage) : null,
           maxMileage: maxMileage ? parseInt(maxMileage) : null,
-          // Property filters
           propertyType,
           bedrooms: bedrooms ? parseInt(bedrooms) : null,
           bathrooms: bathrooms ? parseInt(bathrooms) : null,
@@ -362,7 +300,6 @@ class ListingController {
         }
       };
 
-      // Build user context with authentication
       const userContext = {
         userId: req.user.userId,
         sessionId: req.activityData?.sessionId || `user_${req.user.userId}`,
@@ -387,10 +324,6 @@ class ListingController {
     }
   }
 
-  /**
-   * Get search suggestions based on user history
-   * GET /api/end-user/listings/search/suggestions
-   */
   static async getSearchSuggestions(req, res) {
     try {
       const { query, limit = 5 } = req.query;
@@ -415,10 +348,6 @@ class ListingController {
     }
   }
 
-  /**
-   * Get available search filters
-   * GET /api/end-user/listings/search/filters/:categoryId?
-   */
   static async getSearchFilters(req, res) {
     try {
       const { categoryId } = req.params;
@@ -440,10 +369,6 @@ class ListingController {
     }
   }
 
-  /**
-   * Get my listing statistics
-   * GET /api/end-user/listings/stats
-   */
   static async getMyStats(req, res) {
     try {
       const userId = req.user.userId;

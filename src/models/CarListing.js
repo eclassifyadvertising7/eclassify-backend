@@ -26,15 +26,30 @@ const CarListing = sequelize.define(
       allowNull: false,
       field: 'brand_id'
     },
+    brandName: {
+      type: DataTypes.STRING(100),
+      allowNull: false,
+      field: 'brand_name'
+    },
     modelId: {
       type: DataTypes.INTEGER,
       allowNull: false,
       field: 'model_id'
     },
+    modelName: {
+      type: DataTypes.STRING(100),
+      allowNull: false,
+      field: 'model_name'
+    },
     variantId: {
       type: DataTypes.INTEGER,
       allowNull: true,
       field: 'variant_id'
+    },
+    variantName: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+      field: 'variant_name'
     },
     year: {
       type: DataTypes.INTEGER,

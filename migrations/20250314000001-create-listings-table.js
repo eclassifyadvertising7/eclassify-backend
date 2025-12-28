@@ -31,6 +31,11 @@ export async function up(queryInterface, Sequelize) {
       onUpdate: 'CASCADE',
       onDelete: 'RESTRICT'
     },
+    category_type: {
+      type: Sequelize.ENUM('car', 'property'),
+      allowNull: false,
+      comment: 'Denormalized category type for faster queries'
+    },
     title: {
       type: Sequelize.STRING(200),
       allowNull: false
@@ -39,6 +44,12 @@ export async function up(queryInterface, Sequelize) {
       type: Sequelize.STRING(250),
       allowNull: true,
       unique: true,
+    },
+    share_code: {
+      type: Sequelize.STRING(10),
+      allowNull: true,
+      unique: true,
+      comment: 'Short alphanumeric code for sharing (e.g., K9M3P7Q)'
     },
     description: {
       type: Sequelize.TEXT,
@@ -224,16 +235,15 @@ export async function up(queryInterface, Sequelize) {
     republish_count: {
       type: Sequelize.INTEGER,
       allowNull: false,
-      defaultValue: 0, 
+      defaultValue: 0,
+    },
+    last_republished_at: {
+      type: Sequelize.DATE,
+      allowNull: true,
     },
     republish_history: {
       type: Sequelize.JSONB,
       allowNull: true,
-    },
-    republished_at: {
-      type: Sequelize.DATE,
-      allowNull: false,
-      defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
     },
     created_at: {
       type: Sequelize.DATE,
@@ -254,6 +264,10 @@ export async function up(queryInterface, Sequelize) {
 
   await queryInterface.addIndex('listings', ['category_id'], {
     name: 'idx_listings_category_id'
+  });
+
+  await queryInterface.addIndex('listings', ['category_type'], {
+    name: 'idx_listings_category_type'
   });
 
   await queryInterface.addIndex('listings', ['state_id', 'city_id'], {
@@ -277,12 +291,12 @@ export async function up(queryInterface, Sequelize) {
   });
 
   // Add index for republish tracking
-  await queryInterface.addIndex('listings', ['republished_at'], {
-    name: 'idx_listings_republished_at'
+  await queryInterface.addIndex('listings', ['last_republished_at'], {
+    name: 'idx_listings_last_republished_at'
   });
 
-  await queryInterface.addIndex('listings', ['republish_count'], {
-    name: 'idx_listings_republish_count'
+  await queryInterface.addIndex('listings', ['share_code'], {
+    name: 'idx_listings_share_code'
   });
 }
 

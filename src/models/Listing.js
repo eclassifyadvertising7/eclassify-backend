@@ -26,6 +26,11 @@ const Listing = sequelize.define(
       allowNull: false,
       field: 'category_id'
     },
+    categoryType: {
+      type: DataTypes.ENUM('car', 'property'),
+      allowNull: false,
+      field: 'category_type'
+    },
     title: {
       type: DataTypes.STRING(200),
       allowNull: false,
@@ -36,6 +41,12 @@ const Listing = sequelize.define(
       allowNull: true,
       unique: true,
       field: 'slug'
+    },
+    shareCode: {
+      type: DataTypes.STRING(10),
+      allowNull: true,
+      unique: true,
+      field: 'share_code'
     },
     description: {
       type: DataTypes.TEXT,
@@ -212,16 +223,15 @@ const Listing = sequelize.define(
       defaultValue: 0,
       field: 'republish_count'
     },
+    lastRepublishedAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      field: 'last_republished_at'
+    },
     republishHistory: {
       type: DataTypes.JSONB,
       allowNull: true,
       field: 'republish_history'
-    },
-    republishedAt: {
-      type: DataTypes.DATE,
-      allowNull: false,
-      defaultValue: DataTypes.NOW,
-      field: 'republished_at'
     }
   },
   {
@@ -246,11 +256,6 @@ const Listing = sequelize.define(
           listing.slug = `${baseSlug}-${randomSuffix}`;
         }
 
-        // Set initial republished_at to created_at
-        if (!listing.republishedAt) {
-          listing.republishedAt = new Date();
-        }
-
         // Set created_by from options
         if (options.userId) {
           listing.createdBy = options.userId;
@@ -267,13 +272,14 @@ const Listing = sequelize.define(
           // Increment republish count
           listing.republishCount = (listing.republishCount || 0) + 1;
           
-          // Update republished_at timestamp
-          listing.republishedAt = new Date();
+          // Update last_republished_at timestamp
+          listing.lastRepublishedAt = new Date();
           
           // Add to republish history
           const currentHistory = listing.republishHistory || [];
           const newHistoryEntry = {
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            userId: options.userId || listing.userId
           };
           
           listing.republishHistory = [...currentHistory, newHistoryEntry];

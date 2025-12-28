@@ -1,19 +1,9 @@
-/**
- * Panel Category Controller
- * Handles admin/staff category management operations
- */
-
 import categoryService from '#services/categoryService.js';
 import { successResponse, errorResponse, createResponse } from '#utils/responseFormatter.js';
 
 class CategoryController {
-  /**
-   * Create new category
-   * POST /api/panel/categories
-   */
   static async create(req, res) {
     try {
-      // Parse and convert form data types
       const categoryData = {
         name: req.body.name?.trim(),
         slug: req.body.slug?.trim(),
@@ -38,10 +28,6 @@ class CategoryController {
     }
   }
 
-  /**
-   * Get all categories (including inactive)
-   * GET /api/panel/categories
-   */
   static async getAll(req, res) {
     try {
       const filters = {
@@ -57,10 +43,6 @@ class CategoryController {
     }
   }
 
-  /**
-   * Get category by ID
-   * GET /api/panel/categories/:id
-   */
   static async getById(req, res) {
     try {
       const { id } = req.params;
@@ -71,15 +53,10 @@ class CategoryController {
     }
   }
 
-  /**
-   * Update category
-   * PUT /api/panel/categories/:id
-   */
   static async update(req, res) {
     try {
       const { id } = req.params;
       
-      // Parse and convert form data types (only include provided fields)
       const updateData = {};
       
       if (req.body.name !== undefined) {
@@ -116,10 +93,6 @@ class CategoryController {
     }
   }
 
-  /**
-   * Update category status
-   * PATCH /api/panel/categories/status/:id
-   */
   static async updateStatus(req, res) {
     try {
       const { id } = req.params;
@@ -138,10 +111,6 @@ class CategoryController {
     }
   }
 
-  /**
-   * Update category featured status
-   * PATCH /api/panel/categories/featured/:id
-   */
   static async updateFeaturedStatus(req, res) {
     try {
       const { id } = req.params;
@@ -160,10 +129,6 @@ class CategoryController {
     }
   }
 
-  /**
-   * Delete category
-   * DELETE /api/panel/categories/:id
-   */
   static async delete(req, res) {
     try {
       const { id } = req.params;

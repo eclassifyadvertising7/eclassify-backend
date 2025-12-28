@@ -1,4 +1,5 @@
 import db from '#models/index.js';
+import { Op } from 'sequelize';
 
 const { State, City } = db;
 
@@ -84,6 +85,289 @@ class LocationRepository {
       ],
       order: [['stateName', 'ASC'], ['displayOrder', 'ASC'], ['name', 'ASC']]
     });
+  }
+
+  async getPopularCities() {
+    return await City.findAll({
+      where: {
+        isPopular: true,
+        isActive: true,
+        isDeleted: false
+      },
+      attributes: [
+        'id',
+        'name',
+        'slug',
+        'district',
+        'stateName',
+        'stateId',
+        'pincode',
+        'latitude',
+        'longitude',
+        'displayOrder'
+      ],
+      order: [['displayOrder', 'ASC'], ['name', 'ASC']]
+    });
+  }
+
+  async searchCities(query, stateId = null, limit = 10) {
+    const whereClause = {
+      isActive: true,
+      isDeleted: false,
+      name: {
+        [Op.iLike]: `%${query}%`
+      }
+    };
+
+    if (stateId) {
+      whereClause.stateId = stateId;
+    }
+
+    return await City.findAll({
+      where: whereClause,
+      attributes: [
+        'id',
+        'name',
+        'slug',
+        'district',
+        'stateName',
+        'stateId',
+        'pincode',
+        'latitude',
+        'longitude',
+        'isPopular'
+      ],
+      order: [
+        ['isPopular', 'DESC'],
+        ['displayOrder', 'ASC'],
+        ['name', 'ASC']
+      ],
+      limit
+    });
+  }
+
+  async getCityById(cityId) {
+    return await City.findOne({
+      where: {
+        id: cityId,
+        isDeleted: false
+      }
+    });
+  }
+
+  async updateCityPopularity(cityId, isPopular, userId) {
+    const city = await this.getCityById(cityId);
+    if (!city) {
+      return null;
+    }
+
+    await City.update(
+      { 
+        isPopular,
+        updatedBy: userId
+      },
+      { 
+        where: { id: cityId }
+      }
+    );
+
+    return await this.getCityById(cityId);
+  }
+
+  async getAllStatesForAdmin(options = {}) {
+    const { page = 1, limit = 50, search = '' } = options;
+    const offset = (page - 1) * limit;
+
+    const whereClause = {};
+    
+    if (search) {
+      whereClause.name = {
+        [Op.iLike]: `%${search}%`
+      };
+    }
+
+    const { count, rows } = await State.findAndCountAll({
+      where: whereClause,
+      attributes: ['id', 'slug', 'name', 'regionSlug', 'regionName', 'displayOrder', 'isActive', 'isDeleted', ['created_at', 'createdAt'], ['updated_at', 'updatedAt']],
+      order: [['displayOrder', 'ASC'], ['name', 'ASC']],
+      limit,
+      offset
+    });
+
+    return {
+      states: rows,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(count / limit),
+        totalItems: count,
+        itemsPerPage: limit,
+        hasNextPage: page < Math.ceil(count / limit),
+        hasPrevPage: page > 1
+      }
+    };
+  }
+
+  async getStateByIdForAdmin(stateId) {
+    return await State.findOne({
+      where: { id: stateId },
+      attributes: ['id', 'slug', 'name', 'regionSlug', 'regionName', 'displayOrder', 'isActive', 'isDeleted', ['created_at', 'createdAt'], ['updated_at', 'updatedAt']]
+    });
+  }
+
+  async getStateBySlug(slug) {
+    return await State.findOne({
+      where: { 
+        slug,
+        isDeleted: false
+      },
+      attributes: ['id', 'slug', 'name']
+    });
+  }
+
+  async createState(stateData) {
+    return await State.create(stateData);
+  }
+
+  async updateState(stateId, updateData, userId) {
+    await State.update(
+      { 
+        ...updateData,
+        updatedBy: userId
+      },
+      { 
+        where: { id: stateId }
+      }
+    );
+
+    return await this.getStateByIdForAdmin(stateId);
+  }
+
+  async deleteState(stateId, userId) {
+    await State.update(
+      { 
+        isDeleted: true,
+        deletedBy: userId,
+        deletedAt: new Date()
+      },
+      { 
+        where: { id: stateId }
+      }
+    );
+  }
+
+  async getAllCitiesForAdmin() {
+    return await City.findAll({
+      attributes: [
+        'id',
+        'name',
+        'slug',
+        'stateId',
+        'stateName',
+        'district',
+        'districtId',
+        'pincode',
+        'latitude',
+        'longitude',
+        'displayOrder',
+        'isActive',
+        'isPopular',
+        'isDeleted',
+        ['created_at', 'createdAt'],
+        ['updated_at', 'updatedAt']
+      ],
+      order: [['stateName', 'ASC'], ['displayOrder', 'ASC'], ['name', 'ASC']]
+    });
+  }
+
+  async getCitiesByStateForAdmin(stateId, options = {}) {
+    const { page = 1, limit = 50, search = '' } = options;
+    const offset = (page - 1) * limit;
+
+    const whereClause = { stateId };
+    
+    if (search) {
+      whereClause.name = {
+        [Op.iLike]: `%${search}%`
+      };
+    }
+
+    const { count, rows } = await City.findAndCountAll({
+      where: whereClause,
+      attributes: [
+        'id',
+        'name',
+        'slug',
+        'stateId',
+        'stateName',
+        'district',
+        'districtId',
+        'pincode',
+        'latitude',
+        'longitude',
+        'displayOrder',
+        'isActive',
+        'isPopular',
+        'isDeleted',
+        ['created_at', 'createdAt'],
+        ['updated_at', 'updatedAt']
+      ],
+      order: [['displayOrder', 'ASC'], ['name', 'ASC']],
+      limit,
+      offset
+    });
+
+    return {
+      cities: rows,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(count / limit),
+        totalItems: count,
+        itemsPerPage: limit,
+        hasNextPage: page < Math.ceil(count / limit),
+        hasPrevPage: page > 1
+      }
+    };
+  }
+
+  async getCityBySlug(slug) {
+    return await City.findOne({
+      where: { 
+        slug,
+        isDeleted: false
+      },
+      attributes: ['id', 'slug', 'name']
+    });
+  }
+
+  async createCity(cityData) {
+    return await City.create(cityData);
+  }
+
+  async updateCity(cityId, updateData, userId) {
+    await City.update(
+      { 
+        ...updateData,
+        updatedBy: userId
+      },
+      { 
+        where: { id: cityId }
+      }
+    );
+
+    return await this.getCityById(cityId);
+  }
+
+  async deleteCity(cityId, userId) {
+    await City.update(
+      { 
+        isDeleted: true,
+        deletedBy: userId,
+        deletedAt: new Date()
+      },
+      { 
+        where: { id: cityId }
+      }
+    );
   }
 }
 

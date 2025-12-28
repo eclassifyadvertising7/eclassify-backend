@@ -16,7 +16,7 @@ This document provides comprehensive documentation for the public listings API, 
 
 | Endpoint | Purpose | Filters |
 |----------|---------|---------|
-| `GET /homepage` | Homepage listings | None (newest first) |
+| `GET /homepage` | Homepage listings by category | Category IDs, limits |
 | `GET /category/:categorySlugOrId` | Category-specific listings | All filters available |
 | `GET /featured` | Featured listings only | Limited filters |
 | `GET /:slug` | Single listing details | N/A |
@@ -26,33 +26,39 @@ This document provides comprehensive documentation for the public listings API, 
 
 ## Endpoints
 
-### 1. Homepage Listings (NEW)
+### 1. Homepage Listings
 
 **Endpoint:** `GET /api/public/listings/homepage`
 
-**Description:** Fetch listings for homepage display. Simple endpoint with no filters, sorted by newest first.
+**Description:** Fetch listings for homepage display organized by category. Returns featured listings and category-wise listings with configurable limits.
 
 **Authentication:** Not required (public endpoint)
 
-**Use Case:** Homepage "Latest Listings" section
+**Use Case:** Homepage display with "Featured Listings" section and category-wise listing sections
 
 #### Query Parameters
 
-| Parameter | Type | Description | Example |
-|-----------|------|-------------|---------|
-| `page` | integer | Page number (default: 1) | `?page=2` |
-| `limit` | integer | Items per page (default: 20, max: 100) | `?limit=30` |
+| Parameter | Type | Description | Default | Example |
+|-----------|------|-------------|---------|---------|
+| `categories` | string | Comma-separated category IDs | Empty (no categories) | `?categories=1,2,3` |
+| `limit` | integer | Listings per category | 10 | `?limit=8` |
+| `featuredLimit` | integer | Number of featured listings | 10 | `?featuredLimit=5` |
 
 #### Example Requests
 
-**Basic homepage listings:**
+**Basic homepage listings (featured only):**
 ```
 GET /api/public/listings/homepage
 ```
 
-**With pagination:**
+**Homepage with specific categories:**
 ```
-GET /api/public/listings/homepage?page=1&limit=30
+GET /api/public/listings/homepage?categories=1,2&limit=10&featuredLimit=5
+```
+
+**Homepage with all categories:**
+```
+GET /api/public/listings/homepage?categories=1,2,3,4&limit=8
 ```
 
 #### Response Format
@@ -62,52 +68,152 @@ GET /api/public/listings/homepage?page=1&limit=30
 ```json
 {
   "success": true,
-  "message": "Listings fetched successfully",
-  "data": [
-    {
-      "id": 1,
-      "title": "Honda City VX 2020 - Excellent Condition",
-      "slug": "honda-city-vx-2020-excellent-condition-a1b2c3",
-      "price": "650000.00",
-      "priceNegotiable": true,
-      "status": "active",
-      "postedByType": "owner",
-      "isFeatured": true,
-      "viewCount": 245,
-      "createdAt": "2025-01-24T10:00:00.000Z",
-      "category": {
+  "message": "Listings retrieved successfully",
+  "data": {
+    "featured": [
+      {
         "id": 1,
-        "name": "Cars",
-        "slug": "cars"
-      },
-      "state": {
-        "id": 5,
-        "name": "Karnataka",
-        "slug": "karnataka"
-      },
-      "city": {
-        "id": 42,
-        "name": "Bangalore",
-        "slug": "bangalore"
-      },
-      "media": [
-        {
+        "title": "Honda City VX 2020 - Excellent Condition",
+        "slug": "honda-city-vx-2020-excellent-condition-a1b2c3",
+        "price": "650000.00",
+        "priceNegotiable": true,
+        "status": "active",
+        "postedByType": "owner",
+        "isFeatured": true,
+        "featuredUntil": "2025-12-31T23:59:59.000Z",
+        "viewCount": 245,
+        "createdAt": "2025-01-24T10:00:00.000Z",
+        "category": {
           "id": 1,
-          "mediaUrl": "/uploads/listings/1/image1.jpg",
-          "thumbnailUrl": "/uploads/listings/1/thumb_image1.jpg",
-          "mediaType": "image"
-        }
-      ]
+          "name": "Cars",
+          "slug": "cars"
+        },
+        "state": {
+          "id": 5,
+          "name": "Karnataka",
+          "slug": "karnataka"
+        },
+        "city": {
+          "id": 42,
+          "name": "Bangalore",
+          "slug": "bangalore"
+        },
+        "media": [
+          {
+            "id": 1,
+            "mediaUrl": "http://localhost:5000/uploads/listings/1/image1.jpg",
+            "thumbnailUrl": "http://localhost:5000/uploads/listings/1/thumb_image1.jpg",
+            "mediaType": "image",
+            "isPrimary": true
+          }
+        ]
+      }
+    ],
+    "byCategory": {
+      "1": {
+        "categoryId": 1,
+        "categoryName": "Cars",
+        "categorySlug": "cars",
+        "totalCount": 245,
+        "listings": [
+          {
+            "id": 2,
+            "title": "Toyota Fortuner 2021",
+            "slug": "toyota-fortuner-2021-xyz789",
+            "price": "2500000.00",
+            "priceNegotiable": false,
+            "status": "active",
+            "postedByType": "dealer",
+            "isFeatured": false,
+            "viewCount": 120,
+            "createdAt": "2025-01-23T14:30:00.000Z",
+            "category": {
+              "id": 1,
+              "name": "Cars",
+              "slug": "cars"
+            },
+            "state": {
+              "id": 5,
+              "name": "Karnataka",
+              "slug": "karnataka"
+            },
+            "city": {
+              "id": 42,
+              "name": "Bangalore",
+              "slug": "bangalore"
+            },
+            "media": [
+              {
+                "id": 2,
+                "mediaUrl": "http://localhost:5000/uploads/listings/2/image1.jpg",
+                "thumbnailUrl": "http://localhost:5000/uploads/listings/2/thumb_image1.jpg",
+                "mediaType": "image",
+                "isPrimary": true
+              }
+            ]
+          }
+        ]
+      },
+      "2": {
+        "categoryId": 2,
+        "categoryName": "Properties",
+        "categorySlug": "properties",
+        "totalCount": 189,
+        "listings": [
+          {
+            "id": 3,
+            "title": "3BHK Apartment in Prime Location",
+            "slug": "3bhk-apartment-prime-location-abc456",
+            "price": "8500000.00",
+            "priceNegotiable": true,
+            "status": "active",
+            "postedByType": "owner",
+            "isFeatured": false,
+            "viewCount": 89,
+            "createdAt": "2025-01-22T09:15:00.000Z",
+            "category": {
+              "id": 2,
+              "name": "Properties",
+              "slug": "properties"
+            },
+            "state": {
+              "id": 5,
+              "name": "Karnataka",
+              "slug": "karnataka"
+            },
+            "city": {
+              "id": 42,
+              "name": "Bangalore",
+              "slug": "bangalore"
+            },
+            "media": [
+              {
+                "id": 3,
+                "mediaUrl": "http://localhost:5000/uploads/listings/3/image1.jpg",
+                "thumbnailUrl": "http://localhost:5000/uploads/listings/3/thumb_image1.jpg",
+                "mediaType": "image",
+                "isPrimary": true
+              }
+            ]
+          }
+        ]
+      }
     }
-  ],
-  "pagination": {
-    "total": 150,
-    "page": 1,
-    "limit": 20,
-    "totalPages": 8
   }
 }
 ```
+
+#### Notes
+
+- Only returns **active** listings (status: 'active')
+- Excludes **expired** listings (expires_at > NOW())
+- Excludes **soft-deleted** listings
+- Featured listings are sorted by **newest first** (created_at DESC)
+- Category listings are sorted by **newest first** (created_at DESC)
+- Only includes categories with **active** status
+- If no categories specified, only featured listings are returned
+- `byCategory` object keys are category IDs for easy frontend access
+- Each category includes `totalCount` for "View All" links
 
 ---
 
@@ -562,7 +668,124 @@ GET /api/public/listings/honda-city-vx-2020-excellent-condition-a1b2c3
 
 ---
 
-### 5. Increment View Count
+### 5. Get Related Listings
+
+**Endpoint:** `GET /api/public/listings/related/:id`
+
+**Description:** Fetch related/similar listings based on category, location, and price similarity. Uses intelligent scoring algorithm to find the most relevant listings.
+
+**Authentication:** Not required (public endpoint)
+
+**Use Case:** "Related Ads" or "Similar Listings" section on listing detail pages
+
+#### URL Parameters
+
+| Parameter | Type | Description | Example |
+|-----------|------|-------------|---------|
+| `id` | integer | Listing ID | `/related/123` |
+
+#### Query Parameters
+
+| Parameter | Type | Description | Default | Example |
+|-----------|------|-------------|---------|---------|
+| `limit` | integer | Number of related listings (max: 12) | 6 | `?limit=8` |
+
+#### Matching Criteria
+
+The algorithm scores listings based on:
+- **Category match** (+10 points) - Same category as current listing
+- **State match** (+5 points) - Same state location
+- **City match** (+3 points) - Same city location
+- **Price range** (+2 points) - Within ±30% of current listing price
+
+Results are sorted by relevance score (highest first), then by creation date (newest first).
+
+#### Example Requests
+
+**Basic related listings:**
+```
+GET /api/public/listings/related/123
+```
+
+**With custom limit:**
+```
+GET /api/public/listings/related/123?limit=8
+```
+
+#### Response Format
+
+**Success Response (200 OK):**
+
+```json
+{
+  "success": true,
+  "message": "Related listings retrieved successfully",
+  "data": {
+    "listings": [
+      {
+        "id": 456,
+        "title": "Honda Civic 2019 - Well Maintained",
+        "price": "700000.00",
+        "location": "Bangalore, Karnataka",
+        "thumbnailUrl": "http://localhost:5000/uploads/listings/456/thumb_image1.jpg",
+        "createdAt": "2025-01-20T10:00:00.000Z",
+        "categoryName": "Cars"
+      },
+      {
+        "id": 789,
+        "title": "Hyundai Verna 2020 - Single Owner",
+        "price": "650000.00",
+        "location": "Bangalore, Karnataka",
+        "thumbnailUrl": "http://localhost:5000/uploads/listings/789/thumb_image1.jpg",
+        "createdAt": "2025-01-18T14:30:00.000Z",
+        "categoryName": "Cars"
+      }
+    ],
+    "count": 2
+  }
+}
+```
+
+**Error Response (404 Not Found):**
+
+```json
+{
+  "success": false,
+  "message": "Listing not found",
+  "data": {
+    "listings": [],
+    "count": 0
+  }
+}
+```
+
+**Error Response (400 Bad Request):**
+
+```json
+{
+  "success": false,
+  "message": "Valid listing ID is required",
+  "errors": [
+    {
+      "field": "id",
+      "message": "Valid listing ID is required"
+    }
+  ]
+}
+```
+
+#### Notes
+
+- Only returns **active** listings (status: 'active')
+- Excludes **expired** listings (expires_at > NOW())
+- Excludes **soft-deleted** listings
+- Excludes the **current listing** itself
+- Returns empty array if no related listings found
+- Thumbnail URLs are automatically transformed based on storage type (local/Cloudinary)
+
+---
+
+### 6. Increment View Count
 
 **Endpoint:** `POST /api/public/listings/view/:id`
 
@@ -605,9 +828,15 @@ POST /api/public/listings/view/1
 const API_BASE_URL = 'http://localhost:3000/api';
 
 export const listingsAPI = {
-  // Get homepage listings (no filters)
-  async getHomepage(page = 1, limit = 20) {
-    const params = new URLSearchParams({ page, limit });
+  // Get homepage listings by category
+  async getHomepage(categoryIds = [], limit = 10, featuredLimit = 10) {
+    const params = new URLSearchParams();
+    if (categoryIds.length > 0) {
+      params.append('categories', categoryIds.join(','));
+    }
+    params.append('limit', limit);
+    params.append('featuredLimit', featuredLimit);
+    
     const response = await fetch(`${API_BASE_URL}/public/listings/homepage?${params}`);
     return response.json();
   },
@@ -638,6 +867,13 @@ export const listingsAPI = {
   // Get listing by slug
   async getBySlug(slug) {
     const response = await fetch(`${API_BASE_URL}/public/listings/${slug}`);
+    return response.json();
+  },
+  
+  // Get related listings
+  async getRelated(id, limit = 6) {
+    const params = new URLSearchParams({ limit });
+    const response = await fetch(`${API_BASE_URL}/public/listings/related/${id}?${params}`);
     return response.json();
   },
   
@@ -858,12 +1094,27 @@ export function useListings() {
 
 ## Common Use Cases
 
-### 1. Homepage Featured Listings
+### 1. Homepage with Category Sections
 ```javascript
-const featuredListings = await listingsAPI.getFeatured(8);
+// Get featured listings + listings from Cars and Properties categories
+const homepageData = await listingsAPI.getHomepage([1, 2], 8, 5);
+
+// Access featured listings
+const featuredListings = homepageData.data.featured;
+
+// Access category-wise listings
+const carsListings = homepageData.data.byCategory['1']?.listings || [];
+const propertiesListings = homepageData.data.byCategory['2']?.listings || [];
 ```
 
-### 2. Category Page
+### 2. Homepage Featured Listings Only
+```javascript
+// Get only featured listings (no category sections)
+const featuredData = await listingsAPI.getHomepage([], 0, 10);
+const featuredListings = featuredData.data.featured;
+```
+
+### 3. Category Page
 ```javascript
 const carListings = await listingsAPI.browse({
   categoryId: 1,
@@ -916,6 +1167,17 @@ const properties = await listingsAPI.browse({
   cityId: 42,
   sortBy: 'price_asc'
 });
+```
+
+### 6. Related Listings on Detail Page
+```javascript
+// When user views a listing detail page
+const listingId = 123;
+
+// Get related listings
+const relatedListings = await listingsAPI.getRelated(listingId, 6);
+
+// Display in "You may also like" or "Similar Ads" section
 ```
 
 ---

@@ -1,8 +1,3 @@
-/**
- * PropertyListing Model
- * Property-specific attributes for listings
- */
-
 import { DataTypes } from 'sequelize';
 import sequelize from '#config/database.js';
 
@@ -22,13 +17,14 @@ const PropertyListing = sequelize.define(
       field: 'listing_id'
     },
     propertyType: {
-      type: DataTypes.ENUM('apartment', 'house', 'villa', 'plot', 'commercial', 'office', 'shop', 'warehouse'),
+      type: DataTypes.ENUM('apartment', 'house', 'villa', 'plot', 'commercial', 'office', 'shop', 'warehouse', 'pg', 'hostel'),
       allowNull: false,
       field: 'property_type'
     },
     listingType: {
-      type: DataTypes.ENUM('sale', 'rent', 'pg', 'hostel'),
+      type: DataTypes.ENUM('sale', 'rent', 'other'),
       allowNull: false,
+      defaultValue: 'other',
       field: 'listing_type'
     },
     bedrooms: {
@@ -43,8 +39,7 @@ const PropertyListing = sequelize.define(
     },
     balconies: {
       type: DataTypes.INTEGER,
-      allowNull: false,
-      defaultValue: 0,
+      allowNull: true,
       field: 'balconies'
     },
     areaSqft: {
@@ -84,14 +79,12 @@ const PropertyListing = sequelize.define(
     },
     furnished: {
       type: DataTypes.ENUM('unfurnished', 'semi-furnished', 'fully-furnished'),
-      allowNull: false,
-      defaultValue: 'unfurnished',
+      allowNull: true,
       field: 'furnished'
     },
     parkingSpaces: {
       type: DataTypes.INTEGER,
-      allowNull: false,
-      defaultValue: 0,
+      allowNull: true,
       field: 'parking_spaces'
     },
     amenities: {
@@ -119,6 +112,26 @@ const PropertyListing = sequelize.define(
       type: DataTypes.STRING(50),
       allowNull: true,
       field: 'rera_id'
+    },
+    plotLengthFt: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true,
+      field: 'plot_length_ft'
+    },
+    plotWidthFt: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true,
+      field: 'plot_width_ft'
+    },
+    plotElevationFt: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true,
+      field: 'plot_elevation_ft'
+    },
+    otherDetails: {
+      type: DataTypes.JSONB,
+      allowNull: true,
+      field: 'other_details'
     }
   },
   {

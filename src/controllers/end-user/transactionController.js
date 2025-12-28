@@ -23,7 +23,6 @@ class TransactionController {
 
       return paginatedResponse(res, result.data, result.pagination, result.message);
     } catch (error) {
-      console.error('Error listing transactions:', error);
       return errorResponse(res, 'Failed to retrieve transactions', 500);
     }
   }
@@ -39,14 +38,12 @@ class TransactionController {
         return errorResponse(res, result.message, 404);
       }
 
-      // Verify ownership
       if (result.data.userId !== userId) {
         return errorResponse(res, 'You can only view your own transactions', 403);
       }
 
       return successResponse(res, result.data, result.message);
     } catch (error) {
-      console.error('Error getting transaction:', error);
       return errorResponse(res, 'Failed to retrieve transaction', 500);
     }
   }
@@ -56,7 +53,7 @@ class TransactionController {
       const userId = req.user.userId;
       const transactionData = {
         ...req.body,
-        userId // Ensure transaction is created for the authenticated user
+        userId
       };
 
       const result = await transactionService.createTransaction(transactionData, userId);
@@ -67,7 +64,6 @@ class TransactionController {
 
       return createResponse(res, result.data, result.message);
     } catch (error) {
-      console.error('Error creating transaction:', error);
       return errorResponse(res, 'Failed to create transaction', 500);
     }
   }
@@ -86,7 +82,6 @@ class TransactionController {
 
       return successResponse(res, result.data, result.message);
     } catch (error) {
-      console.error('Error updating transaction:', error);
       return errorResponse(res, 'Failed to update transaction', 500);
     }
   }

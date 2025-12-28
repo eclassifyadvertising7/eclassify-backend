@@ -5,6 +5,7 @@ import logger from '#config/logger.js';
 import { testConnection } from '#config/database.js';
 import { initializeSocket } from './socket/index.js';
 import chatJobs from './jobs/chatJobs.js';
+import userNotificationService from '#services/userNotificationService.js';
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '#utils/constants/messages.js';
 
 // Load environment variables
@@ -33,11 +34,15 @@ const startServer = async () => {
     const server = createServer(app);
     
     // Initialize Socket.io
-    const { io, chatHandler } = initializeSocket(server);
+    const { io, chatHandler, unreadCountHandler } = initializeSocket(server);
     
-    // Make io and chatHandler available globally
+    // Make io and handlers available globally
     app.set('io', io);
     app.set('chatHandler', chatHandler);
+    app.set('unreadCountHandler', unreadCountHandler);
+
+    // Set socket IO in notification service for real-time updates
+    userNotificationService.setSocketIO(io);
     
     // Initialize cron jobs
     chatJobs.initialize(app);

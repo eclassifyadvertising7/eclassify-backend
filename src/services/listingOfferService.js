@@ -1,8 +1,3 @@
-/**
- * ListingOffer Service
- * Business logic for listing offer management
- */
-
 import listingOfferRepository from '#repositories/listingOfferRepository.js';
 import chatRoomRepository from '#repositories/chatRoomRepository.js';
 import listingRepository from '#repositories/listingRepository.js';
@@ -10,15 +5,7 @@ import chatMessageService from '#services/chatMessageService.js';
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '#utils/constants/messages.js';
 
 class ListingOfferService {
-  /**
-   * Create offer (buyer)
-   * @param {number} roomId - Room ID
-   * @param {number} userId - User ID (must be buyer)
-   * @param {Object} offerData - Offer data
-   * @returns {Promise<Object>}
-   */
   async createOffer(roomId, userId, offerData) {
-    // Validate access
     const participation = await chatRoomRepository.getUserParticipation(roomId, userId);
     if (!participation) {
       throw new Error(ERROR_MESSAGES.FORBIDDEN);
@@ -32,24 +19,20 @@ class ListingOfferService {
       throw new Error('Cannot make offers on inactive listings');
     }
 
-    // Validate offer data
     if (!offerData.amount || offerData.amount <= 0) {
       throw new Error('Offer amount must be greater than 0');
     }
 
-    // Get listing details
     const listing = await listingRepository.getById(participation.room.listingId);
     
     if (!listing) {
       throw new Error(ERROR_MESSAGES.LISTING_NOT_FOUND);
     }
 
-    // Check if offer amount is less than listing price
     if (offerData.amount >= listing.price) {
       throw new Error('Offer amount must be less than listing price');
     }
 
-    // Check pending offers limit (max 5 per buyer per listing)
     const pendingCount = await listingOfferRepository.getPendingCountByBuyerAndListing(
       userId,
       participation.room.listingId
@@ -59,10 +42,8 @@ class ListingOfferService {
       throw new Error('Maximum 5 pending offers allowed per listing');
     }
 
-    // Set expiry date (default 7 days)
     const expiresAt = offerData.expiresAt || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-    // Create offer
     const offer = await listingOfferRepository.create({
       listingId: participation.room.listingId,
       chatRoomId: roomId,
@@ -75,7 +56,6 @@ class ListingOfferService {
       expiresAt
     });
 
-    // Send system message
     await chatMessageService.sendSystemMessage(
       roomId,
       'offer_made',
@@ -97,14 +77,7 @@ class ListingOfferService {
     };
   }
 
-  /**
-   * Get offers for room
-   * @param {number} roomId - Room ID
-   * @param {number} userId - User ID (for access check)
-   * @returns {Promise<Object>}
-   */
   async getOffers(roomId, userId) {
-    // Validate access
     const participation = await chatRoomRepository.getUserParticipation(roomId, userId);
     if (!participation) {
       throw new Error(ERROR_MESSAGES.FORBIDDEN);
@@ -119,12 +92,6 @@ class ListingOfferService {
     };
   }
 
-  /**
-   * Accept offer (seller)
-   * @param {number} offerId - Offer ID
-   * @param {number} userId - User ID (must be seller)
-   * @returns {Promise<Object>}
-   */
   async acceptOffer(offerId, userId) {
     const offer = await listingOfferRepository.getById(offerId, { includeAll: true });
     
@@ -140,10 +107,8 @@ class ListingOfferService {
       throw new Error('Only pending offers can be accepted');
     }
 
-    // Update offer status
     await listingOfferRepository.updateStatus(offerId, 'accepted');
 
-    // Send system message
     await chatMessageService.sendSystemMessage(
       offer.chatRoomId,
       'offer_accepted',
@@ -161,13 +126,6 @@ class ListingOfferService {
     };
   }
 
-  /**
-   * Reject offer (seller)
-   * @param {number} offerId - Offer ID
-   * @param {number} userId - User ID (must be seller)
-   * @param {string} reason - Rejection reason
-   * @returns {Promise<Object>}
-   */
   async rejectOffer(offerId, userId, reason = null) {
     const offer = await listingOfferRepository.getById(offerId, { includeAll: true });
     
@@ -183,12 +141,10 @@ class ListingOfferService {
       throw new Error('Only pending offers can be rejected');
     }
 
-    // Update offer status
     await listingOfferRepository.updateStatus(offerId, 'rejected', {
       rejectionReason: reason
     });
 
-    // Send system message
     await chatMessageService.sendSystemMessage(
       offer.chatRoomId,
       'offer_rejected',
@@ -207,12 +163,6 @@ class ListingOfferService {
     };
   }
 
-  /**
-   * Withdraw offer (buyer)
-   * @param {number} offerId - Offer ID
-   * @param {number} userId - User ID (must be buyer)
-   * @returns {Promise<Object>}
-   */
   async withdrawOffer(offerId, userId) {
     const offer = await listingOfferRepository.getById(offerId);
     
@@ -228,7 +178,6 @@ class ListingOfferService {
       throw new Error('Only pending offers can be withdrawn');
     }
 
-    // Update offer status
     await listingOfferRepository.updateStatus(offerId, 'withdrawn');
 
     return {
@@ -238,13 +187,6 @@ class ListingOfferService {
     };
   }
 
-  /**
-   * Counter offer (seller)
-   * @param {number} offerId - Original offer ID
-   * @param {number} userId - User ID (must be seller)
-   * @param {Object} counterData - Counter offer data
-   * @returns {Promise<Object>}
-   */
   async counterOffer(offerId, userId, counterData) {
     const originalOffer = await listingOfferRepository.getById(offerId, { includeAll: true });
     
@@ -260,7 +202,6 @@ class ListingOfferService {
       throw new Error('Only pending offers can be countered');
     }
 
-    // Validate counter amount
     if (!counterData.amount || counterData.amount <= 0) {
       throw new Error('Counter offer amount must be greater than 0');
     }
@@ -269,17 +210,14 @@ class ListingOfferService {
       throw new Error('Counter offer must be higher than original offer');
     }
 
-    // Get listing details
     const listing = await listingRepository.getById(originalOffer.listingId);
     
     if (counterData.amount >= listing.price) {
       throw new Error('Counter offer amount must be less than listing price');
     }
 
-    // Update original offer status to 'countered'
     await listingOfferRepository.updateStatus(offerId, 'countered');
 
-    // Create counter offer
     const counterOffer = await listingOfferRepository.create({
       listingId: originalOffer.listingId,
       chatRoomId: originalOffer.chatRoomId,
@@ -293,7 +231,6 @@ class ListingOfferService {
       expiresAt: counterData.expiresAt || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
     });
 
-    // Send system message
     await chatMessageService.sendSystemMessage(
       originalOffer.chatRoomId,
       'offer_made',
@@ -316,14 +253,9 @@ class ListingOfferService {
     };
   }
 
-  /**
-   * Expire pending offers (cron job)
-   * @returns {Promise<Object>}
-   */
   async expirePendingOffers() {
     const expiredOffers = await listingOfferRepository.expirePendingOffers();
 
-    // Send system messages for expired offers
     for (const offer of expiredOffers) {
       await chatMessageService.sendSystemMessage(
         offer.chatRoomId,
@@ -346,11 +278,6 @@ class ListingOfferService {
     };
   }
 
-  /**
-   * Get offer statistics
-   * @param {Object} filters - Filter options
-   * @returns {Promise<Object>}
-   */
   async getStats(filters = {}) {
     const stats = await listingOfferRepository.getStats(filters);
 
@@ -361,11 +288,6 @@ class ListingOfferService {
     };
   }
 
-  /**
-   * Get top listings by offer count
-   * @param {number} limit - Number of listings
-   * @returns {Promise<Object>}
-   */
   async getTopListings(limit = 10) {
     const listings = await listingOfferRepository.getTopListingsByOfferCount(limit);
 
@@ -376,11 +298,6 @@ class ListingOfferService {
     };
   }
 
-  /**
-   * Get offer trends
-   * @param {number} days - Number of days
-   * @returns {Promise<Object>}
-   */
   async getOfferTrends(days = 30) {
     const trends = await listingOfferRepository.getOfferTrends(days);
 
@@ -392,5 +309,4 @@ class ListingOfferService {
   }
 }
 
-// Export singleton instance
 export default new ListingOfferService();

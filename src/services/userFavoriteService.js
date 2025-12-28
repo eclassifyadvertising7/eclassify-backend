@@ -181,16 +181,19 @@ class UserFavoriteService {
         if (priceMax) listingWhere.price[Op.lte] = priceMax;
       }
 
+      // Map sortBy to correct column name (snake_case for database)
+      const sortColumn = sortBy === 'created_at' ? 'created_at' : sortBy;
+
       const { count, rows } = await UserFavorite.findAndCountAll({
         where: { userId },
         limit,
         offset,
-        order: [[sortBy === 'price' ? { model: 'Listing', as: 'listing' } : sortBy, sortOrder]],
+        order: [[sortColumn, sortOrder]],
         include: [
           {
             association: 'listing',
             where: listingWhere,
-            attributes: ['id', 'title', 'price', 'status', 'categoryId', 'createdAt'],
+            attributes: ['id', 'title', 'price', 'status', 'categoryId', ['created_at', 'createdAt']],
             required: true
           }
         ]

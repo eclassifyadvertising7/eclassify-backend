@@ -33,6 +33,8 @@ import UserNotification from './UserNotification.js';
 import UserNotificationPreference from './UserNotificationPreference.js';
 import OtherMedia from './OtherMedia.js';
 import OtpVerification from './OtpVerification.js';
+import ListingReport from './ListingReport.js';
+import UserReport from './UserReport.js';
 
 // Initialize models
 const User = UserModel(sequelize);
@@ -78,7 +80,9 @@ const models = {
   UserNotification,
   UserNotificationPreference,
   OtherMedia,
-  OtpVerification
+  OtpVerification,
+  ListingReport,
+  UserReport
 };
 
 // Set up associations
@@ -171,6 +175,10 @@ Transaction.associate(models);
 
 // OtherMedia associations
 OtherMedia.associate(models);
+
+// Report associations
+ListingReport.associate(models);
+UserReport.associate(models);
 
 export { sequelize };
 export default models;

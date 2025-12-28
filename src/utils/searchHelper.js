@@ -11,18 +11,15 @@ class SearchHelper {
   static generateKeywords(listingData, categorySpecificData = null) {
     const keywords = [];
 
-    // Basic listing keywords
     if (listingData.title) {
       keywords.push(listingData.title.toLowerCase());
     }
 
-    // Location keywords
     if (listingData.locality) keywords.push(listingData.locality.toLowerCase());
     if (listingData.cityName) keywords.push(listingData.cityName.toLowerCase());
     if (listingData.stateName) keywords.push(listingData.stateName.toLowerCase());
     if (listingData.pincode) keywords.push(listingData.pincode);
 
-    // Price range keywords
     if (listingData.price) {
       const price = parseFloat(listingData.price);
       if (price < 100000) keywords.push('under-1-lakh');
@@ -32,14 +29,11 @@ class SearchHelper {
       else keywords.push('above-20-lakh');
     }
 
-    // Seller type keywords
     if (listingData.postedByType) {
       keywords.push(listingData.postedByType.toLowerCase());
     }
 
-    // Category-specific keywords
     if (categorySpecificData) {
-      // Car-specific keywords
       if (categorySpecificData.brand) keywords.push(categorySpecificData.brand.toLowerCase());
       if (categorySpecificData.model) keywords.push(categorySpecificData.model.toLowerCase());
       if (categorySpecificData.variant) keywords.push(categorySpecificData.variant.toLowerCase());
@@ -49,7 +43,6 @@ class SearchHelper {
       if (categorySpecificData.color) keywords.push(categorySpecificData.color.toLowerCase());
       if (categorySpecificData.bodyType) keywords.push(categorySpecificData.bodyType.toLowerCase());
 
-      // Property-specific keywords
       if (categorySpecificData.propertyType) keywords.push(categorySpecificData.propertyType.toLowerCase());
       if (categorySpecificData.bedrooms) keywords.push(`${categorySpecificData.bedrooms}bhk`);
       if (categorySpecificData.bathrooms) keywords.push(`${categorySpecificData.bathrooms}bathroom`);
@@ -58,104 +51,7 @@ class SearchHelper {
       if (categorySpecificData.floorNumber) keywords.push(`floor-${categorySpecificData.floorNumber}`);
     }
 
-    // Remove duplicates, filter empty values, and join
     return [...new Set(keywords.filter(Boolean))].join(' ');
-  }
-
-  /**
-   * Calculate location-based score with fallback handling
-   * @param {Object} userLocation - User's location {stateId, cityId, source, priority}
-   * @param {Object} listingLocation - Listing's location {stateId, cityId}
-   * @returns {number} Location score (0-50)
-   */
-  static calculateLocationScore(userLocation, listingLocation) {
-    // If no user location available, no location bonus (generalized listings)
-    if (!userLocation || !listingLocation) return 0;
-
-    // Base score calculation
-    let baseScore = 0;
-
-    // Same city gets highest score
-    if (userLocation.cityId === listingLocation.cityId) {
-      baseScore = 50;
-    }
-    // Same state gets medium score
-    else if (userLocation.stateId === listingLocation.stateId) {
-      baseScore = 25;
-    }
-    // Different state gets no bonus
-    else {
-      baseScore = 0;
-    }
-
-    // Apply multiplier based on location source priority
-    let multiplier = 1.0;
-    
-    if (userLocation.source) {
-      switch (userLocation.source) {
-        case 'user_preferred':
-          multiplier = 1.0; // Full score for user preferred location
-          break;
-        case 'browser_geolocation':
-          multiplier = 0.9; // 90% score for GPS location
-          break;
-        case 'user_profile':
-          multiplier = 0.8; // 80% score for profile location
-          break;
-        case 'ip_geolocation':
-          multiplier = 0.6; // 60% score for IP-based location
-          break;
-        case 'query_params':
-          multiplier = 0.5; // 50% score for query params
-          break;
-        default:
-          multiplier = 0.3; // 30% score for unknown source
-      }
-    }
-
-    return Math.round(baseScore * multiplier);
-  }
-
-  /**
-   * Calculate paid listing bonus
-   * @param {boolean} isPaidListing - Whether listing is paid
-   * @returns {number} Paid listing score (0-30)
-   */
-  static calculatePaidListingScore(isPaidListing) {
-    return isPaidListing ? 30 : 0;
-  }
-
-  /**
-   * Calculate featured listing bonus
-   * @param {boolean} isFeatured - Whether listing is featured
-   * @param {Date} featuredUntil - Featured until date
-   * @returns {number} Featured score (0-20)
-   */
-  static calculateFeaturedScore(isFeatured, featuredUntil) {
-    if (!isFeatured) return 0;
-    
-    // Check if still featured
-    if (featuredUntil && new Date() > new Date(featuredUntil)) {
-      return 0;
-    }
-
-    return 20;
-  }
-
-  /**
-   * Calculate freshness bonus
-   * @param {Date} createdAt - Listing creation date
-   * @returns {number} Freshness score (0-10)
-   */
-  static calculateFreshnessScore(createdAt) {
-    const now = new Date();
-    const created = new Date(createdAt);
-    const daysDiff = (now - created) / (1000 * 60 * 60 * 24);
-
-    if (daysDiff <= 1) return 10;      // Last 24 hours
-    if (daysDiff <= 7) return 7;       // Last week
-    if (daysDiff <= 30) return 5;      // Last month
-    return 0;                          // Older than month
   }
 
   /**

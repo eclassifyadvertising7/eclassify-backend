@@ -1,8 +1,3 @@
-/**
- * Public Listing Controller
- * Handles public listing browsing and viewing
- */
-
 import listingService from '#services/listingService.js';
 import categoryRepository from '#repositories/categoryRepository.js';
 import { successResponse, errorResponse, validationErrorResponse } from '#utils/responseFormatter.js';
@@ -10,13 +5,31 @@ import LocationHelper from '#utils/locationHelper.js';
 import activityLogMiddleware from '#middleware/activityLogMiddleware.js';
 
 class ListingController {
-  /**
-   * Get listings for homepage (simple, no filters)
-   * GET /api/public/listings/homepage
-   */
+  static async getHomepageListings(req, res) {
+    try {
+      const { categories, limit = 10, featuredLimit = 10 } = req.query;
+
+      const categoryIds = categories ? categories.split(',').map(id => parseInt(id)).filter(id => !isNaN(id)) : [];
+
+      const result = await listingService.getHomepageListings({
+        categories: categoryIds,
+        limit: parseInt(limit),
+        featuredLimit: parseInt(featuredLimit)
+      });
+
+      if (!result.success) {
+        return errorResponse(res, result.message, 500);
+      }
+
+      return successResponse(res, result.data, result.message);
+    } catch (error) {
+      return errorResponse(res, error.message, 500);
+    }
+  }
+
   static async homepage(req, res) {
     try {
-      const userId = req.user?.userId || null; // Get user ID if authenticated
+      const userId = req.user?.userId || null;
 
       const pagination = {
         page: req.query.page ? parseInt(req.query.page) : 1,
@@ -25,7 +38,7 @@ class ListingController {
 
       const filters = {
         status: 'active',
-        sortBy: 'date_desc' // Newest first
+        sortBy: 'date_desc'
       };
 
       const result = await listingService.getAll(filters, pagination, userId);
@@ -35,16 +48,11 @@ class ListingController {
     }
   }
 
-  /**
-   * Browse category listings with advanced filters
-   * GET /api/public/listings/category/:categorySlugOrId
-   */
   static async browseByCategory(req, res) {
     try {
       const { categorySlugOrId } = req.params;
-      const userId = req.user?.userId || null; // Get user ID if authenticated
+      const userId = req.user?.userId || null;
       
-      // Determine if it's a slug or ID and validate category exists
       const isNumeric = /^\d+$/.test(categorySlugOrId);
       let category;
       let categoryFilter;
@@ -58,12 +66,10 @@ class ListingController {
         categoryFilter = category ? { categoryId: category.id } : { categorySlug: categorySlugOrId };
       }
       
-      // Validate category exists
       if (!category) {
         return errorResponse(res, 'Category not found', 404);
       }
       
-      // Validate category is active
       if (!category.isActive) {
         return errorResponse(res, 'Category is not active', 400);
       }
@@ -72,22 +78,17 @@ class ListingController {
         status: 'active',
         ...categoryFilter,
         
-        // Basic filters
         stateId: req.query.stateId ? parseInt(req.query.stateId) : undefined,
         cityId: req.query.cityId ? parseInt(req.query.cityId) : undefined,
         isFeatured: req.query.isFeatured !== undefined ? req.query.isFeatured === 'true' : undefined,
         
-        // Price filters
         minPrice: req.query.minPrice ? parseFloat(req.query.minPrice) : undefined,
         maxPrice: req.query.maxPrice ? parseFloat(req.query.maxPrice) : undefined,
         
-        // Search
         search: req.query.search,
         
-        // Sort
         sortBy: req.query.sortBy || 'date_desc',
         
-        // Car-specific filters
         brandId: req.query.brandId ? parseInt(req.query.brandId) : undefined,
         modelId: req.query.modelId ? parseInt(req.query.modelId) : undefined,
         variantId: req.query.variantId ? parseInt(req.query.variantId) : undefined,
@@ -101,8 +102,9 @@ class ListingController {
         maxMileage: req.query.maxMileage ? parseInt(req.query.maxMileage) : undefined,
         ownersCount: req.query.ownersCount ? parseInt(req.query.ownersCount) : undefined,
         
-        // Property-specific filters
-        propertyType: req.query.propertyType,
+        propertyType: req.query.propertyType 
+          ? req.query.propertyType.split(',').map(t => t.trim()) 
+          : undefined,
         listingType: req.query.listingType,
         bedrooms: req.query.bedrooms ? parseInt(req.query.bedrooms) : undefined,
         bathrooms: req.query.bathrooms ? parseInt(req.query.bathrooms) : undefined,
@@ -125,15 +127,10 @@ class ListingController {
     }
   }
 
-  /**
-   * Browse all active listings with advanced filters (legacy - kept for backward compatibility)
-   * GET /api/public/listings
-   */
   static async browse(req, res) {
     try {
-      const userId = req.user?.userId || null; // Get user ID if authenticated
+      const userId = req.user?.userId || null;
       
-      // Validate category if provided
       if (req.query.categoryId) {
         const categoryId = parseInt(req.query.categoryId);
         if (isNaN(categoryId)) {
@@ -153,23 +150,18 @@ class ListingController {
       const filters = {
         status: 'active',
         
-        // Basic filters
         categoryId: req.query.categoryId ? parseInt(req.query.categoryId) : undefined,
         stateId: req.query.stateId ? parseInt(req.query.stateId) : undefined,
         cityId: req.query.cityId ? parseInt(req.query.cityId) : undefined,
         isFeatured: req.query.isFeatured !== undefined ? req.query.isFeatured === 'true' : undefined,
         
-        // Price filters
         minPrice: req.query.minPrice ? parseFloat(req.query.minPrice) : undefined,
         maxPrice: req.query.maxPrice ? parseFloat(req.query.maxPrice) : undefined,
         
-        // Search
         search: req.query.search,
         
-        // Sort
         sortBy: req.query.sortBy,
         
-        // Car-specific filters
         brandId: req.query.brandId ? parseInt(req.query.brandId) : undefined,
         modelId: req.query.modelId ? parseInt(req.query.modelId) : undefined,
         variantId: req.query.variantId ? parseInt(req.query.variantId) : undefined,
@@ -183,8 +175,9 @@ class ListingController {
         maxMileage: req.query.maxMileage ? parseInt(req.query.maxMileage) : undefined,
         ownersCount: req.query.ownersCount ? parseInt(req.query.ownersCount) : undefined,
         
-        // Property-specific filters
-        propertyType: req.query.propertyType,
+        propertyType: req.query.propertyType 
+          ? req.query.propertyType.split(',').map(t => t.trim()) 
+          : undefined,
         listingType: req.query.listingType,
         bedrooms: req.query.bedrooms ? parseInt(req.query.bedrooms) : undefined,
         bathrooms: req.query.bathrooms ? parseInt(req.query.bathrooms) : undefined,
@@ -207,15 +200,10 @@ class ListingController {
     }
   }
 
-  /**
-   * Get featured listings
-   * GET /api/public/listings/featured
-   */
   static async getFeatured(req, res) {
     try {
-      const userId = req.user?.userId || null; // Get user ID if authenticated
+      const userId = req.user?.userId || null;
       
-      // Validate category if provided
       if (req.query.categoryId) {
         const categoryId = parseInt(req.query.categoryId);
         if (isNaN(categoryId)) {
@@ -250,14 +238,10 @@ class ListingController {
     }
   }
 
-  /**
-   * Get listing by slug
-   * GET /api/public/listings/:slug
-   */
   static async getBySlug(req, res) {
     try {
       const { slug } = req.params;
-      const userId = req.user?.userId || null; // Get user ID if authenticated
+      const userId = req.user?.userId || null;
 
       const result = await listingService.getBySlug(slug, userId);
       return successResponse(res, result.data, result.message);
@@ -266,10 +250,6 @@ class ListingController {
     }
   }
 
-  /**
-   * Search listings with advanced filtering and ranking
-   * GET /api/public/listings/search
-   */
   static async searchListings(req, res) {
     try {
       const {
@@ -285,7 +265,6 @@ class ListingController {
         sortBy = 'relevance',
         page = 1,
         limit = 20,
-        // Car-specific filters
         brandId,
         modelId,
         variantId,
@@ -295,7 +274,6 @@ class ListingController {
         condition,
         minMileage,
         maxMileage,
-        // Property-specific filters
         propertyType,
         bedrooms,
         bathrooms,
@@ -303,15 +281,13 @@ class ListingController {
         maxArea
       } = req.query;
 
-      // Validate pagination
       const pageNum = parseInt(page);
-      const limitNum = Math.min(parseInt(limit), 50); // Max 50 items per page
+      const limitNum = Math.min(parseInt(limit), 50);
 
       if (pageNum < 1 || limitNum < 1) {
         return validationErrorResponse(res, [{ field: 'pagination', message: 'Invalid pagination parameters' }]);
       }
 
-      // Build search parameters
       const searchParams = {
         query: query?.trim() || null,
         categoryId: categoryId ? parseInt(categoryId) : null,
@@ -324,7 +300,6 @@ class ListingController {
         featuredOnly: featuredOnly === 'true',
         sortBy,
         filters: {
-          // Car filters
           brandId: brandId ? parseInt(brandId) : null,
           modelId: modelId ? parseInt(modelId) : null,
           variantId: variantId ? parseInt(variantId) : null,
@@ -334,7 +309,6 @@ class ListingController {
           condition,
           minMileage: minMileage ? parseInt(minMileage) : null,
           maxMileage: maxMileage ? parseInt(maxMileage) : null,
-          // Property filters
           propertyType,
           bedrooms: bedrooms ? parseInt(bedrooms) : null,
           bathrooms: bathrooms ? parseInt(bathrooms) : null,
@@ -343,7 +317,6 @@ class ListingController {
         }
       };
 
-      // Build user context
       const userContext = {
         userId: req.user?.userId || null,
         sessionId: req.activityData?.sessionId || 'anonymous',
@@ -368,10 +341,6 @@ class ListingController {
     }
   }
 
-  /**
-   * Get search suggestions for autocomplete
-   * GET /api/public/listings/search/suggestions
-   */
   static async getSearchSuggestions(req, res) {
     try {
       const { query, limit = 5 } = req.query;
@@ -396,10 +365,6 @@ class ListingController {
     }
   }
 
-  /**
-   * Get available search filters for category
-   * GET /api/public/listings/search/filters/:categoryId?
-   */
   static async getSearchFilters(req, res) {
     try {
       const { categoryId } = req.params;
@@ -421,13 +386,9 @@ class ListingController {
     }
   }
 
-  /**
-   * Get featured listings with location-based ranking
-   * GET /api/public/listings/featured
-   */
   static async getFeatured(req, res) {
     try {
-      const userId = req.user?.userId || null; // Get user ID if authenticated
+      const userId = req.user?.userId || null;
       
       const {
         categoryId,
@@ -436,7 +397,6 @@ class ListingController {
         limit = 10
       } = req.query;
 
-      // Validate category if provided
       if (categoryId) {
         const categoryIdNum = parseInt(categoryId);
         if (isNaN(categoryIdNum)) {
@@ -475,15 +435,11 @@ class ListingController {
     }
   }
 
-  /**
-   * Get similar listings
-   * GET /api/public/listings/:id/similar
-   */
   static async getSimilarListings(req, res) {
     try {
       const { id } = req.params;
       const { limit = 5 } = req.query;
-      const userId = req.user?.userId || null; // Get user ID if authenticated
+      const userId = req.user?.userId || null;
 
       if (!id || isNaN(id)) {
         return validationErrorResponse(res, [{ field: 'id', message: 'Valid listing ID is required' }]);
@@ -504,16 +460,10 @@ class ListingController {
     }
   }
 
-  /**
-   * Increment view count
-   * POST /api/public/listings/view/:id
-   * Note: Does not increment for listing owner or super_admin
-   */
   static async incrementViewCount(req, res) {
     try {
       const { id } = req.params;
       
-      // Get user info if authenticated (optional)
       const userId = req.user?.userId || null;
       const userRoleSlug = req.user?.roleSlug || null;
 
@@ -521,6 +471,28 @@ class ListingController {
       return successResponse(res, result.data, result.message);
     } catch (error) {
       return errorResponse(res, error.message, 400);
+    }
+  }
+
+  static async getRelatedListings(req, res) {
+    try {
+      const { id } = req.params;
+      const { limit = 6 } = req.query;
+
+      if (!id || isNaN(id)) {
+        return validationErrorResponse(res, [{ field: 'id', message: 'Valid listing ID is required' }]);
+      }
+
+      const result = await listingService.getRelatedListings(parseInt(id), parseInt(limit));
+
+      if (result.success) {
+        return successResponse(res, result.data, result.message);
+      } else {
+        return errorResponse(res, result.message, 404);
+      }
+    } catch (error) {
+      console.error('Error in getRelatedListings:', error);
+      return errorResponse(res, 'Failed to get related listings', 500);
     }
   }
 }

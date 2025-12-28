@@ -155,6 +155,10 @@ class SmsService {
       throw new Error('Failed to send SMS. Please try again later');
     }
   }
+
+  async sendNotification(mobile, message) {
+    return await this.sendMessage(mobile, message);
+  }
 }
 
 // Export singleton instance

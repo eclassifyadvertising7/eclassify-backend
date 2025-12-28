@@ -1,16 +1,7 @@
 import profileService from '#services/profileService.js';
 import { successResponse, errorResponse } from '#utils/responseFormatter.js';
 
-/**
- * Profile Controller
- * Handles profile operations for all authenticated users (end-users and admins)
- */
 class ProfileController {
-  /**
-   * Get current user's profile
-   * @route GET /api/profile/me
-   * @access Private (All authenticated users)
-   */
   static async getProfile(req, res) {
     try {
       const userId = req.user.userId;
@@ -21,11 +12,6 @@ class ProfileController {
     }
   }
 
-  /**
-   * Update user profile
-   * @route PUT /api/profile/me
-   * @access Private (All authenticated users)
-   */
   static async updateProfile(req, res) {
     try {
       const userId = req.user.userId;
@@ -39,11 +25,6 @@ class ProfileController {
     }
   }
 
-  /**
-   * Delete profile photo
-   * @route DELETE /api/profile/me/photo
-   * @access Private (All authenticated users)
-   */
   static async deleteProfilePhoto(req, res) {
     try {
       const userId = req.user.userId;
@@ -54,11 +35,6 @@ class ProfileController {
     }
   }
 
-  /**
-   * Get business/KYC info
-   * @route GET /api/profile/me/business
-   * @access Private (All authenticated users)
-   */
   static async getBusinessInfo(req, res) {
     try {
       const userId = req.user.userId;
@@ -69,11 +45,6 @@ class ProfileController {
     }
   }
 
-  /**
-   * Update business/KYC info
-   * @route PUT /api/profile/me/business
-   * @access Private (All authenticated users)
-   */
   static async updateBusinessInfo(req, res) {
     try {
       const userId = req.user.userId;
@@ -86,11 +57,6 @@ class ProfileController {
     }
   }
 
-  /**
-   * Get any user's profile by ID (Admin only)
-   * @route GET /api/profile/:userId
-   * @access Private (Admin/Super Admin only)
-   */
   static async getProfileById(req, res) {
     try {
       const { userId } = req.params;
@@ -101,11 +67,6 @@ class ProfileController {
     }
   }
 
-  /**
-   * Update any user's profile by ID (Admin only)
-   * @route PUT /api/profile/:userId
-   * @access Private (Admin/Super Admin only)
-   */
   static async updateProfileById(req, res) {
     try {
       const { userId } = req.params;

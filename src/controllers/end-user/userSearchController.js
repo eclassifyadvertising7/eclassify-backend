@@ -3,10 +3,6 @@ import { successResponse, errorResponse, validationErrorResponse } from '#utils/
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '#utils/constants/messages.js';
 
 class UserSearchController {
-  /**
-   * Log search activity
-   * POST /api/end-user/searches/log
-   */
   static async logSearch(req, res) {
     try {
       const {
@@ -18,7 +14,6 @@ class UserSearchController {
         priceRange = {}
       } = req.body;
 
-      // Get user data from middleware (supports anonymous users)
       const searchData = {
         userId: req.activityData?.userId || null,
         sessionId: req.activityData?.sessionId,
@@ -45,10 +40,6 @@ class UserSearchController {
     }
   }
 
-  /**
-   * Get user search history
-   * GET /api/end-user/searches/history
-   */
   static async getSearchHistory(req, res) {
     try {
       const userId = req.user.id;
@@ -59,9 +50,8 @@ class UserSearchController {
         endDate
       } = req.query;
 
-      // Validate pagination
       const pageNum = parseInt(page);
-      const limitNum = Math.min(parseInt(limit), 50); // Max 50 items per page
+      const limitNum = Math.min(parseInt(limit), 50);
 
       if (pageNum < 1 || limitNum < 1) {
         return validationErrorResponse(res, [{ field: 'pagination', message: 'Invalid pagination parameters' }]);
@@ -87,16 +77,12 @@ class UserSearchController {
     }
   }
 
-  /**
-   * Get search recommendations
-   * GET /api/end-user/searches/recommendations
-   */
   static async getSearchRecommendations(req, res) {
     try {
       const userId = req.user.id;
       const { limit = 5 } = req.query;
 
-      const limitNum = Math.min(parseInt(limit), 10); // Max 10 recommendations
+      const limitNum = Math.min(parseInt(limit), 10);
 
       const result = await userSearchService.getUserSearchRecommendations(userId, { limit: limitNum });
 

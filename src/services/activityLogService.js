@@ -1,22 +1,12 @@
-import UserActivityLog from '#models/UserActivityLog.js';
+import models from '#models/index.js';
+import activityLogRepository from '#repositories/activityLogRepository.js';
 import { v4 as uuidv4 } from 'uuid';
 import { Op } from 'sequelize';
 import sequelize from '#config/database.js';
 
+const { UserActivityLog } = models;
+
 class ActivityLogService {
-  /**
-   * Log user activity
-   * @param {Object} activityData - Activity data
-   * @param {number|null} activityData.userId - User ID (null for anonymous)
-   * @param {string} activityData.sessionId - Session ID
-   * @param {string} activityData.activityType - Type of activity
-   * @param {number} activityData.targetId - Target resource ID
-   * @param {string} activityData.targetType - Target resource type
-   * @param {Object} activityData.metadata - Additional metadata
-   * @param {string} activityData.ipAddress - User IP address
-   * @param {string} activityData.userAgent - User agent string
-   * @returns {Promise<Object>} Service response
-   */
   async logActivity(activityData) {
     try {
       const {
@@ -30,12 +20,26 @@ class ActivityLogService {
         userAgent
       } = activityData;
 
-      // Validate required fields
       if (!sessionId || !activityType || !targetId || !targetType) {
         throw new Error('Missing required fields for activity logging');
       }
 
-      // Create activity log entry
+      const existingLog = await activityLogRepository.findExisting({
+        userId,
+        sessionId,
+        activityType,
+        targetId,
+        targetType
+      });
+
+      if (existingLog) {
+        return {
+          success: true,
+          message: 'Activity already logged',
+          data: { activityLogId: existingLog.id, duplicate: true }
+        };
+      }
+
       const activityLog = await UserActivityLog.create({
         userId,
         sessionId,
@@ -51,7 +55,7 @@ class ActivityLogService {
       return {
         success: true,
         message: 'Activity logged successfully',
-        data: { activityLogId: activityLog.id }
+        data: { activityLogId: activityLog.id, duplicate: false }
       };
     } catch (error) {
       console.error('Error logging activity:', error);

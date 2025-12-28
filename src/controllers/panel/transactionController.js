@@ -24,7 +24,6 @@ class TransactionController {
 
       return paginatedResponse(res, result.data, result.pagination, result.message);
     } catch (error) {
-      console.error('Error listing transactions:', error);
       return errorResponse(res, 'Failed to retrieve transactions', 500);
     }
   }
@@ -41,7 +40,6 @@ class TransactionController {
 
       return successResponse(res, result.data, result.message);
     } catch (error) {
-      console.error('Error getting transaction:', error);
       return errorResponse(res, 'Failed to retrieve transaction', 500);
     }
   }
@@ -59,7 +57,6 @@ class TransactionController {
 
       return createResponse(res, result.data, result.message);
     } catch (error) {
-      console.error('Error creating transaction:', error);
       return errorResponse(res, 'Failed to create transaction', 500);
     }
   }
@@ -78,7 +75,6 @@ class TransactionController {
 
       return successResponse(res, result.data, result.message);
     } catch (error) {
-      console.error('Error updating transaction:', error);
       return errorResponse(res, 'Failed to update transaction', 500);
     }
   }
@@ -101,7 +97,6 @@ class TransactionController {
 
       return successResponse(res, result.data, result.message);
     } catch (error) {
-      console.error('Error updating transaction status:', error);
       return errorResponse(res, 'Failed to update transaction status', 500);
     }
   }
@@ -120,7 +115,6 @@ class TransactionController {
 
       return successResponse(res, result.data, result.message);
     } catch (error) {
-      console.error('Error verifying transaction:', error);
       return errorResponse(res, 'Failed to verify transaction', 500);
     }
   }

@@ -5,15 +5,7 @@ import {
   errorResponse 
 } from '#utils/responseFormatter.js';
 
-/**
- * AuthController - Handle authentication HTTP requests
- * All methods are static as per project architecture
- */
 class AuthController {
-  /**
-   * Handle user signup
-   * @route POST /api/auth/signup
-   */
   static async signup(req, res) {
     try {
       const deviceInfo = {
@@ -34,10 +26,6 @@ class AuthController {
     }
   }
 
-  /**
-   * Handle user login
-   * @route POST /api/auth/login
-   */
   static async login(req, res) {
     try {
       const deviceInfo = {
@@ -58,10 +46,6 @@ class AuthController {
     }
   }
 
-  /**
-   * Get authenticated user profile
-   * @route GET /api/auth/profile
-   */
   static async getProfile(req, res) {
     try {
       const result = await authService.getProfile(req.user.userId);
@@ -76,10 +60,6 @@ class AuthController {
     }
   }
 
-  /**
-   * Refresh access token
-   * @route POST /api/auth/refresh-token
-   */
   static async refreshToken(req, res) {
     try {
       const { refresh_token } = req.body;
@@ -95,10 +75,6 @@ class AuthController {
     }
   }
 
-  /**
-   * Logout user
-   * @route POST /api/auth/logout
-   */
   static async logout(req, res) {
     try {
       const { refresh_token } = req.body;

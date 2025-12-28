@@ -1,15 +1,34 @@
-import UserActivityLog from '#models/UserActivityLog.js';
+import models from '#models/index.js';
 import { Op } from 'sequelize';
 import sequelize from '#config/database.js';
 
+const { UserActivityLog } = models;
+
 class ActivityLogRepository {
-  /**
-   * Create activity log entry
-   * @param {Object} activityData - Activity data
-   * @returns {Promise<Object>} Created activity log
-   */
   async create(activityData) {
     return await UserActivityLog.create(activityData);
+  }
+
+  async findExisting(filters) {
+    const { userId, sessionId, activityType, targetId, targetType } = filters;
+    
+    const whereClause = {
+      activityType,
+      targetId,
+      targetType
+    };
+
+    if (userId) {
+      whereClause.userId = userId;
+    } else if (sessionId) {
+      whereClause.sessionId = sessionId;
+      whereClause.userId = null;
+    }
+
+    return await UserActivityLog.findOne({
+      where: whereClause,
+      attributes: ['id']
+    });
   }
 
   /**

@@ -3,21 +3,15 @@ import { successResponse, errorResponse, notFoundResponse, validationErrorRespon
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '#utils/constants/messages.js';
 
 class UserFavoriteController {
-  /**
-   * Add listing to favorites
-   * POST /api/end-user/create/favorites
-   */
   static async addFavorite(req, res) {
     try {
       const { listingId } = req.body;
-      const userId = req.user?.userId; // ✅ Fixed: use userId instead of id
+      const userId = req.user?.userId;
 
-      // Validate required fields
       if (!listingId) {
         return validationErrorResponse(res, [{ field: 'listingId', message: 'Listing ID is required' }]);
       }
 
-      // Check if user is authenticated
       if (!userId) {
         return errorResponse(res, 'User not authenticated', 401);
       }
@@ -35,21 +29,15 @@ class UserFavoriteController {
     }
   }
 
-  /**
-   * Remove listing from favorites
-   * DELETE /api/end-user/delete/favorites/:listingId
-   */
   static async removeFavorite(req, res) {
     try {
       const { listingId } = req.params;
-      const userId = req.user?.userId; // ✅ Fixed: use userId instead of id
+      const userId = req.user?.userId;
 
-      // Validate listing ID
       if (!listingId || isNaN(listingId)) {
         return validationErrorResponse(res, [{ field: 'listingId', message: 'Valid listing ID is required' }]);
       }
 
-      // Check if user is authenticated
       if (!userId) {
         return errorResponse(res, 'User not authenticated', 401);
       }
@@ -67,13 +55,9 @@ class UserFavoriteController {
     }
   }
 
-  /**
-   * Get user's favorites
-   * GET /api/end-user/get/favorites
-   */
   static async getUserFavorites(req, res) {
     try {
-      const userId = req.user?.userId; // ✅ Fixed: use userId instead of id
+      const userId = req.user?.userId;
       const {
         page = 1,
         limit = 20,
@@ -84,14 +68,12 @@ class UserFavoriteController {
         sortOrder = 'DESC'
       } = req.query;
 
-      // Check if user is authenticated
       if (!userId) {
         return errorResponse(res, 'User not authenticated', 401);
       }
 
-      // Validate pagination
       const pageNum = parseInt(page);
-      const limitNum = Math.min(parseInt(limit), 50); // Max 50 items per page
+      const limitNum = Math.min(parseInt(limit), 50);
 
       if (pageNum < 1 || limitNum < 1) {
         return validationErrorResponse(res, [{ field: 'pagination', message: 'Invalid pagination parameters' }]);
@@ -120,21 +102,15 @@ class UserFavoriteController {
     }
   }
 
-  /**
-   * Check if listing is favorited
-   * GET /api/end-user/favorites/check/:listingId
-   */
   static async checkFavoriteStatus(req, res) {
     try {
       const { listingId } = req.params;
-      const userId = req.user?.userId; // ✅ Fixed: use userId instead of id
+      const userId = req.user?.userId;
 
-      // Validate listing ID
       if (!listingId || isNaN(listingId)) {
         return validationErrorResponse(res, [{ field: 'listingId', message: 'Valid listing ID is required' }]);
       }
 
-      // Check if user is authenticated
       if (!userId) {
         return errorResponse(res, 'User not authenticated', 401);
       }
@@ -152,15 +128,10 @@ class UserFavoriteController {
     }
   }
 
-  /**
-   * Get user's favorite statistics
-   * GET /api/end-user/favorites/stats
-   */
   static async getFavoriteStats(req, res) {
     try {
-      const userId = req.user?.userId; // ✅ Fixed: use userId instead of id
+      const userId = req.user?.userId;
 
-      // Check if user is authenticated
       if (!userId) {
         return errorResponse(res, 'User not authenticated', 401);
       }

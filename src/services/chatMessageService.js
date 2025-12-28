@@ -15,6 +15,11 @@ import sharp from 'sharp';
 const STORAGE_TYPE = process.env.STORAGE_TYPE || 'local';
 
 class ChatMessageService {
+  _getRecipientId(participation) {
+    const recipientType = participation.userType === 'buyer' ? 'seller' : 'buyer';
+    return recipientType === 'buyer' ? participation.room.buyerId : participation.room.sellerId;
+  }
+
   /**
    * Validate room is active and user is not blocked
    * @param {Object} room - Room object
@@ -78,12 +83,15 @@ class ChatMessageService {
     const recipientType = participation.userType === 'buyer' ? 'seller' : 'buyer';
     await chatRoomRepository.incrementUnreadCount(roomId, recipientType);
 
+    const recipientId = this._getRecipientId(participation);
+
     return {
       success: true,
       message: SUCCESS_MESSAGES.MESSAGE_SENT,
       data: {
         messageId: message.id,
-        createdAt: message.createdAt
+        createdAt: message.createdAt,
+        recipientId
       }
     };
   }
@@ -185,12 +193,15 @@ class ChatMessageService {
       const recipientType = participation.userType === 'buyer' ? 'seller' : 'buyer';
       await chatRoomRepository.incrementUnreadCount(roomId, recipientType);
 
+      const recipientId = this._getRecipientId(participation);
+
       return {
         success: true,
         message: SUCCESS_MESSAGES.MESSAGE_SENT,
         data: {
           messageId: message.id,
-          createdAt: message.createdAt
+          createdAt: message.createdAt,
+          recipientId
         }
       };
     } catch (error) {
@@ -285,12 +296,15 @@ class ChatMessageService {
     const recipientType = participation.userType === 'buyer' ? 'seller' : 'buyer';
     await chatRoomRepository.incrementUnreadCount(roomId, recipientType);
 
+    const recipientId = this._getRecipientId(participation);
+
     return {
       success: true,
       message: SUCCESS_MESSAGES.MESSAGE_SENT,
       data: {
         messageId: message.id,
-        createdAt: message.createdAt
+        createdAt: message.createdAt,
+        recipientId
       }
     };
   }
@@ -438,7 +452,7 @@ class ChatMessageService {
     return {
       success: true,
       message: 'Messages marked as read',
-      data: null
+      data: { userId }
     };
   }
 

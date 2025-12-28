@@ -1,16 +1,7 @@
-/**
- * Public Subscription Plan Controller
- * Handles public subscription plan viewing
- */
-
 import subscriptionService from '#services/subscriptionService.js';
 import { successResponse, errorResponse } from '#utils/responseFormatter.js';
 
 class SubscriptionPlanController {
-  /**
-   * Get all active and visible subscription plans
-   * GET /api/public/subscription-plans
-   */
   static async getAvailablePlans(req, res) {
     try {
       const result = await subscriptionService.getAvailablePlans();
@@ -20,10 +11,6 @@ class SubscriptionPlanController {
     }
   }
 
-  /**
-   * Get subscription plan by ID
-   * GET /api/public/subscription-plans/:id
-   */
   static async getPlanById(req, res) {
     try {
       const { id } = req.params;
@@ -34,10 +21,6 @@ class SubscriptionPlanController {
     }
   }
 
-  /**
-   * Get subscription plans by category
-   * GET /api/public/subscription-plans/category/:categoryId
-   */
   static async getPlansByCategory(req, res) {
     try {
       const categoryId = parseInt(req.params.categoryId);

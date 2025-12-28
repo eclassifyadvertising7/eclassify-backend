@@ -7,14 +7,7 @@ import {
   paginatedResponse
 } from '#utils/responseFormatter.js';
 
-/**
- * SubscriptionController - Handle user subscription operations
- */
 class SubscriptionController {
-  /**
-   * Get available plans for end users
-   * GET /api/end-user/subscriptions/plans
-   */
   static async getAvailablePlans(req, res) {
     try {
       const result = await subscriptionService.getAvailablePlans();
@@ -25,10 +18,6 @@ class SubscriptionController {
     }
   }
 
-  /**
-   * Get plans by category - For listing subscriptions
-   * GET /api/end-user/subscriptions/plans/category/:categoryId
-   */
   static async getPlansByCategory(req, res) {
     try {
       const categoryId = parseInt(req.params.categoryId);
@@ -45,12 +34,6 @@ class SubscriptionController {
     }
   }
 
-
-
-  /**
-   * Get plan details
-   * GET /api/end-user/subscriptions/plans/:id
-   */
   static async getPlanDetails(req, res) {
     try {
       const planId = parseInt(req.params.id);
@@ -70,10 +53,6 @@ class SubscriptionController {
     }
   }
 
-  /**
-   * Subscribe to plan
-   * POST /api/end-user/subscriptions
-   */
   static async subscribeToPlan(req, res) {
     try {
       const userId = req.user.userId;
@@ -102,10 +81,6 @@ class SubscriptionController {
     }
   }
 
-  /**
-   * Get user's active subscription (legacy)
-   * GET /api/end-user/subscriptions/active
-   */
   static async getMySubscription(req, res) {
     try {
       const userId = req.user.userId;
@@ -121,10 +96,6 @@ class SubscriptionController {
     }
   }
 
-  /**
-   * Get user's active subscription for specific category
-   * GET /api/end-user/subscriptions/active/category/:categoryId
-   */
   static async getMySubscriptionByCategory(req, res) {
     try {
       const userId = req.user.userId;
@@ -145,10 +116,6 @@ class SubscriptionController {
     }
   }
 
-  /**
-   * Get all user's active subscriptions (all categories)
-   * GET /api/end-user/subscriptions/active/all
-   */
   static async getAllMyActiveSubscriptions(req, res) {
     try {
       const userId = req.user.userId;
@@ -161,10 +128,6 @@ class SubscriptionController {
     }
   }
 
-  /**
-   * Get user's subscription history
-   * GET /api/end-user/subscriptions/history
-   */
   static async getSubscriptionHistory(req, res) {
     try {
       const userId = req.user.userId;
@@ -182,10 +145,6 @@ class SubscriptionController {
     }
   }
 
-  /**
-   * Cancel subscription
-   * POST /api/end-user/subscriptions/:id/cancel
-   */
   static async cancelSubscription(req, res) {
     try {
       const userId = req.user.userId;
@@ -214,10 +173,6 @@ class SubscriptionController {
     }
   }
 
-  /**
-   * Get all my subscriptions (with filters)
-   * GET /api/end-user/subscriptions
-   */
   static async getMySubscriptions(req, res) {
     try {
       const userId = req.user.userId;
@@ -238,10 +193,6 @@ class SubscriptionController {
     }
   }
 
-  /**
-   * Get subscription by ID (my subscription only)
-   * GET /api/end-user/subscriptions/:id
-   */
   static async getMySubscriptionById(req, res) {
     try {
       const userId = req.user.userId;
@@ -253,7 +204,6 @@ class SubscriptionController {
 
       const result = await subscriptionService.getSubscriptionById(subscriptionId);
 
-      // Check if subscription belongs to user
       if (result.data.userId !== userId) {
         return errorResponse(res, 'Unauthorized access', 403);
       }

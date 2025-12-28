@@ -33,6 +33,7 @@ Complete API documentation for listing management endpoints.
 | GET | `/api/panel/listings/:id` | ✅ Admin | Get listing details |
 | DELETE | `/api/panel/listings/:id` | ✅ Admin | Delete listing |
 | **Public Endpoints** |
+| GET | `/api/public/listings/homepage` | ❌ | Homepage by category |
 | GET | `/api/public/listings` | ❌ | Browse listings |
 | GET | `/api/public/listings/featured` | ❌ | Get featured |
 | POST | `/api/public/listings/view/:id` | ❌ | Increment views |
@@ -779,7 +780,67 @@ Base URL: `/api/public/listings`
 
 **Authentication Required:** No
 
-### 1. Browse Listings
+### 1. Get Homepage Listings
+
+Get listings organized by category for homepage display.
+
+**Endpoint:** `GET /api/public/listings/homepage`
+
+**Query Parameters:**
+- `categories` (optional) - Comma-separated category IDs (e.g., `1,2,3`)
+- `limit` (optional, default: 10) - Listings per category
+- `featuredLimit` (optional, default: 10) - Number of featured listings
+
+**Example:** `GET /api/public/listings/homepage?categories=1,2&limit=10&featuredLimit=10`
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Listings retrieved successfully",
+  "data": {
+    "featured": [
+      {
+        "id": 1,
+        "title": "Honda City VX 2020",
+        "price": "650000.00",
+        "isFeatured": true,
+        "category": { "id": 1, "name": "Cars", "slug": "cars" },
+        "state": { "id": 5, "name": "Karnataka" },
+        "city": { "id": 42, "name": "Bangalore" },
+        "media": [{ "mediaUrl": "...", "thumbnailUrl": "..." }]
+      }
+    ],
+    "byCategory": {
+      "1": {
+        "categoryId": 1,
+        "categoryName": "Cars",
+        "categorySlug": "cars",
+        "totalCount": 245,
+        "listings": [
+          {
+            "id": 2,
+            "title": "Toyota Fortuner 2021",
+            "price": "2500000.00",
+            "category": { "id": 1, "name": "Cars", "slug": "cars" },
+            "media": [{ "mediaUrl": "...", "thumbnailUrl": "..." }]
+          }
+        ]
+      }
+    }
+  }
+}
+```
+
+**Notes:**
+- Returns featured listings across all categories
+- Returns category-wise listings if `categories` parameter provided
+- Only active, non-expired listings
+- Sorted by newest first (created_at DESC)
+
+---
+
+### 2. Browse Listings
 
 Browse all active listings.
 
@@ -852,7 +913,80 @@ Browse all active listings.
 
 ---
 
-### 2. Get Featured Listings
+### 2. Browse Listings
+
+Browse all active listings.
+
+**Endpoint:** `GET /api/public/listings`
+
+**Query Parameters:**
+- `categoryId` - Filter by category
+- `stateId` - Filter by state
+- `cityId` - Filter by city
+- `minPrice` - Minimum price
+- `maxPrice` - Maximum price
+- `search` - Search query
+- `sortBy` - Sort order
+- `page` - Page number
+- `limit` - Items per page
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Listings retrieved successfully",
+  "data": [
+    {
+      "id": 123,
+      "title": "Toyota Camry 2020",
+      "slug": "toyota-camry-2020-abc123",
+      "price": "1500000.00",
+      "status": "active",
+      "postedByType": "owner",
+      "isFeatured": false,
+      "viewCount": 45,
+      "createdAt": "2024-11-23T10:30:00.000Z",
+      "user": {
+        "id": 456,
+        "fullName": "John Doe",
+        "mobile": "9876543210"
+      },
+      "category": {
+        "id": 1,
+        "name": "Cars",
+        "slug": "cars"
+      },
+      "state": {
+        "id": 1,
+        "name": "Maharashtra"
+      },
+      "city": {
+        "id": 5,
+        "name": "Mumbai"
+      },
+      "media": [
+        {
+          "id": 1,
+          "mediaUrl": "http://localhost:5000/uploads/listings/2024/11/image1.jpg",
+          "thumbnailUrl": "http://localhost:5000/uploads/listings/2024/11/image1.jpg",
+          "mediaType": "image",
+          "isPrimary": true
+        }
+      ]
+    }
+  ],
+  "pagination": {
+    "total": 980,
+    "page": 1,
+    "limit": 20,
+    "totalPages": 49
+  }
+}
+```
+
+---
+
+### 3. Get Featured Listings
 
 Get featured listings only.
 
@@ -913,7 +1047,7 @@ Get featured listings only.
 
 ---
 
-### 3. Get Listing by Slug
+### 4. Get Listing by Slug
 
 Get detailed listing information by slug.
 
@@ -952,7 +1086,7 @@ Get detailed listing information by slug.
 
 ---
 
-### 4. Increment View Count
+### 5. Increment View Count
 
 Track listing views.
 

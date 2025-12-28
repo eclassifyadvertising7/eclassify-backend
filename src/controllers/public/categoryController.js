@@ -1,16 +1,7 @@
-/**
- * Public Category Controller
- * Handles public category browsing (no authentication required)
- */
-
 import categoryService from '#services/categoryService.js';
 import { successResponse, errorResponse } from '#utils/responseFormatter.js';
 
 class PublicCategoryController {
-  /**
-   * Get all active categories
-   * GET /api/public/categories
-   */
   static async getAll(req, res) {
     try {
       const filters = {
@@ -25,10 +16,6 @@ class PublicCategoryController {
     }
   }
 
-  /**
-   * Get category by slug
-   * GET /api/public/categories/:slug
-   */
   static async getBySlug(req, res) {
     try {
       const { slug } = req.params;

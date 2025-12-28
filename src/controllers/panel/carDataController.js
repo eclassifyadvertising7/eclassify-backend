@@ -1,18 +1,7 @@
-/**
- * Panel Car Data Controller
- * Handles admin car data management
- */
-
 import carDataService from '#services/carDataService.js';
 import { successResponse, errorResponse, createResponse } from '#utils/responseFormatter.js';
 
 class CarDataController {
-  // ==================== BRANDS ====================
-
-  /**
-   * Get all car brands (admin view - flat list with all statuses)
-   * GET /api/panel/car-brands
-   */
   static async getAllBrands(req, res) {
     try {
       const filters = {
@@ -28,10 +17,6 @@ class CarDataController {
     }
   }
 
-  /**
-   * Get brand by ID
-   * GET /api/panel/car-brands/:id
-   */
   static async getBrandById(req, res) {
     try {
       const { id } = req.params;
@@ -43,10 +28,6 @@ class CarDataController {
     }
   }
 
-  /**
-   * Create new brand
-   * POST /api/panel/car-brands
-   */
   static async createBrand(req, res) {
     try {
       const brandData = {
@@ -72,10 +53,6 @@ class CarDataController {
     }
   }
 
-  /**
-   * Update brand
-   * PUT /api/panel/car-brands/:id
-   */
   static async updateBrand(req, res) {
     try {
       const { id } = req.params;
@@ -102,10 +79,6 @@ class CarDataController {
     }
   }
 
-  /**
-   * Delete brand
-   * DELETE /api/panel/car-brands/:id
-   */
   static async deleteBrand(req, res) {
     try {
       const { id } = req.params;
@@ -118,12 +91,6 @@ class CarDataController {
     }
   }
 
-  // ==================== MODELS ====================
-
-  /**
-   * Get models by brand
-   * GET /api/panel/car-models
-   */
   static async getModelsByBrand(req, res) {
     try {
       const { brandId } = req.query;
@@ -144,10 +111,6 @@ class CarDataController {
     }
   }
 
-  /**
-   * Get model by ID
-   * GET /api/panel/car-models/:id
-   */
   static async getModelById(req, res) {
     try {
       const { id } = req.params;
@@ -159,10 +122,6 @@ class CarDataController {
     }
   }
 
-  /**
-   * Create new model
-   * POST /api/panel/car-models
-   */
   static async createModel(req, res) {
     try {
       const modelData = {
@@ -185,10 +144,6 @@ class CarDataController {
     }
   }
 
-  /**
-   * Update model
-   * PUT /api/panel/car-models/:id
-   */
   static async updateModel(req, res) {
     try {
       const { id } = req.params;
@@ -211,10 +166,6 @@ class CarDataController {
     }
   }
 
-  /**
-   * Delete model
-   * DELETE /api/panel/car-models/:id
-   */
   static async deleteModel(req, res) {
     try {
       const { id } = req.params;
@@ -227,12 +178,6 @@ class CarDataController {
     }
   }
 
-  // ==================== VARIANTS ====================
-
-  /**
-   * Get variants by model
-   * GET /api/panel/car-variants
-   */
   static async getVariantsByModel(req, res) {
     try {
       const { modelId } = req.query;
@@ -253,10 +198,6 @@ class CarDataController {
     }
   }
 
-  /**
-   * Get variant by ID
-   * GET /api/panel/car-variants/:id
-   */
   static async getVariantById(req, res) {
     try {
       const { id } = req.params;
@@ -268,10 +209,6 @@ class CarDataController {
     }
   }
 
-  /**
-   * Create new variant
-   * POST /api/panel/car-variants
-   */
   static async createVariant(req, res) {
     try {
       const variantData = {
@@ -301,10 +238,6 @@ class CarDataController {
     }
   }
 
-  /**
-   * Update variant
-   * PUT /api/panel/car-variants/:id
-   */
   static async updateVariant(req, res) {
     try {
       const { id } = req.params;
@@ -333,10 +266,6 @@ class CarDataController {
     }
   }
 
-  /**
-   * Delete variant
-   * DELETE /api/panel/car-variants/:id
-   */
   static async deleteVariant(req, res) {
     try {
       const { id } = req.params;

@@ -1,23 +1,34 @@
-import crypto from 'crypto';
 import bcrypt from 'bcrypt';
+import crypto from 'crypto';
 import authRepository from '#repositories/authRepository.js';
 import subscriptionRepository from '#repositories/subscriptionRepository.js';
 import otpRepository from '#repositories/otpRepository.js';
+import userNotificationRepository from '#repositories/userNotificationRepository.js';
+import chatRoomRepository from '#repositories/chatRoomRepository.js';
 import emailService from '#services/emailService.js';
 import { generateTokens, verifyRefreshToken } from '#utils/jwtHelper.js';
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '#utils/constants/messages.js';
 import db from '#models/index.js';
 
-/**
- * AuthService - Business logic for authentication
- * Singleton pattern for consistent instance usage
- */
 class AuthService {
-  /**
-   * Generate random 8-digit alphanumeric password
-   * @private
-   * @returns {string} Random password
-   */
+  _generateReferralCode() {
+    const random = crypto.randomBytes(4).toString('hex').toUpperCase();
+    return `REF${random.substring(0, 5)}`;
+  }
+
+  async _ensureUniqueReferralCode() {
+    let code;
+    let exists = true;
+    
+    while (exists) {
+      code = this._generateReferralCode();
+      const user = await authRepository.findByReferralCode(code);
+      exists = !!user;
+    }
+    
+    return code;
+  }
+
   _generateRandomPassword() {
     const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
     let password = '';
@@ -27,11 +38,26 @@ class AuthService {
     return password;
   }
 
-  /**
-   * Assign free subscription to user (async, non-blocking)
-   * @private
-   * @param {number} userId - User ID
-   */
+  async _getUnreadCounts(userId) {
+    try {
+      const [unreadNotifications, unreadChats] = await Promise.all([
+        userNotificationRepository.getUnreadCount(userId),
+        chatRoomRepository.getTotalUnreadCount(userId)
+      ]);
+
+      return {
+        unreadNotifications: unreadNotifications || 0,
+        unreadChats: unreadChats || 0
+      };
+    } catch (error) {
+      console.error('Failed to get unread counts:', error.message);
+      return {
+        unreadNotifications: 0,
+        unreadChats: 0
+      };
+    }
+  }
+
   _assignFreeSubscription(userId) {
     setImmediate(async () => {
       try {
@@ -40,7 +66,6 @@ class AuthService {
         if (freePlan) {
           const activatedAt = new Date();
           const endsAt = new Date();
-          // Use plan's duration days from database
           const durationDays = freePlan.durationDays || 30;
           endsAt.setDate(endsAt.getDate() + durationDays);
 
@@ -56,7 +81,6 @@ class AuthService {
             basePrice: 0,
             finalPrice: 0,
             durationDays,
-            // Copy all quota and feature fields from plan
             maxTotalListings: freePlan.maxTotalListings || 0,
             maxActiveListings: freePlan.maxActiveListings || 0,
             listingQuotaLimit: freePlan.listingQuotaLimit,
@@ -92,20 +116,31 @@ class AuthService {
     });
   }
 
-  /**
-   * Register new user (password-based)
-   * @param {Object} signupData - User signup data
-   * @param {string} signupData.fullName - User's full name
-   * @param {string} signupData.mobile - Mobile number
-   * @param {string} signupData.password - Password
-   * @param {string} signupData.countryCode - Country code (optional, defaults to +91)
-   * @param {Object} deviceInfo - Device information
-   * @returns {Promise<Object>} Service response with user data and token
-   */
-  async signup(signupData, deviceInfo = {}) {
-    const { fullName, mobile, password, countryCode = '+91' } = signupData;
+  _sendWelcomeNotification(userId, fullName) {
+    setImmediate(async () => {
+      try {
+        const appName = process.env.APP_NAME || 'EClassify';
+        
+        await userNotificationRepository.create({
+          userId,
+          notificationType: 'account',
+          category: 'account',
+          title: `Welcome to ${appName}!`,
+          message: `Hi ${fullName}, welcome to ${appName}! We're excited to have you here. Start exploring and posting your listings today.`,
+          status: 'unread',
+          priority: 'normal',
+          isRead: false,
+          deliveryMethod: 'in_app'
+        });
+      } catch (error) {
+        console.error('Failed to send welcome notification:', error.message);
+      }
+    });
+  }
 
-    // Validate required fields
+  async signup(signupData, deviceInfo = {}) {
+    const { fullName, mobile, password, countryCode = '+91', referralCode } = signupData;
+
     if (!fullName || fullName.trim().length < 2) {
       throw new Error('Full name must be at least 2 characters');
     }
@@ -118,37 +153,50 @@ class AuthService {
       throw new Error('Password must be at least 6 characters');
     }
 
-    // Check if mobile already exists
     const existingUser = await authRepository.findByMobile(mobile);
     if (existingUser) {
       throw new Error('Mobile number already registered');
     }
 
-    // Get default role
+    let referrerId = null;
+    if (referralCode) {
+      const referrer = await authRepository.findByReferralCode(referralCode);
+      if (!referrer) {
+        throw new Error('Invalid referral code');
+      }
+      if (referrer.mobile === mobile) {
+        throw new Error('Cannot use your own referral code');
+      }
+      referrerId = referrer.id;
+    }
+
     const defaultRole = await authRepository.getDefaultRole();
     if (!defaultRole) {
       throw new Error('Default user role not found');
     }
 
-    // Hash password
     const passwordHash = await bcrypt.hash(password, 10);
+    const newReferralCode = await this._ensureUniqueReferralCode();
 
-    // Create user
     const user = await authRepository.create({
       fullName: fullName.trim(),
       mobile,
       countryCode,
       passwordHash,
-      roleId: defaultRole.id
+      roleId: defaultRole.id,
+      referralCode: newReferralCode,
+      referredBy: referrerId
     });
 
-    // Fetch user with role
+    if (referrerId) {
+      await authRepository.incrementReferralCount(referrerId);
+    }
+
     const userWithRole = await authRepository.findById(user.id);
 
-    // Assign free subscription asynchronously
     this._assignFreeSubscription(userWithRole.id);
+    this._sendWelcomeNotification(userWithRole.id, userWithRole.fullName);
 
-    // Generate JWT tokens
     const tokens = generateTokens({
       userId: userWithRole.id,
       roleId: userWithRole.roleId,
@@ -157,7 +205,6 @@ class AuthService {
       email: userWithRole.email
     });
 
-    // Create session record
     await authRepository.createSession({
       userId: userWithRole.id,
       refreshToken: tokens.refresh_token,
@@ -166,6 +213,8 @@ class AuthService {
       ipAddressV4: deviceInfo.ipAddressV4 || null,
       isActive: true
     });
+
+    const counts = await this._getUnreadCounts(userWithRole.id);
 
     return {
       success: true,
@@ -184,35 +233,25 @@ class AuthService {
           isEmailVerified: userWithRole.isEmailVerified,
           is_password_reset: userWithRole.isPasswordReset
         },
-        tokens
+        tokens,
+        counts
       },
       timestamp: new Date().toISOString()
     };
   }
 
-  /**
-   * Login user
-   * @param {Object} loginData - Login credentials
-   * @param {string} loginData.mobile - Mobile number
-   * @param {string} loginData.password - Password
-   * @param {Object} deviceInfo - Device information
-   * @returns {Promise<Object>} Service response with user data and token
-   */
   async login(loginData, deviceInfo = {}) {
     const { mobile, password } = loginData;
 
-    // Validate required fields
     if (!mobile || !password) {
       throw new Error(ERROR_MESSAGES.MISSING_REQUIRED_FIELDS);
     }
 
-    // Find user by mobile
     const user = await authRepository.findByMobile(mobile);
     if (!user) {
       throw new Error(ERROR_MESSAGES.INVALID_CREDENTIALS);
     }
 
-    // Check account status
     if (user.status === 'blocked' || user.status === 'suspended') {
       throw new Error(ERROR_MESSAGES.ACCOUNT_SUSPENDED);
     }
@@ -221,16 +260,13 @@ class AuthService {
       throw new Error('Account is inactive');
     }
 
-    // Verify password
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
     if (!isPasswordValid) {
       throw new Error(ERROR_MESSAGES.INVALID_CREDENTIALS);
     }
 
-    // Update last login
     await authRepository.updateLastLogin(user.id);
 
-    // Generate JWT tokens
     const tokens = generateTokens({
       userId: user.id,
       roleId: user.roleId,
@@ -239,7 +275,6 @@ class AuthService {
       email: user.email
     });
 
-    // Create session record
     await authRepository.createSession({
       userId: user.id,
       refreshToken: tokens.refresh_token,
@@ -248,6 +283,8 @@ class AuthService {
       ipAddressV4: deviceInfo.ipAddressV4 || null,
       isActive: true
     });
+
+    const counts = await this._getUnreadCounts(user.id);
 
     const lastLoginAt = new Date().toISOString();
 
@@ -267,17 +304,13 @@ class AuthService {
           isPhoneVerified: user.isPhoneVerified,
           isEmailVerified: user.isEmailVerified
         },
-        tokens
+        tokens,
+        counts
       },
       timestamp: new Date().toISOString()
     };
   }
 
-  /**
-   * Get user profile by ID
-   * @param {number} userId - User ID
-   * @returns {Promise<Object>} Service response with user data
-   */
   async getProfile(userId) {
     const user = await authRepository.findById(userId);
     
@@ -307,19 +340,9 @@ class AuthService {
     };
   }
 
-  /**
-   * Register new user (OTP-based)
-   * @param {Object} signupData - User signup data
-   * @param {string} signupData.mobile - Mobile number
-   * @param {string} signupData.fullName - User's full name
-   * @param {string} signupData.countryCode - Country code (optional, defaults to +91)
-   * @param {Object} deviceInfo - Device information
-   * @returns {Promise<Object>} Service response with user data and tokens
-   */
   async signupWithOtp(signupData, deviceInfo = {}) {
-    const { mobile, email, fullName, countryCode = '+91' } = signupData;
+    const { mobile, email, fullName, password, countryCode = '+91', referralCode } = signupData;
 
-    // Validate required fields
     if (!fullName || fullName.trim().length < 2) {
       throw new Error('Full name must be at least 2 characters');
     }
@@ -332,7 +355,10 @@ class AuthService {
       throw new Error('Valid email address is required');
     }
 
-    // Check OTP verification status - either mobile OR email must be verified
+    if (!password || password.length < 6) {
+      throw new Error('Password must be at least 6 characters');
+    }
+
     const mobileVerified = await otpRepository.findVerifiedOtp(mobile, 'signup');
     const emailVerified = await otpRepository.findVerifiedOtp(email, 'signup');
 
@@ -340,29 +366,36 @@ class AuthService {
       throw new Error('Either mobile number or email must be verified via OTP before signup');
     }
 
-    // Check if mobile already exists
     const existingUser = await authRepository.findByMobile(mobile);
     if (existingUser) {
       throw new Error('Mobile number already registered');
     }
 
-    // Check if email already exists
     const existingEmailUser = await authRepository.findByEmail(email);
     if (existingEmailUser) {
       throw new Error('Email address already registered');
     }
 
-    // Get default role
+    let referrerId = null;
+    if (referralCode) {
+      const referrer = await authRepository.findByReferralCode(referralCode);
+      if (!referrer) {
+        throw new Error('Invalid referral code');
+      }
+      if (referrer.mobile === mobile) {
+        throw new Error('Cannot use your own referral code');
+      }
+      referrerId = referrer.id;
+    }
+
     const defaultRole = await authRepository.getDefaultRole();
     if (!defaultRole) {
       throw new Error('Default user role not found');
     }
 
-    // Generate random password
-    const autoPassword = this._generateRandomPassword();
-    const passwordHash = await bcrypt.hash(autoPassword, 10);
+    const passwordHash = await bcrypt.hash(password, 10);
+    const newReferralCode = await this._ensureUniqueReferralCode();
 
-    // Create user
     const user = await authRepository.create({
       fullName: fullName.trim(),
       mobile,
@@ -370,31 +403,35 @@ class AuthService {
       countryCode,
       passwordHash,
       roleId: defaultRole.id,
+      referralCode: newReferralCode,
+      referredBy: referrerId,
       isPhoneVerified: true,
       phoneVerifiedAt: new Date(),
       isEmailVerified: true,
       emailVerifiedAt: new Date()
     });
 
-    // Fetch user with role
-    const userWithRole = await authRepository.findById(user.id);
-
-    // Assign free subscription asynchronously
-    this._assignFreeSubscription(userWithRole.id);
-
-    // Send password email asynchronously (if email is available)
-    if (email) {
-      setImmediate(async () => {
-        try {
-          await emailService.sendPasswordEmail(email, fullName, autoPassword);
-          console.log(`Password email sent to ${email}`);
-        } catch (error) {
-          console.error('Failed to send password email:', error.message);
-        }
-      });
+    if (referrerId) {
+      await authRepository.incrementReferralCount(referrerId);
     }
 
-    // Generate JWT tokens
+    const userWithRole = await authRepository.findById(user.id);
+
+    this._assignFreeSubscription(userWithRole.id);
+    this._sendWelcomeNotification(userWithRole.id, userWithRole.fullName);
+
+    // Password email sending commented out - frontend handles password
+    // if (email) {
+    //   setImmediate(async () => {
+    //     try {
+    //       await emailService.sendPasswordEmail(email, fullName, autoPassword);
+    //       console.log(`Password email sent to ${email}`);
+    //     } catch (error) {
+    //       console.error('Failed to send password email:', error.message);
+    //     }
+    //   });
+    // }
+
     const tokens = generateTokens({
       userId: userWithRole.id,
       roleId: userWithRole.roleId,
@@ -403,7 +440,6 @@ class AuthService {
       email: userWithRole.email
     });
 
-    // Create session record
     await authRepository.createSession({
       userId: userWithRole.id,
       refreshToken: tokens.refresh_token,
@@ -412,6 +448,8 @@ class AuthService {
       ipAddressV4: deviceInfo.ipAddressV4 || null,
       isActive: true
     });
+
+    const counts = await this._getUnreadCounts(userWithRole.id);
 
     return {
       success: true,
@@ -431,23 +469,16 @@ class AuthService {
           is_password_reset: userWithRole.isPasswordReset
         },
         tokens,
+        counts,
         authMethod: 'otp'
       },
       timestamp: new Date().toISOString()
     };
   }
 
-  /**
-   * Login user (OTP-based)
-   * @param {Object} loginData - Login data
-   * @param {string} loginData.mobile - Mobile number
-   * @param {Object} deviceInfo - Device information
-   * @returns {Promise<Object>} Service response with user data and tokens
-   */
   async loginWithOtp(loginData, deviceInfo = {}) {
     const { mobile, email } = loginData;
 
-    // Validate required fields - at least one identifier is required
     if (!mobile && !email) {
       throw new Error('Either mobile number or email address is required');
     }
@@ -460,7 +491,6 @@ class AuthService {
       throw new Error('Valid email address is required');
     }
 
-    // Check OTP verification status - either mobile OR email must be verified
     const identifier = mobile || email;
     const verifiedOtp = await otpRepository.findVerifiedOtp(identifier, 'login');
 
@@ -469,13 +499,11 @@ class AuthService {
       throw new Error(`${contactType} must be verified via OTP before login`);
     }
 
-    // Find user by mobile
     const user = await authRepository.findByMobile(mobile);
     if (!user) {
       throw new Error(ERROR_MESSAGES.USER_NOT_FOUND);
     }
 
-    // Check account status
     if (user.status === 'blocked' || user.status === 'suspended') {
       throw new Error(ERROR_MESSAGES.ACCOUNT_SUSPENDED);
     }
@@ -484,7 +512,6 @@ class AuthService {
       throw new Error('Account is inactive');
     }
 
-    // Update verification status based on OTP channel
     const updateData = {};
     if (!user.isPhoneVerified) {
       updateData.isPhoneVerified = true;
@@ -497,14 +524,11 @@ class AuthService {
 
     if (Object.keys(updateData).length > 0) {
       await db.User.update(updateData, { where: { id: user.id } });
-      // Update local user object
       Object.assign(user, updateData);
     }
 
-    // Update last login
     await authRepository.updateLastLogin(user.id);
 
-    // Generate JWT tokens
     const tokens = generateTokens({
       userId: user.id,
       roleId: user.roleId,
@@ -513,7 +537,6 @@ class AuthService {
       email: user.email
     });
 
-    // Create session record
     await authRepository.createSession({
       userId: user.id,
       refreshToken: tokens.refresh_token,
@@ -522,6 +545,8 @@ class AuthService {
       ipAddressV4: deviceInfo.ipAddressV4 || null,
       isActive: true
     });
+
+    const counts = await this._getUnreadCounts(user.id);
 
     return {
       success: true,
@@ -541,23 +566,18 @@ class AuthService {
           is_password_reset: user.isPasswordReset
         },
         tokens,
+        counts,
         authMethod: 'otp'
       },
       timestamp: new Date().toISOString()
     };
   }
 
-  /**
-   * Refresh access token using refresh token
-   * @param {string} refreshToken - Refresh token
-   * @returns {Promise<Object>} Service response with new tokens
-   */
   async refreshToken(refreshToken) {
     if (!refreshToken) {
       throw new Error(ERROR_MESSAGES.MISSING_REQUIRED_FIELDS);
     }
 
-    // Verify refresh token
     let decoded;
     try {
       decoded = verifyRefreshToken(refreshToken);
@@ -565,27 +585,22 @@ class AuthService {
       throw new Error(error.message);
     }
 
-    // Check if session exists and is active
     const session = await authRepository.findSessionByRefreshToken(refreshToken);
     if (!session) {
       throw new Error('Invalid refresh token');
     }
 
-    // Get user data
     const user = await authRepository.findById(decoded.userId);
     if (!user) {
       throw new Error(ERROR_MESSAGES.USER_NOT_FOUND);
     }
 
-    // Check account status
     if (user.status === 'blocked' || user.status === 'suspended' || !user.isActive) {
       throw new Error(ERROR_MESSAGES.ACCOUNT_SUSPENDED);
     }
 
-    // Invalidate old session
     await authRepository.invalidateSession(refreshToken);
 
-    // Generate new tokens
     const tokens = generateTokens({
       userId: user.id,
       roleId: user.roleId,
@@ -594,7 +609,6 @@ class AuthService {
       email: user.email
     });
 
-    // Create new session (refresh token doesn't have device info)
     await authRepository.createSession({
       userId: user.id,
       refreshToken: tokens.refresh_token,
@@ -612,17 +626,11 @@ class AuthService {
     };
   }
 
-  /**
-   * Logout user by invalidating refresh token
-   * @param {string} refreshToken - Refresh token
-   * @returns {Promise<Object>} Service response
-   */
   async logout(refreshToken) {
     if (!refreshToken) {
       throw new Error(ERROR_MESSAGES.MISSING_REQUIRED_FIELDS);
     }
 
-    // Invalidate session
     await authRepository.invalidateSession(refreshToken);
 
     return {
@@ -633,40 +641,18 @@ class AuthService {
     };
   }
 
-  /**
-   * Find user by mobile number
-   * @param {string} mobile - Mobile number
-   * @returns {Promise<Object|null>} User object or null
-   */
   async findByMobile(mobile) {
     return await authRepository.findByMobile(mobile);
   }
 
-  /**
-   * Create session record
-   * @param {Object} sessionData - Session data
-   * @returns {Promise<Object>} Created session
-   */
   async createSession(sessionData) {
     return await authRepository.createSession(sessionData);
   }
 
-  /**
-   * Update user's last login timestamp
-   * @param {number} userId - User ID
-   * @returns {Promise<void>}
-   */
   async updateLastLogin(userId) {
     return await authRepository.updateLastLogin(userId);
   }
 
-  /**
-   * Update user mobile number
-   * @param {number} userId - User ID
-   * @param {string} mobile - Mobile number
-   * @param {string} countryCode - Country code
-   * @returns {Promise<void>}
-   */
   async updateUserMobile(userId, mobile, countryCode = '+91') {
     await db.User.update(
       { 
@@ -680,5 +666,4 @@ class AuthService {
   }
 }
 
-// Export singleton instance
 export default new AuthService();

@@ -63,6 +63,11 @@ export async function up(queryInterface, Sequelize) {
       type: Sequelize.INTEGER,
       defaultValue: 0,
     },
+    is_popular: {
+      type: Sequelize.BOOLEAN,
+      allowNull: false,
+      defaultValue: false
+    },
     created_by: {
       type: Sequelize.INTEGER,
       allowNull: true,
@@ -104,6 +109,14 @@ export async function up(queryInterface, Sequelize) {
 
   await queryInterface.addIndex("cities", ["state_id", "is_active"], {
     name: "idx_cities_state_active",
+  });
+
+  await queryInterface.addIndex("cities", ["is_popular", "is_active"], {
+    name: "idx_cities_popular_active"
+  });
+
+  await queryInterface.addIndex("cities", ["state_id", "is_popular", "is_active"], {
+    name: "idx_cities_state_popular_active"
   });
 }
 

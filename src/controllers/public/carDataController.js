@@ -1,16 +1,7 @@
-/**
- * Public Car Data Controller
- * Handles public car data endpoints (brands, models, variants, specifications)
- */
-
 import carDataService from '#services/carDataService.js';
 import { successResponse, errorResponse } from '#utils/responseFormatter.js';
 
 class CarDataController {
-  /**
-   * Get all car brands (grouped by featured and all, active only)
-   * GET /api/public/car-brands
-   */
   static async getAllBrands(req, res) {
     try {
       const filters = {
@@ -24,10 +15,6 @@ class CarDataController {
     }
   }
 
-  /**
-   * Get car models by brand
-   * GET /api/public/car-models
-   */
   static async getModelsByBrand(req, res) {
     try {
       const { brandId } = req.query;
@@ -48,10 +35,6 @@ class CarDataController {
     }
   }
 
-  /**
-   * Get car variants by model
-   * GET /api/public/car-variants
-   */
   static async getVariantsByModel(req, res) {
     try {
       const { modelId } = req.query;
@@ -72,10 +55,6 @@ class CarDataController {
     }
   }
 
-  /**
-   * Get car specification by variant ID
-   * GET /api/public/car-specifications/:variantId
-   */
   static async getSpecificationByVariantId(req, res) {
     try {
       const { variantId } = req.params;
