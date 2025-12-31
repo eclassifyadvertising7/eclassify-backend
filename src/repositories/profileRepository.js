@@ -37,7 +37,8 @@ class ProfileRepository {
             'about',
             'addressLine1',
             'addressLine2',
-            'city',
+            'cityId',
+            'cityName',
             'stateId',
             'stateName',
             'country',
@@ -47,13 +48,6 @@ class ProfileRepository {
             'profilePhoto',
             'profilePhotoStorageType',
             'profilePhotoMimeType'
-          ],
-          include: [
-            {
-              model: State,
-              as: 'state',
-              attributes: ['id', 'name', 'slug']
-            }
           ]
         },
         {
@@ -156,6 +150,32 @@ class ProfileRepository {
   async profileExists(userId) {
     const count = await UserProfile.count({ where: { userId } });
     return count > 0;
+  }
+
+  async getPreferredLocation(userId) {
+    const user = await User.findByPk(userId, {
+      attributes: ['id', 'fullName']
+    });
+
+    if (!user) return null;
+
+    const profile = await UserProfile.findOne({
+      where: { userId },
+      attributes: [
+        'id',
+        'preferredStateId',
+        'preferredStateName',
+        'preferredCityId',
+        'preferredCityName',
+        'preferredLatitude',
+        'preferredLongitude'
+      ]
+    });
+
+    return {
+      user,
+      profile
+    };
   }
 }
 

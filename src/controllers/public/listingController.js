@@ -252,8 +252,12 @@ class ListingController {
 
   static async searchListings(req, res) {
     try {
+      console.log('=== SEARCH ENDPOINT HIT ===');
+      console.log('Query params:', req.query);
+      
       const {
         query,
+        search, // Support both 'query' and 'search' for backward compatibility
         categoryId,
         priceMin,
         priceMax,
@@ -280,16 +284,23 @@ class ListingController {
         minArea,
         maxArea
       } = req.query;
+      
+      // Support both 'query' and 'search' parameter names
+      const searchQuery = query || search;
+
+      console.log('Parsed searchQuery:', searchQuery);
+      console.log('Parsed sortBy:', sortBy);
 
       const pageNum = parseInt(page);
       const limitNum = Math.min(parseInt(limit), 50);
 
       if (pageNum < 1 || limitNum < 1) {
+        console.log('Validation failed: Invalid pagination');
         return validationErrorResponse(res, [{ field: 'pagination', message: 'Invalid pagination parameters' }]);
       }
 
       const searchParams = {
-        query: query?.trim() || null,
+        query: searchQuery?.trim() || null,
         categoryId: categoryId ? parseInt(categoryId) : null,
         priceMin: priceMin ? parseFloat(priceMin) : null,
         priceMax: priceMax ? parseFloat(priceMax) : null,
@@ -317,6 +328,8 @@ class ListingController {
         }
       };
 
+      console.log('Built searchParams:', JSON.stringify(searchParams, null, 2));
+
       const userContext = {
         userId: req.user?.userId || null,
         sessionId: req.activityData?.sessionId || 'anonymous',
@@ -326,18 +339,27 @@ class ListingController {
         user: req.user
       };
 
+      console.log('Built userContext:', JSON.stringify(userContext, null, 2));
+
       const pagination = { page: pageNum, limit: limitNum };
 
+      console.log('Calling listingService.searchListings...');
       const result = await listingService.searchListings(searchParams, userContext, pagination);
+      console.log('Service returned:', result.success ? 'SUCCESS' : 'FAILURE');
 
       if (result.success) {
         return successResponse(res, result.data, result.message);
       } else {
+        console.log('Service error message:', result.message);
+        console.log('Service error details:', result.error);
         return errorResponse(res, result.message, 500);
       }
     } catch (error) {
-      console.error('Error in searchListings:', error);
-      return errorResponse(res, 'Failed to search listings', 500);
+      console.error('=== CONTROLLER EXCEPTION ===');
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+      console.error('Error name:', error.name);
+      return errorResponse(res, `Failed to search listings: ${error.message}`, 500);
     }
   }
 

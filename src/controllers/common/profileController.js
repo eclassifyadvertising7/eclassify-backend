@@ -57,6 +57,28 @@ class ProfileController {
     }
   }
 
+  static async updatePreferredLocation(req, res) {
+    try {
+      const userId = req.user.userId;
+      const locationData = req.body;
+
+      const result = await profileService.updatePreferredLocation(userId, locationData);
+      return successResponse(res, result.data, result.message);
+    } catch (error) {
+      return errorResponse(res, error.message, 400);
+    }
+  }
+
+  static async getPreferredLocation(req, res) {
+    try {
+      const userId = req.user.userId;
+      const result = await profileService.getPreferredLocation(userId);
+      return successResponse(res, result.data, result.message);
+    } catch (error) {
+      return errorResponse(res, error.message, 404);
+    }
+  }
+
   static async getProfileById(req, res) {
     try {
       const { userId } = req.params;

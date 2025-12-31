@@ -71,12 +71,16 @@ class ScoringHelper {
       isPaidListing = false,
       isFeatured = false,
       featuredUntil = null,
-      createdAt
+      createdAt,
+      created_at // Fallback for snake_case from database
     } = listingData;
 
     const { userLocation = null } = context;
 
-    if (!createdAt) {
+    // Use createdAt or created_at (fallback)
+    const timestamp = createdAt || created_at;
+    
+    if (!timestamp) {
       throw new Error('createdAt is required for scoring');
     }
 
@@ -84,7 +88,7 @@ class ScoringHelper {
       location: this.calculateLocationScore(userLocation, { stateId, cityId }),
       paid: this.calculatePaidListingScore(isPaidListing),
       featured: this.calculateFeaturedScore(isFeatured, featuredUntil),
-      freshness: this.calculateFreshnessScore(createdAt)
+      freshness: this.calculateFreshnessScore(timestamp)
     };
 
     const totalScore = Object.values(scores).reduce((sum, score) => sum + score, 0);

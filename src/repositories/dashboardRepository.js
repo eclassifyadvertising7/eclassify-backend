@@ -5,35 +5,25 @@ const { User, Listing, Transaction, SubscriptionPlan, UserSubscription, Invoice 
 
 class DashboardRepository {
   async getTotalUsers() {
-    return await User.count({
-      where: {
-        deletedAt: null
-      }
-    });
+    return await User.count();
   }
 
   async getActiveUsers() {
     return await User.count({
       where: {
-        isActive: true,
-        deletedAt: null
+        isActive: true
       }
     });
   }
 
   async getTotalListings() {
-    return await Listing.count({
-      where: {
-        deletedAt: null
-      }
-    });
+    return await Listing.count();
   }
 
   async getActiveListings() {
     return await Listing.count({
       where: {
-        status: 'active',
-        deletedAt: null
+        status: 'active'
       }
     });
   }
@@ -41,8 +31,7 @@ class DashboardRepository {
   async getSoldListings() {
     return await Listing.count({
       where: {
-        status: 'sold',
-        deletedAt: null
+        status: 'sold'
       }
     });
   }
@@ -50,8 +39,7 @@ class DashboardRepository {
   async getPendingListings() {
     return await Listing.count({
       where: {
-        status: 'pending',
-        deletedAt: null
+        status: 'pending'
       }
     });
   }
@@ -67,18 +55,13 @@ class DashboardRepository {
   }
 
   async getTotalSubscriptionPlans() {
-    return await SubscriptionPlan.count({
-      where: {
-        deletedAt: null
-      }
-    });
+    return await SubscriptionPlan.count();
   }
 
   async getActiveSubscriptionPlans() {
     return await SubscriptionPlan.count({
       where: {
-        isActive: true,
-        deletedAt: null
+        isActive: true
       }
     });
   }
@@ -86,8 +69,7 @@ class DashboardRepository {
   async getActiveSubscriptions() {
     return await UserSubscription.count({
       where: {
-        status: 'active',
-        deletedAt: null
+        status: 'active'
       }
     });
   }
@@ -111,7 +93,7 @@ class DashboardRepository {
       statuses.map(async (status) => ({
         status,
         count: await Listing.count({
-          where: { status, deletedAt: null }
+          where: { status }
         })
       }))
     );
@@ -127,8 +109,17 @@ class DashboardRepository {
         {
           model: User,
           as: 'user',
-          attributes: ['id', 'fullName', 'mobile']
+          attributes: ['id', ['full_name', 'fullName'], 'mobile']
         }
+      ],
+      attributes: [
+        'id',
+        'transactionNumber',
+        'amount',
+        'currency',
+        'status',
+        ['completed_at', 'completedAt'],
+        ['created_at', 'createdAt']
       ],
       order: [['completed_at', 'DESC']],
       limit
@@ -137,15 +128,20 @@ class DashboardRepository {
 
   async getRecentListings(limit = 10) {
     return await Listing.findAll({
-      where: {
-        deletedAt: null
-      },
       include: [
         {
           model: User,
           as: 'user',
-          attributes: ['id', 'fullName', 'mobile']
+          attributes: ['id', ['full_name', 'fullName'], 'mobile']
         }
+      ],
+      attributes: [
+        'id',
+        'title',
+        'price',
+        'status',
+        ['created_at', 'createdAt'],
+        ['updated_at', 'updatedAt']
       ],
       order: [['created_at', 'DESC']],
       limit

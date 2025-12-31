@@ -1,6 +1,8 @@
-import UserSearch from '#models/UserSearch.js';
+import models from '#models/index.js';
 import { Op } from 'sequelize';
 import sequelize from '#config/database.js';
+
+const { UserSearch } = models;
 
 class UserSearchRepository {
   /**

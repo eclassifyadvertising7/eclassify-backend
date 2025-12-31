@@ -69,15 +69,26 @@ class SearchHelper {
     if (query && query.trim()) {
       const searchQuery = query.trim().replace(/[^\w\s]/g, ''); // Sanitize query
       
-      whereClause[Op.and] = [
-        sequelize.literal(`
-          to_tsvector('english', 
-            coalesce(title, '') || ' ' || 
-            coalesce(description, '') || ' ' || 
-            coalesce(keywords, '')
-          ) @@ plainto_tsquery('english', '${searchQuery}')
-        `)
-      ];
+      if (searchQuery) {
+        // Use Sequelize's safe parameter binding with qualified column names
+        whereClause[Op.and] = [
+          sequelize.where(
+            sequelize.fn(
+              'to_tsvector',
+              'english',
+              sequelize.fn(
+                'concat_ws',
+                ' ',
+                sequelize.fn('coalesce', sequelize.col('Listing.title'), ''),
+                sequelize.fn('coalesce', sequelize.col('Listing.description'), ''),
+                sequelize.fn('coalesce', sequelize.col('Listing.keywords'), '')
+              )
+            ),
+            '@@',
+            sequelize.fn('plainto_tsquery', 'english', searchQuery)
+          )
+        ];
+      }
     }
 
     // Category filter
@@ -129,15 +140,19 @@ class SearchHelper {
   static buildSearchOrder(query, sortBy = 'relevance', userLocation = null) {
     switch (sortBy) {
       case 'price_low':
+      case 'price_asc':
         return [['price', 'ASC']];
       
       case 'price_high':
+      case 'price_desc':
         return [['price', 'DESC']];
       
       case 'date_new':
+      case 'date_desc':
         return [['created_at', 'DESC']];
       
       case 'date_old':
+      case 'date_asc':
         return [['created_at', 'ASC']];
       
       case 'relevance':
@@ -147,18 +162,27 @@ class SearchHelper {
         // Text search ranking (if query provided)
         if (query && query.trim()) {
           const searchQuery = query.trim().replace(/[^\w\s]/g, '');
-          orderClauses.push(
-            sequelize.literal(`
-              ts_rank(
-                to_tsvector('english', 
-                  coalesce(title, '') || ' ' || 
-                  coalesce(description, '') || ' ' || 
-                  coalesce(keywords, '')
-                ), 
-                plainto_tsquery('english', '${searchQuery}')
-              ) DESC
-            `)
-          );
+          if (searchQuery) {
+            // Use Sequelize's safe parameter binding with qualified column names
+            orderClauses.push([
+              sequelize.fn(
+                'ts_rank',
+                sequelize.fn(
+                  'to_tsvector',
+                  'english',
+                  sequelize.fn(
+                    'concat_ws',
+                    ' ',
+                    sequelize.fn('coalesce', sequelize.col('Listing.title'), ''),
+                    sequelize.fn('coalesce', sequelize.col('Listing.description'), ''),
+                    sequelize.fn('coalesce', sequelize.col('Listing.keywords'), '')
+                  )
+                ),
+                sequelize.fn('plainto_tsquery', 'english', searchQuery)
+              ),
+              'DESC'
+            ]);
+          }
         }
 
         // Location-based ordering (if user location available)
@@ -167,8 +191,8 @@ class SearchHelper {
           orderClauses.push(
             sequelize.literal(`
               CASE 
-                WHEN city_id = ${userLocation.cityId} THEN 3
-                WHEN state_id = ${userLocation.stateId} THEN 2
+                WHEN "Listing"."city_id" = ${parseInt(userLocation.cityId)} THEN 3
+                WHEN "Listing"."state_id" = ${parseInt(userLocation.stateId)} THEN 2
                 ELSE 1
               END DESC
             `)

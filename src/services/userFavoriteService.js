@@ -50,8 +50,8 @@ class UserFavoriteService {
         };
       }
 
-      // VALIDATION CHECK 2: Listing owner shouldn't be able to favorite their own listing
-      if (listing.userId === userId) {
+      // Check if user is trying to favorite their own listing
+      if (parseInt(listing.userId) === parseInt(userId)) {
         return {
           success: false,
           message: ERROR_MESSAGES.FAVORITE_OWN_LISTING

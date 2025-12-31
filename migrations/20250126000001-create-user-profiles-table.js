@@ -57,7 +57,17 @@ export async function up(queryInterface, Sequelize) {
       type: Sequelize.TEXT,
       allowNull: true
     },
-    city: {
+    city_id: {
+      type: Sequelize.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'cities',
+        key: 'id'
+      },
+      onUpdate: 'CASCADE',
+      onDelete: 'SET NULL'
+    },
+    city_name: {
       type: Sequelize.STRING(100),
       allowNull: true
     },
@@ -114,6 +124,10 @@ export async function up(queryInterface, Sequelize) {
       onUpdate: 'CASCADE',
       onDelete: 'SET NULL'
     },
+    preferred_state_name: {
+      type: Sequelize.STRING(255),
+      allowNull: true
+    },
     preferred_city_id: {
       type: Sequelize.INTEGER,
       allowNull: true,
@@ -123,6 +137,10 @@ export async function up(queryInterface, Sequelize) {
       },
       onUpdate: 'CASCADE',
       onDelete: 'SET NULL'
+    },
+    preferred_city_name: {
+      type: Sequelize.STRING(100),
+      allowNull: true
     },
     preferred_latitude: {
       type: Sequelize.DECIMAL(10, 8),
@@ -148,6 +166,10 @@ export async function up(queryInterface, Sequelize) {
   await queryInterface.addIndex('user_profiles', ['user_id'], {
     name: 'idx_user_profiles_user_id',
     unique: true
+  });
+
+  await queryInterface.addIndex('user_profiles', ['city_id'], {
+    name: 'idx_user_profiles_city_id'
   });
 
   await queryInterface.addIndex('user_profiles', ['state_id'], {

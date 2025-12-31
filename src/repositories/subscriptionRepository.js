@@ -1,7 +1,7 @@
 import db from '#models/index.js';
 import { Op } from 'sequelize';
 
-const { SubscriptionPlan, UserSubscription, User } = db;
+const { SubscriptionPlan, UserSubscription, User, Category } = db;
 
 /**
  * SubscriptionRepository - Database operations for subscription plans and user subscriptions
@@ -169,14 +169,7 @@ class SubscriptionRepository {
         isFreePlan: true,
         isActive: true
       },
-      include: [
-        {
-          model: Category,
-          as: 'category',
-          attributes: ['id', 'name', 'slug']
-        }
-      ],
-      order: [['categoryId', 'ASC']]
+      order: [['category_id', 'ASC']]
     });
   }
 

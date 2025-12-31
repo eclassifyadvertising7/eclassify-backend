@@ -9,7 +9,7 @@ import activityLogService from '#services/activityLogService.js';
 const activityLogMiddleware = (req, res, next) => {
   // Extract common data for activity logging
   req.activityData = {
-    userId: req.user?.id || null,
+    userId: req.user?.userId || null,
     sessionId: req.sessionID || req.headers['x-session-id'] || activityLogService.generateSessionId(),
     ipAddress: req.ip || req.connection.remoteAddress,
     userAgent: req.get('User-Agent')

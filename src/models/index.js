@@ -35,6 +35,7 @@ import OtherMedia from './OtherMedia.js';
 import OtpVerification from './OtpVerification.js';
 import ListingReport from './ListingReport.js';
 import UserReport from './UserReport.js';
+import UserSearch from './UserSearch.js';
 
 // Initialize models
 const User = UserModel(sequelize);
@@ -82,7 +83,8 @@ const models = {
   OtherMedia,
   OtpVerification,
   ListingReport,
-  UserReport
+  UserReport,
+  UserSearch
 };
 
 // Set up associations
@@ -179,6 +181,9 @@ OtherMedia.associate(models);
 // Report associations
 ListingReport.associate(models);
 UserReport.associate(models);
+
+// UserSearch associations
+UserSearch.associate(models);
 
 export { sequelize };
 export default models;

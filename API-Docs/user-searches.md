@@ -4,7 +4,7 @@
 API endpoints for logging and analyzing user search behavior, providing insights into search patterns and popular queries.
 
 ## Authentication
-End-user endpoints support both authenticated and anonymous users. Panel endpoints require admin/staff roles.
+All end-user endpoints require authentication. Panel endpoints require admin/staff roles.
 
 ---
 
@@ -13,7 +13,7 @@ End-user endpoints support both authenticated and anonymous users. Panel endpoin
 ### Log Search Activity
 **POST** `/api/end-user/searches/log`
 
-Log a user search activity for analytics and recommendations.
+Log a user search activity for analytics and recommendations. Requires authentication.
 
 **Request Body:**
 ```json
@@ -38,7 +38,7 @@ Log a user search activity for analytics and recommendations.
 }
 ```
 
-**Response:**
+**Response (New Entry):**
 ```json
 {
   "success": true,
@@ -49,9 +49,22 @@ Log a user search activity for analytics and recommendations.
 }
 ```
 
+**Response (Duplicate Detected):**
+```json
+{
+  "success": true,
+  "message": "Search already logged",
+  "data": {
+    "searchLogId": 67890
+  }
+}
+```
+
 **Notes:**
+- Requires authentication (only logged-in users can log searches)
+- `searchQuery` is automatically trimmed before storage and comparison
+- Duplicate prevention: If the user already has a search with the same trimmed query, the existing entry is returned
 - `searchQuery` can be null for category-only searches
-- Anonymous users are tracked via session ID
 - All fields except `resultsCount` are optional
 
 ---

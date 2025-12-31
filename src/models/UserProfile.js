@@ -65,10 +65,15 @@ export default (sequelize) => {
       allowNull: true,
       field: 'address_line2'
     },
-    city: {
+    cityId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      field: 'city_id'
+    },
+    cityName: {
       type: DataTypes.STRING(100),
       allowNull: true,
-      field: 'city'
+      field: 'city_name'
     },
     stateId: {
       type: DataTypes.INTEGER,
@@ -127,10 +132,20 @@ export default (sequelize) => {
       allowNull: true,
       field: 'preferred_state_id'
     },
+    preferredStateName: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+      field: 'preferred_state_name'
+    },
     preferredCityId: {
       type: DataTypes.INTEGER,
       allowNull: true,
       field: 'preferred_city_id'
+    },
+    preferredCityName: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+      field: 'preferred_city_name'
     },
     preferredLatitude: {
       type: DataTypes.DECIMAL(10, 8),
@@ -158,6 +173,21 @@ export default (sequelize) => {
     UserProfile.belongsTo(models.State, {
       foreignKey: 'stateId',
       as: 'state'
+    });
+
+    UserProfile.belongsTo(models.City, {
+      foreignKey: 'cityId',
+      as: 'city'
+    });
+
+    UserProfile.belongsTo(models.State, {
+      foreignKey: 'preferredStateId',
+      as: 'preferredState'
+    });
+
+    UserProfile.belongsTo(models.City, {
+      foreignKey: 'preferredCityId',
+      as: 'preferredCity'
     });
   };
 

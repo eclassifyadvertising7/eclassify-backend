@@ -26,14 +26,16 @@ class QuotaRepository {
         userId,
         categoryId,
         status: {
-          [Op.in]: ['pending', 'active', 'sold']
+          [Op.in]: ['pending', 'active', 'sold', 'expired']
         },
         created_at: {
           [Op.gte]: startDate
         }
-      }
+      },
+      paranoid: false
     });
 
+    console.log(`[QUOTA] countUserListingsInPeriod: userId=${userId}, categoryId=${categoryId}, days=${days}, count=${count}`);
     return count;
   }
 
@@ -49,11 +51,13 @@ class QuotaRepository {
         userId,
         userSubscriptionId: subscriptionId,
         status: {
-          [Op.in]: ['pending', 'active', 'sold']
+          [Op.in]: ['pending', 'active', 'sold', 'expired']
         }
-      }
+      },
+      paranoid: false
     });
 
+    console.log(`[QUOTA] countUserTotalListings: userId=${userId}, subscriptionId=${subscriptionId}, count=${count}`);
     return count;
   }
 
@@ -136,12 +140,17 @@ class QuotaRepository {
    * @returns {Promise<Object>} Quota usage summary
    */
   async getUserQuotaUsage(userId, categoryId) {
+    console.log(`[QUOTA] getUserQuotaUsage START: userId=${userId}, categoryId=${categoryId}`);
+    
     // Get active subscription
     const subscription = await this.getActiveSubscriptionWithQuota(userId, categoryId);
+    console.log(`[QUOTA] Active subscription:`, subscription ? `ID=${subscription.id}, planName=${subscription.planName}` : 'null');
     
     if (!subscription) {
       // Check for free plan
       const freePlan = await this.getFreePlanForCategory(categoryId);
+      console.log(`[QUOTA] Free plan:`, freePlan ? `ID=${freePlan.id}, name=${freePlan.name}, limit=${freePlan.listingQuotaLimit}` : 'null');
+      
       if (!freePlan) {
         return null;
       }
@@ -153,7 +162,7 @@ class QuotaRepository {
         freePlan.listingQuotaRollingDays || 30
       );
 
-      return {
+      const result = {
         planType: 'free',
         planName: freePlan.name,
         quotaType: 'rolling',
@@ -164,21 +173,32 @@ class QuotaRepository {
         subscription: null,
         freePlan
       };
+      
+      console.log(`[QUOTA] getUserQuotaUsage RESULT (no subscription):`, JSON.stringify(result, null, 2));
+      return result;
     }
 
-    // Calculate total quota for paid plan
-    const totalCount = await this.countUserTotalListings(userId, subscription.id);
+    // Always use rolling quota based on listingQuotaLimit
+    const rollingCount = await this.countUserListingsInPeriod(
+      userId, 
+      categoryId, 
+      subscription.listingQuotaRollingDays || 30
+    );
 
-    return {
-      planType: 'paid',
+    const result = {
+      planType: subscription.plan?.isFreePlan ? 'free' : 'paid',
       planName: subscription.planName,
-      quotaType: 'total',
-      quotaLimit: subscription.maxTotalListings,
-      quotaUsed: totalCount,
-      quotaRemaining: Math.max(0, subscription.maxTotalListings - totalCount),
+      quotaType: 'rolling',
+      quotaLimit: subscription.listingQuotaLimit,
+      quotaUsed: rollingCount,
+      quotaRemaining: Math.max(0, subscription.listingQuotaLimit - rollingCount),
+      rollingDays: subscription.listingQuotaRollingDays || 30,
       subscription,
-      freePlan: null
+      freePlan: subscription.plan?.isFreePlan ? subscription.plan : null
     };
+    
+    console.log(`[QUOTA] getUserQuotaUsage RESULT (with subscription):`, JSON.stringify(result, null, 2));
+    return result;
   }
 
   /**

@@ -2,6 +2,7 @@ import listingRepository from '#repositories/listingRepository.js';
 import carListingRepository from '#repositories/carListingRepository.js';
 import propertyListingRepository from '#repositories/propertyListingRepository.js';
 import listingMediaRepository from '#repositories/listingMediaRepository.js';
+import categoryRepository from '#repositories/categoryRepository.js';
 import quotaService from '#services/quotaService.js';
 import userSearchService from '#services/userSearchService.js';
 import notificationHelperService from '#services/notificationHelperService.js';
@@ -39,9 +40,18 @@ class ListingService {
   }
 
   async create(listingData, categoryData, userId) {
+    console.log(`[LISTING CREATE] ========== START ==========`);
+    console.log(`[LISTING CREATE] userId=${userId}, categoryId=${listingData.categoryId}`);
+    
     this._validateRequiredFields(listingData);
 
+    if (!listingData.categoryType) {
+      throw new Error('Category type is required');
+    }
+
+    console.log(`[LISTING CREATE] Checking eligibility...`);
     const eligibility = await quotaService.checkListingEligibility(userId, listingData.categoryId);
+    console.log(`[LISTING CREATE] Eligibility result:`, JSON.stringify(eligibility, null, 2));
 
     listingData.userId = userId;
     listingData.createdBy = userId;
@@ -54,6 +64,7 @@ class ListingService {
     if (!eligibility.data.canCreate) {
       quotaExceeded = true;
       quotaMessage = `${eligibility.message}. Your listing has been saved as draft.`;
+      console.log(`[LISTING CREATE] QUOTA EXCEEDED - Saving as draft`);
     } else if (eligibility.data.hasAutoApprove) {
       listingData.status = 'active';
       listingData.isAutoApproved = true;
@@ -64,9 +75,16 @@ class ListingService {
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + 30);
       listingData.expiresAt = expiresAt;
+      console.log(`[LISTING CREATE] AUTO-APPROVE - Setting status to active`);
+    } else {
+      console.log(`[LISTING CREATE] NO AUTO-APPROVE - Keeping as draft`);
     }
 
+    console.log(`[LISTING CREATE] Creating listing with status=${listingData.status}`);
     const listing = await listingRepository.create(listingData);
+    console.log(`[LISTING CREATE] Listing created with ID=${listing.id}`);
+
+    this._generateAndSetShareCode(listing.id);
 
     let categorySpecificData = null;
     if (categoryData.type === 'car') {
@@ -86,10 +104,15 @@ class ListingService {
     await this.updateListingKeywords(listing.id, listingData, categorySpecificData);
 
     if (listingData.status === 'active') {
+      console.log(`[LISTING CREATE] Status is active, consuming quota...`);
       try {
         await quotaService.consumeQuota(userId, listingData.categoryId, listing.id);
+        console.log(`[LISTING CREATE] Quota consumed successfully`);
       } catch (error) {
+        console.error(`[LISTING CREATE] ERROR consuming quota:`, error.message);
       }
+    } else {
+      console.log(`[LISTING CREATE] Status is ${listingData.status}, NOT consuming quota`);
     }
 
     const completeListing = await listingRepository.getById(listing.id, { includeAll: true });
@@ -103,10 +126,13 @@ class ListingService {
       message = SUCCESS_MESSAGES.LISTING_CREATED;
     }
 
+    console.log(`[LISTING CREATE] ========== END (${message}) ==========`);
+
     return {
       success: true,
       message,
-      data: completeListing
+      data: completeListing,
+      quotaExceeded
     };
   }
 
@@ -200,11 +226,16 @@ class ListingService {
   }
 
   async submit(id, userId) {
+    console.log(`[LISTING SUBMIT] ========== START ==========`);
+    console.log(`[LISTING SUBMIT] listingId=${id}, userId=${userId}`);
+    
     const listing = await listingRepository.getById(id);
 
     if (!listing) {
       throw new Error(ERROR_MESSAGES.LISTING_NOT_FOUND);
     }
+
+    console.log(`[LISTING SUBMIT] Listing found: categoryId=${listing.categoryId}, status=${listing.status}`);
 
     if (listing.userId !== userId) {
       throw new Error(ERROR_MESSAGES.FORBIDDEN);
@@ -219,21 +250,28 @@ class ListingService {
       throw new Error('At least one image is required to submit listing');
     }
 
+    console.log(`[LISTING SUBMIT] Checking eligibility...`);
     const eligibility = await quotaService.checkListingEligibility(userId, listing.categoryId);
+    console.log(`[LISTING SUBMIT] Eligibility result:`, JSON.stringify(eligibility, null, 2));
 
     if (!eligibility.data.canCreate) {
-      await listingRepository.updateStatus(id, 'pending', { userId });
+      console.log(`[LISTING SUBMIT] QUOTA EXCEEDED - Keeping as draft`);
+      // Keep as draft when quota is exhausted
+      await listingRepository.updateStatus(id, 'draft', { userId });
 
       const updatedListing = await listingRepository.getById(id, { includeAll: true });
 
+      console.log(`[LISTING SUBMIT] ========== END (QUOTA EXCEEDED) ==========`);
       return {
         success: true,
-        message: `${eligibility.message}. Your listing has been submitted for manual approval.`,
-        data: updatedListing
+        message: `${eligibility.message}. Your listing has been saved as draft.`,
+        data: updatedListing,
+        quotaExceeded: true
       };
     }
 
     if (eligibility.data.hasAutoApprove) {
+      console.log(`[LISTING SUBMIT] AUTO-APPROVE - Setting status to active`);
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + 30);
 
@@ -246,60 +284,61 @@ class ListingService {
         expiresAt
       }, { userId });
 
+      console.log(`[LISTING SUBMIT] Consuming quota...`);
       try {
         await quotaService.consumeQuota(userId, listing.categoryId, id);
+        console.log(`[LISTING SUBMIT] Quota consumed successfully`);
       } catch (error) {
+        console.error(`[LISTING SUBMIT] ERROR consuming quota:`, error.message);
       }
 
       const updatedListing = await listingRepository.getById(id, { includeAll: true });
 
+      console.log(`[LISTING SUBMIT] ========== END (AUTO-APPROVED) ==========`);
       return {
         success: true,
         message: 'Listing submitted and auto-approved successfully',
-        data: updatedListing
+        data: updatedListing,
+        quotaExceeded: false
       };
     }
 
+    console.log(`[LISTING SUBMIT] NO AUTO-APPROVE - Setting status to pending`);
     await listingRepository.updateStatus(id, 'pending', { userId });
 
     const updatedListing = await listingRepository.getById(id, { includeAll: true });
 
+    console.log(`[LISTING SUBMIT] ========== END (PENDING) ==========`);
     return {
       success: true,
       message: SUCCESS_MESSAGES.LISTING_SUBMITTED,
-      data: updatedListing
+      data: updatedListing,
+      quotaExceeded: false
     };
   }
 
   async approve(id, approvedBy) {
+    console.log(`[APPROVE] Starting approval for listing ID=${id}, approvedBy=${approvedBy}`);
+    
     const listing = await listingRepository.getById(id);
 
     if (!listing) {
       throw new Error(ERROR_MESSAGES.LISTING_NOT_FOUND);
     }
 
+    console.log(`[APPROVE] Listing found: userId=${listing.userId}, categoryId=${listing.categoryId}, status=${listing.status}`);
+
     if (listing.status !== 'pending') {
       throw new Error('Only pending listings can be approved');
     }
 
-    const quotaCheck = await quotaService.checkQuotaAvailability(listing.userId, listing.categoryId);
-
-    if (!quotaCheck.data.hasQuota) {
-      return {
-        success: false,
-        message: `Cannot approve listing: ${quotaCheck.message}`,
-        data: {
-          listing,
-          quotaUsage: quotaCheck.data.quotaUsage
-        }
-      };
-    }
-
+    console.log(`[APPROVE] Approving listing (pending listings reserve quota, so no additional check needed)`);
     await listingRepository.approve(id, approvedBy);
 
     try {
       await quotaService.consumeQuota(listing.userId, listing.categoryId, id);
     } catch (error) {
+      console.error(`[APPROVE] Error consuming quota (non-blocking):`, error.message);
     }
 
     const updatedListing = await listingRepository.getById(id, { includeAll: true });
@@ -319,6 +358,7 @@ class ListingService {
       console.error('Failed to send listing approval notification:', error);
     }
 
+    console.log(`[APPROVE] Approval completed successfully`);
     return {
       success: true,
       message: SUCCESS_MESSAGES.LISTING_APPROVED,
@@ -510,6 +550,8 @@ class ListingService {
 
   async searchListings(searchParams, userContext = {}, pagination = {}) {
     try {
+      console.log('[searchListings SERVICE] Starting...');
+      
       const {
         query,
         categoryId,
@@ -526,10 +568,15 @@ class ListingService {
 
       const { userId, sessionId, userLocation, ipAddress, userAgent } = userContext;
 
+      console.log('[searchListings SERVICE] userLocation:', userLocation);
+
       const effectiveUserLocation = userLocation || LocationHelper.parseUserLocation({ 
         query: { stateId, cityId },
         user: userContext.user 
       });
+
+      console.log('[searchListings SERVICE] effectiveUserLocation:', effectiveUserLocation);
+      console.log('[searchListings SERVICE] Calling repository...');
 
       const searchResult = await listingRepository.searchListings(
         searchParams,
@@ -538,8 +585,12 @@ class ListingService {
         userId
       );
 
+      console.log('[searchListings SERVICE] Repository returned successfully');
+      console.log('[searchListings SERVICE] Results count:', searchResult.listings?.length);
+
       if (query || Object.keys(filters).length > 0) {
         try {
+          console.log('[searchListings SERVICE] Logging search activity...');
           await userSearchService.logSearch({
             userId: userId || null,
             sessionId: sessionId || 'anonymous',
@@ -565,8 +616,9 @@ class ListingService {
             ipAddress,
             userAgent
           });
+          console.log('[searchListings SERVICE] Search activity logged');
         } catch (error) {
-          console.error('Error logging search activity:', error);
+          console.error('[searchListings SERVICE] Error logging search activity:', error);
         }
       }
 
@@ -592,6 +644,8 @@ class ListingService {
         }
       };
     } catch (error) {
+      console.error('[searchListings SERVICE] ERROR:', error.message);
+      console.error('[searchListings SERVICE] ERROR STACK:', error.stack);
       return {
         success: false,
         message: 'Failed to search listings',
@@ -812,6 +866,45 @@ class ListingService {
         }
       };
     }
+  }
+
+  _generateAndSetShareCode(listingId) {
+    setImmediate(async () => {
+      try {
+        let shareCode;
+        let exists = true;
+        let attempts = 0;
+        const maxAttempts = 10;
+
+        while (exists && attempts < maxAttempts) {
+          shareCode = generateShareCode(7);
+          const existingListing = await listingRepository.findByShareCode(shareCode);
+          exists = !!existingListing;
+          attempts++;
+        }
+
+        if (attempts >= maxAttempts) {
+          console.error(`Failed to generate unique share code for listing ${listingId} after ${maxAttempts} attempts`);
+          return;
+        }
+
+        await listingRepository.updateShareCode(listingId, shareCode);
+        console.log(`Share code ${shareCode} generated for listing ${listingId}`);
+      } catch (error) {
+        console.error(`Failed to generate share code for listing ${listingId}:`, error.message);
+      }
+    });
+  }
+
+  _getCategoryTypeFromSlug(slug) {
+    if (!slug) return null;
+    
+    const normalizedSlug = slug.toLowerCase().trim();
+    
+    if (normalizedSlug === 'cars' || normalizedSlug === 'car') return 'car';
+    if (normalizedSlug === 'properties' || normalizedSlug === 'property') return 'property';
+    
+    return null;
   }
 }
 

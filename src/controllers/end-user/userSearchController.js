@@ -5,6 +5,10 @@ import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '#utils/constants/messages.js';
 class UserSearchController {
   static async logSearch(req, res) {
     try {
+      if (!req.user || !req.user.userId) {
+        return errorResponse(res, 'User authentication required', 401);
+      }
+
       const {
         searchQuery,
         filtersApplied = {},
@@ -14,10 +18,12 @@ class UserSearchController {
         priceRange = {}
       } = req.body;
 
+      const trimmedQuery = searchQuery?.trim() || null;
+
       const searchData = {
-        userId: req.activityData?.userId || null,
+        userId: req.user.userId,
         sessionId: req.activityData?.sessionId,
-        searchQuery: searchQuery?.trim() || null,
+        searchQuery: trimmedQuery,
         filtersApplied,
         resultsCount: parseInt(resultsCount) || 0,
         categoryId: categoryId ? parseInt(categoryId) : null,
@@ -42,7 +48,11 @@ class UserSearchController {
 
   static async getSearchHistory(req, res) {
     try {
-      const userId = req.user.id;
+      if (!req.user || !req.user.userId) {
+        return errorResponse(res, 'User not authenticated', 401);
+      }
+
+      const userId = req.user.userId;
       const {
         page = 1,
         limit = 20,
@@ -79,7 +89,11 @@ class UserSearchController {
 
   static async getSearchRecommendations(req, res) {
     try {
-      const userId = req.user.id;
+      if (!req.user || !req.user.userId) {
+        return errorResponse(res, 'User not authenticated', 401);
+      }
+
+      const userId = req.user.userId;
       const { limit = 5 } = req.query;
 
       const limitNum = Math.min(parseInt(limit), 10);

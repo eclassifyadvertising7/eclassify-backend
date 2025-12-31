@@ -141,6 +141,7 @@ export const parseArray = (value, defaultValue = []) => {
 export const parseListingData = (body) => {
   return {
     categoryId: parseInteger(body.categoryId),
+    categoryType: parseString(body.categoryType),
     title: parseString(body.title),
     description: parseString(body.description),
     price: parseFloat(body.price),

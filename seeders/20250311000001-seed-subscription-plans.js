@@ -20,7 +20,7 @@ export async function up(queryInterface, Sequelize) {
     {
       category: carsCategory,
       categoryType: 'cars',
-      freeQuota: { limit: 1, activeListings: 1 },
+      freeQuota: { limit: 1, activeListings: 1, price: 0 },
       basicQuota: { total: 15, activeListings: 15, price: 299 },
       standardQuota: { total: 30, activeListings: 30, price: 599 },
       premiumQuota: { total: 50, activeListings: 50, price: 999 }
@@ -134,7 +134,7 @@ export async function up(queryInterface, Sequelize) {
         nationalVisibility: false
       },
       featuredLimits: {
-        maxFeaturedListings: 2,
+        maxFeaturedListings: 1,
         maxBoostedListings: 1,
         maxSpotlightListings: 0,
         maxHomepageListings: 0,
@@ -297,7 +297,7 @@ export async function up(queryInterface, Sequelize) {
       switch (planTier.tier) {
         case 'free':
           quotaConfig = {
-            maxTotalListings: 999999, // Unlimited for free plans
+            maxTotalListings: categoryConfig.freeQuota.limit, // Same as listingQuotaLimit
             maxActiveListings: categoryConfig.freeQuota.activeListings,
             listingQuotaLimit: categoryConfig.freeQuota.limit,
             listingQuotaRollingDays: 30
@@ -307,8 +307,8 @@ export async function up(queryInterface, Sequelize) {
           quotaConfig = {
             maxTotalListings: categoryConfig.basicQuota.total,
             maxActiveListings: categoryConfig.basicQuota.activeListings,
-            listingQuotaLimit: null,
-            listingQuotaRollingDays: null
+            listingQuotaLimit: categoryConfig.basicQuota.total, // Same as maxTotalListings
+            listingQuotaRollingDays: 30
           };
           pricing = {
             basePrice: categoryConfig.basicQuota.price,
@@ -320,8 +320,8 @@ export async function up(queryInterface, Sequelize) {
           quotaConfig = {
             maxTotalListings: categoryConfig.standardQuota.total,
             maxActiveListings: categoryConfig.standardQuota.activeListings,
-            listingQuotaLimit: null,
-            listingQuotaRollingDays: null
+            listingQuotaLimit: categoryConfig.standardQuota.total, // Same as maxTotalListings
+            listingQuotaRollingDays: 30
           };
           const standardDiscount = Math.round(categoryConfig.standardQuota.price * 0.1);
           pricing = {
@@ -334,8 +334,8 @@ export async function up(queryInterface, Sequelize) {
           quotaConfig = {
             maxTotalListings: categoryConfig.premiumQuota.total,
             maxActiveListings: categoryConfig.premiumQuota.activeListings,
-            listingQuotaLimit: null,
-            listingQuotaRollingDays: null
+            listingQuotaLimit: categoryConfig.premiumQuota.total, // Same as maxTotalListings
+            listingQuotaRollingDays: 30
           };
           const premiumDiscount = Math.round(categoryConfig.premiumQuota.price * 0.15);
           pricing = {

@@ -91,8 +91,8 @@ class LocationHelper {
       };
     }
 
-    // Also check in request body for preferred location
-    if (req.body.preferredLocation && req.body.preferredLocation.stateId && req.body.preferredLocation.cityId) {
+    // Also check in request body for preferred location (for POST requests)
+    if (req.body && req.body.preferredLocation && req.body.preferredLocation.stateId && req.body.preferredLocation.cityId) {
       return {
         stateId: parseInt(req.body.preferredLocation.stateId),
         cityId: parseInt(req.body.preferredLocation.cityId),
@@ -117,8 +117,8 @@ class LocationHelper {
       };
     }
 
-    // Also check in request body for browser location
-    if (req.body.browserLocation && req.body.browserLocation.latitude && req.body.browserLocation.longitude) {
+    // Also check in request body for browser location (for POST requests)
+    if (req.body && req.body.browserLocation && req.body.browserLocation.latitude && req.body.browserLocation.longitude) {
       return {
         stateId: null,
         cityId: null,

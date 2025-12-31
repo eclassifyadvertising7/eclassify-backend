@@ -69,7 +69,7 @@ router.use('/end-user/chats', endUserChatRoutes);
 router.use('/end-user/invoices', endUserInvoiceRoutes);
 router.use('/end-user/transactions', endUserTransactionRoutes);
 router.use('/end-user', endUserFavoriteRoutes);
-router.use('/end-user', endUserSearchRoutes);
+router.use('/end-user/searches', endUserSearchRoutes);
 router.use('/end-user/activity', endUserActivityRoutes);
 router.use('/end-user/notifications', endUserNotificationRoutes);
 router.use('/end-user/reports', endUserReportRoutes);

@@ -91,7 +91,10 @@ class ProfileService {
       if (profileData.about) userProfileData.about = profileData.about;
       if (profileData.addressLine1) userProfileData.addressLine1 = profileData.addressLine1;
       if (profileData.addressLine2) userProfileData.addressLine2 = profileData.addressLine2;
-      if (profileData.city) userProfileData.city = profileData.city;
+      if (profileData.cityId) {
+        userProfileData.cityId = parseInt(profileData.cityId);
+      }
+      if (profileData.cityName) userProfileData.cityName = profileData.cityName;
       if (profileData.stateId) {
         userProfileData.stateId = parseInt(profileData.stateId);
       }
@@ -314,6 +317,79 @@ class ProfileService {
       return {
         success: true,
         message: 'Business information updated successfully',
+        data: result.data
+      };
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
+    }
+  }
+
+  async getPreferredLocation(userId) {
+    const result = await profileRepository.getPreferredLocation(userId);
+
+    if (!result || !result.user) {
+      throw new Error(ERROR_MESSAGES.USER_NOT_FOUND);
+    }
+
+    return {
+      success: true,
+      message: SUCCESS_MESSAGES.DATA_RETRIEVED,
+      data: {
+        preferredStateId: result.profile?.preferredStateId || null,
+        preferredStateName: result.profile?.preferredStateName || null,
+        preferredCityId: result.profile?.preferredCityId || null,
+        preferredCityName: result.profile?.preferredCityName || null,
+        preferredLatitude: result.profile?.preferredLatitude || null,
+        preferredLongitude: result.profile?.preferredLongitude || null
+      }
+    };
+  }
+
+  async updatePreferredLocation(userId, locationData) {
+    const transaction = await sequelize.transaction();
+
+    try {
+      const user = await profileRepository.getUserWithProfile(userId);
+      if (!user) {
+        throw new Error(ERROR_MESSAGES.USER_NOT_FOUND);
+      }
+
+      const updateData = {};
+      
+      if (locationData.preferredStateId !== undefined) {
+        updateData.preferredStateId = locationData.preferredStateId ? parseInt(locationData.preferredStateId) : null;
+      }
+      
+      if (locationData.preferredStateName !== undefined) {
+        updateData.preferredStateName = locationData.preferredStateName || null;
+      }
+      
+      if (locationData.preferredCityId !== undefined) {
+        updateData.preferredCityId = locationData.preferredCityId ? parseInt(locationData.preferredCityId) : null;
+      }
+      
+      if (locationData.preferredCityName !== undefined) {
+        updateData.preferredCityName = locationData.preferredCityName || null;
+      }
+      
+      if (locationData.preferredLatitude !== undefined) {
+        updateData.preferredLatitude = locationData.preferredLatitude ? parseFloat(locationData.preferredLatitude) : null;
+      }
+      
+      if (locationData.preferredLongitude !== undefined) {
+        updateData.preferredLongitude = locationData.preferredLongitude ? parseFloat(locationData.preferredLongitude) : null;
+      }
+
+      await profileRepository.updateOrCreateProfile(userId, updateData, transaction);
+
+      await transaction.commit();
+
+      const result = await this.getPreferredLocation(userId);
+
+      return {
+        success: true,
+        message: 'Preferred location updated successfully',
         data: result.data
       };
     } catch (error) {

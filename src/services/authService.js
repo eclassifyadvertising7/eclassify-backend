@@ -61,15 +61,20 @@ class AuthService {
   _assignFreeSubscription(userId) {
     setImmediate(async () => {
       try {
-        const freePlan = await subscriptionRepository.findPlanBySlug('free');
+        const freePlans = await subscriptionRepository.getAllFreePlans();
         
-        if (freePlan) {
+        if (!freePlans || freePlans.length === 0) {
+          console.error('No free plans found');
+          return;
+        }
+
+        const subscriptionPromises = freePlans.map(freePlan => {
           const activatedAt = new Date();
           const endsAt = new Date();
           const durationDays = freePlan.durationDays || 30;
           endsAt.setDate(endsAt.getDate() + durationDays);
 
-          await subscriptionRepository.createSubscription({
+          return subscriptionRepository.createSubscription({
             userId,
             planId: freePlan.id,
             planName: freePlan.name,
@@ -109,9 +114,12 @@ class AuthService {
             autoRenew: false,
             paymentMethod: 'free'
           }, userId);
-        }
+        });
+
+        await Promise.all(subscriptionPromises);
+        console.log(`Assigned ${freePlans.length} free plans to user ${userId}`);
       } catch (error) {
-        console.error('Failed to assign free plan:', error.message);
+        console.error('Failed to assign free plans:', error.message);
       }
     });
   }

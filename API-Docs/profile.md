@@ -46,7 +46,8 @@ Authorization: Bearer <access_token>
       "about": "Software developer",
       "addressLine1": "123 Main Street",
       "addressLine2": "Apartment 4B",
-      "city": "Pune",
+      "cityId": 5,
+      "cityName": "Pune",
       "stateId": 1,
       "stateName": "Maharashtra",
       "country": "India",
@@ -58,6 +59,11 @@ Authorization: Bearer <access_token>
         "id": 1,
         "name": "Maharashtra",
         "slug": "maharashtra"
+      },
+      "city": {
+        "id": 5,
+        "name": "Pune",
+        "slug": "pune"
       }
     },
     "role": {
@@ -96,7 +102,8 @@ gender: male (optional)
 about: Software developer (optional)
 addressLine1: 123 Main Street (optional)
 addressLine2: Apartment 4B (optional)
-city: Pune (optional)
+cityId: 5 (optional)
+cityName: Pune (optional)
 stateId: 1 (optional)
 pincode: 411001 (optional)
 latitude: 18.5204 (optional)
@@ -107,6 +114,7 @@ profilePhoto: <file> (optional, max 2MB, JPEG/PNG/WebP)
 **Validation Rules:**
 - `email`: Valid email format
 - `profilePhoto`: Max 2MB, JPEG/PNG/WebP only
+- `cityId`: Must be a valid city ID
 - `stateId`: Must be a valid state ID
 - `latitude`: Decimal number
 - `longitude`: Decimal number
@@ -309,7 +317,8 @@ Authorization: Bearer <access_token>
       "dob": "1995-05-15",
       "gender": "female",
       "about": "Car enthusiast",
-      "city": "Mumbai",
+      "cityId": 2,
+      "cityName": "Mumbai",
       "stateId": 1,
       "profilePhoto": "https://res.cloudinary.com/your-cloud/image/upload/eclassify_app/uploads/profiles/user-456/photo.jpg"
     }
@@ -376,6 +385,147 @@ profilePhoto: <file> (optional, max 2MB, JPEG/PNG/WebP)
 {
   "success": false,
   "message": "Insufficient permissions",
+  "data": null
+}
+```
+
+---
+
+### 11. Get Current User's Preferred Location
+
+**GET** `/api/profile/me/preferred-location`
+
+Get current user's preferred location for search and notifications.
+
+**Authentication:** Required (JWT) - All authenticated users
+
+**Request Headers:**
+```
+Authorization: Bearer <access_token>
+```
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Data retrieved successfully",
+  "data": {
+    "preferredStateId": 1,
+    "preferredCityId": 5,
+    "preferredCityName": "Pune",
+    "preferredLatitude": "18.5204",
+    "preferredLongitude": "73.8567",
+    "preferredState": {
+      "id": 1,
+      "name": "Maharashtra",
+      "slug": "maharashtra"
+    },
+    "preferredCity": {
+      "id": 5,
+      "name": "Pune",
+      "slug": "pune"
+    }
+  }
+}
+```
+
+**Response when no preferred location set (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Data retrieved successfully",
+  "data": {
+    "preferredStateId": null,
+    "preferredCityId": null,
+    "preferredCityName": null,
+    "preferredLatitude": null,
+    "preferredLongitude": null,
+    "preferredState": null,
+    "preferredCity": null
+  }
+}
+```
+
+---
+
+### 12. Update Current User's Preferred Location
+
+**PUT** `/api/profile/me/preferred-location`
+
+Update current user's preferred location for personalized search results and notifications.
+
+**Authentication:** Required (JWT) - All authenticated users
+
+**Content-Type:** `application/json`
+
+**Request Headers:**
+```
+Authorization: Bearer <access_token>
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "preferredStateId": 1,
+  "preferredStateName": "Maharashtra",
+  "preferredCityId": 5,
+  "preferredCityName": "Pune",
+  "preferredLatitude": 18.5204,
+  "preferredLongitude": 73.8567
+}
+```
+
+**All fields are optional. You can update any combination:**
+```json
+{
+  "preferredStateId": 2,
+  "preferredStateName": "Karnataka",
+  "preferredCityName": "Bangalore"
+}
+```
+
+**To clear preferred location, send null values:**
+```json
+{
+  "preferredStateId": null,
+  "preferredStateName": null,
+  "preferredCityId": null,
+  "preferredCityName": null,
+  "preferredLatitude": null,
+  "preferredLongitude": null
+}
+```
+
+**Validation Rules:**
+- `preferredStateId`: Must be a valid state ID or null
+- `preferredStateName`: String (max 255 characters) or null
+- `preferredCityId`: Must be a valid city ID or null
+- `preferredCityName`: String (max 100 characters) or null
+- `preferredLatitude`: Decimal number between -90 and 90, or null
+- `preferredLongitude`: Decimal number between -180 and 180, or null
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Preferred location updated successfully",
+  "data": {
+    "preferredStateId": 1,
+    "preferredStateName": "Maharashtra",
+    "preferredCityId": 5,
+    "preferredCityName": "Pune",
+    "preferredLatitude": "18.5204",
+    "preferredLongitude": "73.8567"
+  }
+}
+```
+
+**Error Response (400 Bad Request):**
+```json
+{
+  "success": false,
+  "message": "Invalid state ID",
   "data": null
 }
 ```
@@ -530,7 +680,8 @@ curl -X PUT http://localhost:3000/api/profile/me \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
   -F "fullName=John Doe" \
   -F "email=john@example.com" \
-  -F "city=Pune" \
+  -F "cityId=5" \
+  -F "cityName=Pune" \
   -F "stateId=1" \
   -F "profilePhoto=@/path/to/photo.jpg"
 ```
@@ -560,6 +711,42 @@ curl -X GET http://localhost:3000/api/common/states
 curl -X GET http://localhost:3000/api/common/cities/1
 ```
 
+**Get Preferred Location:**
+```bash
+curl -X GET http://localhost:3000/api/profile/me/preferred-location \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+**Update Preferred Location:**
+```bash
+curl -X PUT http://localhost:3000/api/profile/me/preferred-location \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "preferredStateId": 1,
+    "preferredStateName": "Maharashtra",
+    "preferredCityId": 5,
+    "preferredCityName": "Pune",
+    "preferredLatitude": 18.5204,
+    "preferredLongitude": 73.8567
+  }'
+```
+
+**Clear Preferred Location:**
+```bash
+curl -X PUT http://localhost:3000/api/profile/me/preferred-location \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "preferredStateId": null,
+    "preferredStateName": null,
+    "preferredCityId": null,
+    "preferredCityName": null,
+    "preferredLatitude": null,
+    "preferredLongitude": null
+  }'
+```
+
 ---
 
 ## Notes
@@ -573,3 +760,6 @@ curl -X GET http://localhost:3000/api/common/cities/1
 7. Transaction support ensures atomic updates for profile changes
 8. Users can only access their own profile via `/me` endpoints
 9. Admins can access any user's profile via `/:userId` endpoints
+10. **Preferred location** is used for personalized search results and location-based notifications
+11. Preferred location fields are independent and can be updated individually or together
+12. Setting preferred location to null clears the preference

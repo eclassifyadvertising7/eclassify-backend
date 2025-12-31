@@ -2,7 +2,7 @@ import listingService from '#services/listingService.js';
 import carListingService from '#services/carListingService.js';
 import propertyListingService from '#services/propertyListingService.js';
 import listingMediaService from '#services/listingMediaService.js';
-import { successResponse, errorResponse, createResponse, validationErrorResponse } from '#utils/responseFormatter.js';
+import { successResponse, errorResponse, createResponse, validationErrorResponse, paymentRequiredResponse } from '#utils/responseFormatter.js';
 import { 
   parseListingData, 
   parseCarListingData, 
@@ -34,6 +34,11 @@ class ListingController {
       }
 
       const result = await listingService.create(listingData, categoryData, userId);
+      
+      if (result.quotaExceeded) {
+        return paymentRequiredResponse(res, result.message, result.data);
+      }
+      
       return createResponse(res, result.data, result.message);
     } catch (error) {
       return errorResponse(res, error.message, 400);
@@ -159,6 +164,11 @@ class ListingController {
       }
 
       const result = await listingService.submit(parseInt(id), userId);
+      
+      if (result.quotaExceeded) {
+        return paymentRequiredResponse(res, result.message, result.data);
+      }
+      
       return successResponse(res, result.data, result.message);
     } catch (error) {
       return errorResponse(res, error.message, 400);

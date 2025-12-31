@@ -47,6 +47,20 @@ router.get('/me/business', authenticate, ProfileController.getBusinessInfo);
 router.put('/me/business', authenticate, ProfileController.updateBusinessInfo);
 
 /**
+ * @route GET /api/profile/me/preferred-location
+ * @desc Get current user's preferred location
+ * @access Private (All authenticated users)
+ */
+router.get('/me/preferred-location', authenticate, ProfileController.getPreferredLocation);
+
+/**
+ * @route PUT /api/profile/me/preferred-location
+ * @desc Update current user's preferred location
+ * @access Private (All authenticated users)
+ */
+router.put('/me/preferred-location', authenticate, ProfileController.updatePreferredLocation);
+
+/**
  * @route GET /api/profile/:userId
  * @desc Get any user's profile by ID (Admin only)
  * @access Private (Admin/Super Admin)
