@@ -332,6 +332,18 @@ export async function up(queryInterface, Sequelize) {
     name: 'idx_listings_essential_data',
     using: 'GIN'
   });
+
+  // Add CHECK constraint to prevent negative total_favorites
+  await queryInterface.addConstraint('listings', {
+    fields: ['total_favorites'],
+    type: 'check',
+    name: 'check_total_favorites_non_negative',
+    where: {
+      total_favorites: {
+        [Sequelize.Op.gte]: 0
+      }
+    }
+  });
 }
 
 export async function down(queryInterface, Sequelize) {

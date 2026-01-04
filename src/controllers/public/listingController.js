@@ -10,7 +10,7 @@ class ListingController {
 
       const categoryIds = categories ? categories.split(',').map(id => parseInt(id)).filter(id => !isNaN(id)) : [];
       
-      const userLocation = LocationHelper.parseUserLocation(req);
+      const userLocation = await LocationHelper.parseUserLocation(req);
 
       const result = await listingService.getHomepageListings({
         categories: categoryIds,
@@ -55,7 +55,7 @@ class ListingController {
     try {
       const { categorySlugOrId } = req.params;
       const userId = req.user?.userId || null;
-      const userLocation = LocationHelper.parseUserLocation(req);
+      const userLocation = await LocationHelper.parseUserLocation(req);
       
       const isNumeric = /^\d+$/.test(categorySlugOrId);
       let category;
@@ -137,7 +137,7 @@ class ListingController {
   static async browse(req, res) {
     try {
       const userId = req.user?.userId || null;
-      const userLocation = LocationHelper.parseUserLocation(req);
+      const userLocation = await LocationHelper.parseUserLocation(req);
       
       if (req.query.categoryId) {
         const categoryId = parseInt(req.query.categoryId);
@@ -322,7 +322,7 @@ class ListingController {
       const userContext = {
         userId: req.user?.userId || null,
         sessionId: req.activityData?.sessionId || 'anonymous',
-        userLocation: LocationHelper.parseUserLocation(req),
+        userLocation: await LocationHelper.parseUserLocation(req),
         ipAddress: req.activityData?.ipAddress,
         userAgent: req.activityData?.userAgent,
         user: req.user
@@ -360,7 +360,7 @@ class ListingController {
         return successResponse(res, { suggestions: [] }, 'No suggestions for short query');
       }
 
-      const userLocation = LocationHelper.parseUserLocation(req);
+      const userLocation = await LocationHelper.parseUserLocation(req);
       const limitNum = Math.min(parseInt(limit), 10);
 
       const result = await listingService.getSearchSuggestions(query, userLocation, limitNum);
@@ -379,7 +379,7 @@ class ListingController {
   static async getSearchFilters(req, res) {
     try {
       const { categoryId } = req.params;
-      const userLocation = LocationHelper.parseUserLocation(req);
+      const userLocation = await LocationHelper.parseUserLocation(req);
 
       const result = await listingService.getSearchFilters(
         categoryId ? parseInt(categoryId) : null,
@@ -459,7 +459,7 @@ class ListingController {
         limit: Math.min(parseInt(limit), 50)
       };
 
-      const userLocation = LocationHelper.parseUserLocation(req);
+      const userLocation = await LocationHelper.parseUserLocation(req);
 
       const result = await listingService.getFeaturedListings(
         filters,

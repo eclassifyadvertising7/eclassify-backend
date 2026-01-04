@@ -4,14 +4,40 @@ class ScoringHelper {
 
     let baseScore = 0;
 
+    // Same city - highest score
     if (userLocation.cityId === listingLocation.cityId) {
       baseScore = 50;
-    } else if (userLocation.stateId === listingLocation.stateId) {
-      baseScore = 25;
-    } else {
+    } 
+    // Same state but different city - check distance if coordinates available
+    else if (userLocation.stateId === listingLocation.stateId) {
+      // If both have coordinates, use distance-based scoring
+      if (userLocation.latitude && userLocation.longitude && 
+          listingLocation.latitude && listingLocation.longitude) {
+        const distance = this.calculateDistance(
+          userLocation.latitude,
+          userLocation.longitude,
+          listingLocation.latitude,
+          listingLocation.longitude
+        );
+        
+        // Distance-based scoring within same state
+        if (distance <= 10) baseScore = 40;        // Within 10km
+        else if (distance <= 25) baseScore = 35;   // Within 25km
+        else if (distance <= 50) baseScore = 30;   // Within 50km
+        else if (distance <= 100) baseScore = 25;  // Within 100km
+        else if (distance <= 200) baseScore = 20;  // Within 200km
+        else baseScore = 15;                       // Beyond 200km but same state
+      } else {
+        // No coordinates, just same state
+        baseScore = 25;
+      }
+    } 
+    // Different state
+    else {
       baseScore = 0;
     }
 
+    // Apply multiplier based on source
     let multiplier = 1.0;
     
     if (userLocation.source) {
@@ -19,24 +45,32 @@ class ScoringHelper {
         case 'user_preferred':
           multiplier = 1.0;
           break;
-        case 'browser_geolocation':
-          multiplier = 0.9;
-          break;
         case 'user_profile':
-          multiplier = 0.8;
-          break;
-        case 'ip_geolocation':
-          multiplier = 0.6;
-          break;
-        case 'query_params':
-          multiplier = 0.5;
+          multiplier = 0.7;
           break;
         default:
-          multiplier = 0.3;
+          multiplier = 0.7;
       }
     }
 
     return Math.round(baseScore * multiplier);
+  }
+
+  static calculateDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371; // Earth's radius in kilometers
+    const dLat = this.toRadians(lat2 - lat1);
+    const dLon = this.toRadians(lon2 - lon1);
+    
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(this.toRadians(lat1)) * Math.cos(this.toRadians(lat2)) *
+              Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+
+  static toRadians(degrees) {
+    return degrees * (Math.PI / 180);
   }
 
   static calculatePaidListingScore(isPaidListing) {
@@ -68,6 +102,8 @@ class ScoringHelper {
     const {
       stateId,
       cityId,
+      latitude,
+      longitude,
       isPaidListing = false,
       isFeatured = false,
       featuredUntil = null,
@@ -85,7 +121,7 @@ class ScoringHelper {
     }
 
     const scores = {
-      location: this.calculateLocationScore(userLocation, { stateId, cityId }),
+      location: this.calculateLocationScore(userLocation, { stateId, cityId, latitude, longitude }),
       paid: this.calculatePaidListingScore(isPaidListing),
       featured: this.calculateFeaturedScore(isFeatured, featuredUntil),
       freshness: this.calculateFreshnessScore(timestamp)

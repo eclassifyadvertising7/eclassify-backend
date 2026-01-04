@@ -181,7 +181,7 @@ class ListingController {
       const userContext = {
         userId: req.user.id,
         sessionId: `admin_${req.user.id}`,
-        userLocation: LocationHelper.parseUserLocation(req),
+        userLocation: await LocationHelper.parseUserLocation(req),
         ipAddress: req.activityData?.ipAddress,
         userAgent: req.activityData?.userAgent,
         user: req.user,

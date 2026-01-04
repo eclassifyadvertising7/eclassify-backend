@@ -59,7 +59,7 @@ class ListingController {
   static async getFeed(req, res) {
     try {
       const userId = req.user.userId;
-      const userLocation = LocationHelper.parseUserLocation(req);
+      const userLocation = await LocationHelper.parseUserLocation(req);
 
       const filters = {
         status: 'active',
@@ -88,7 +88,7 @@ class ListingController {
   static async getMyListings(req, res) {
     try {
       const userId = req.user.userId;
-      const userLocation = LocationHelper.parseUserLocation(req);
+      const userLocation = await LocationHelper.parseUserLocation(req);
 
       const filters = {
         userId,
@@ -325,7 +325,7 @@ class ListingController {
       const userContext = {
         userId: req.user.userId,
         sessionId: req.activityData?.sessionId || `user_${req.user.userId}`,
-        userLocation: LocationHelper.parseUserLocation(req),
+        userLocation: await LocationHelper.parseUserLocation(req),
         ipAddress: req.activityData?.ipAddress,
         userAgent: req.activityData?.userAgent,
         user: req.user
@@ -354,7 +354,7 @@ class ListingController {
         return successResponse(res, { suggestions: [] }, 'No suggestions for short query');
       }
 
-      const userLocation = LocationHelper.parseUserLocation(req);
+      const userLocation = await LocationHelper.parseUserLocation(req);
       const limitNum = Math.min(parseInt(limit), 10);
 
       const result = await listingService.getSearchSuggestions(query, userLocation, limitNum);
@@ -373,7 +373,7 @@ class ListingController {
   static async getSearchFilters(req, res) {
     try {
       const { categoryId } = req.params;
-      const userLocation = LocationHelper.parseUserLocation(req);
+      const userLocation = await LocationHelper.parseUserLocation(req);
 
       const result = await listingService.getSearchFilters(
         categoryId ? parseInt(categoryId) : null,
