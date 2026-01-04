@@ -70,6 +70,7 @@ class GoogleAuthController {
                   planName: freePlan.name,
                   planCode: freePlan.planCode,
                   planVersion: freePlan.version,
+                  isFreePlan: freePlan.isFreePlan,
                   status: 'active',
                   activatedAt,
                   endsAt,

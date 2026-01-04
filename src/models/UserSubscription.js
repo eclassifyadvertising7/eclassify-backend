@@ -93,6 +93,12 @@ export default (sequelize) => {
       allowNull: false,
       field: 'plan_version'
     },
+    isFreePlan: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+      field: 'is_free_plan'
+    },
     // Pricing Snapshot
     basePrice: {
       type: DataTypes.DECIMAL(10, 2),

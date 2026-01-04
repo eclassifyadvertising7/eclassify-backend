@@ -5,9 +5,10 @@ import otherMediaRepository from '#repositories/otherMediaRepository.js';
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '#utils/constants/messages.js';
 import { transformPaymentProofMetadata } from '#utils/temp/manualPaymentHelper.js';
 import { generateInvoiceNumber, generateTransactionNumber } from '#utils/invoiceNumberGenerator.js';
-import { customSlugify, generateFileName } from '#utils/customSlugify.js';
+import { customSlugify } from '#utils/customSlugify.js';
 import { deleteFile } from '#config/storageConfig.js';
 import { sequelize } from '#models/index.js';
+import { Op } from 'sequelize';
 
 /**
  * ManualPaymentService - TEMPORARY service for manual payment verification
@@ -36,13 +37,7 @@ class ManualPaymentService {
         throw new Error('UPI ID and Transaction ID are required');
       }
 
-      // Check if user already has active subscription
-      const hasActive = await subscriptionRepository.hasActiveSubscription(userId);
-      if (hasActive) {
-        throw new Error('User already has an active subscription');
-      }
-
-      // Get plan details
+      // Get plan details first
       const plan = await subscriptionRepository.findPlanById(planId);
 
       if (!plan) {
@@ -51,6 +46,71 @@ class ManualPaymentService {
 
       if (!plan.isActive || !plan.isPublic) {
         throw new Error('Plan is not available for subscription');
+      }
+
+      // Check if user already has active subscription for this plan's category
+      const existingSubscription = await subscriptionRepository.getUserActiveSubscriptionByCategory(
+        userId,
+        plan.categoryId
+      );
+
+      if (existingSubscription) {
+        // If user has free plan, allow upgrade without quota check
+        if (existingSubscription.isFreePlan) {
+          // Free plan user can upgrade anytime - no quota check needed
+        } else {
+          // Paid plan user - check if quota is exhausted
+          const { Listing } = await import('#models/index.js');
+          const listingCount = await Listing.count({
+            where: {
+              userId,
+              userSubscriptionId: existingSubscription.id,
+              status: {
+                [Op.in]: ['pending', 'active', 'sold', 'expired']
+              }
+            }
+          });
+
+          // If quota not exhausted, don't allow upgrade
+          if (listingCount < existingSubscription.listingQuotaLimit) {
+            throw new Error(
+              `Cannot upgrade. You have used ${listingCount} of ${existingSubscription.listingQuotaLimit} listings. Please exhaust your current quota before upgrading.`
+            );
+          }
+        }
+      }
+
+      // Special validation for free plan subscriptions
+      if (plan.isFreePlan) {
+        // Check if user already has active free plan for this category
+        if (existingSubscription && existingSubscription.isFreePlan) {
+          throw new Error('You already have an active free plan for this category');
+        }
+
+        // Check if user has exhausted quota (if they have a paid plan)
+        if (existingSubscription && !existingSubscription.isFreePlan) {
+          const { Listing } = await import('#models/index.js');
+          const listingCount = await Listing.count({
+            where: {
+              userId,
+              userSubscriptionId: existingSubscription.id,
+              status: {
+                [Op.in]: ['pending', 'active', 'sold', 'expired']
+              }
+            }
+          });
+
+          if (listingCount < existingSubscription.listingQuotaLimit) {
+            throw new Error(
+              `Cannot downgrade to free plan. You have used ${listingCount} of ${existingSubscription.listingQuotaLimit} listings. Please exhaust your current quota first.`
+            );
+          }
+        }
+      }
+
+      // Free plans cannot use manual payment flow
+      if (plan.isFreePlan) {
+        throw new Error('Free plans cannot be purchased through manual payment. Please use the regular subscription flow.');
       }
 
       // Calculate temporary dates (will be recalculated on verification)
@@ -73,6 +133,7 @@ class ManualPaymentService {
         planName: plan.name,
         planCode: plan.planCode,
         planVersion: plan.version,
+        isFreePlan: plan.isFreePlan,
         
         // Snapshot pricing
         basePrice: plan.basePrice,
@@ -135,6 +196,19 @@ class ManualPaymentService {
         userId
       );
 
+      // Expire previous subscription if exists
+      if (existingSubscription) {
+        await subscriptionRepository.updateSubscription(
+          existingSubscription.id,
+          {
+            status: 'expired',
+            endsAt: new Date(),
+            notes: `${existingSubscription.notes || ''}\nExpired due to upgrade to new plan on ${new Date().toISOString()}`
+          },
+          userId
+        );
+      }
+
       // Generate invoice number
       const invoiceNumber = await generateInvoiceNumber(transaction);
 
@@ -150,6 +224,7 @@ class ManualPaymentService {
         planName: plan.name,
         planCode: plan.planCode,
         planVersion: plan.version,
+        isFreePlan: plan.isFreePlan,
         planSnapshot: plan.toJSON(),
         subtotal: plan.finalPrice,
         discountAmount: 0,

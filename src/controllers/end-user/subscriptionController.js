@@ -62,14 +62,12 @@ class SubscriptionController {
         return errorResponse(res, 'Plan ID is required', 400);
       }
 
-      if (!paymentData || !paymentData.paymentMethod || !paymentData.transactionId) {
-        return errorResponse(res, 'Payment data with payment method and transaction ID are required', 400);
-      }
-
+      // Payment data is optional for free plans, required for paid plans
+      // Service layer will validate based on plan type
       const result = await subscriptionService.subscribeToPlan(
         userId,
         parseInt(planId),
-        paymentData
+        paymentData || {}
       );
 
       return createResponse(res, result.data, result.message);

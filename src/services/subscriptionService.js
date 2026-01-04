@@ -4,9 +4,7 @@ import transactionRepository from "#repositories/transactionRepository.js";
 import quotaService from "#services/quotaService.js";
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from "#utils/constants/messages.js";
 import { customSlugify } from "#utils/customSlugify.js";
-import db from "#models/index.js";
-
-const { sequelize } = db;
+import db, { sequelize } from "#models/index.js";
 
 /**
  * SubscriptionService - Business logic for subscription management
@@ -401,17 +399,173 @@ class SubscriptionService {
           userId,
           plan.categoryId
         );
+      
       if (existingCategorySubscription) {
-        throw new Error(
-          "User already has an active subscription for this category"
-        );
+        // If user has free plan, allow upgrade without quota check
+        if (existingCategorySubscription.isFreePlan) {
+          // Free plan user can upgrade anytime - no quota check needed
+        } else {
+          // Paid plan user - check if quota is exhausted
+          const { Listing } = db;
+          const listingCount = await Listing.count({
+            where: {
+              userId,
+              userSubscriptionId: existingCategorySubscription.id,
+              status: {
+                [db.Sequelize.Op.in]: ['pending', 'active', 'sold', 'expired']
+              }
+            }
+          });
+
+          // If quota not exhausted, don't allow upgrade
+          if (listingCount < existingCategorySubscription.listingQuotaLimit) {
+            throw new Error(
+              `Cannot upgrade. You have used ${listingCount} of ${existingCategorySubscription.listingQuotaLimit} listings. Please exhaust your current quota before upgrading.`
+            );
+          }
+        }
+      }
+
+      // Special validation for free plan subscriptions
+      if (plan.isFreePlan) {
+        // Check if user already has active free plan for this category
+        if (existingCategorySubscription && existingCategorySubscription.isFreePlan) {
+          throw new Error('You already have an active free plan for this category');
+        }
+
+        // Check if user has exhausted quota (if they have a paid plan)
+        if (existingCategorySubscription && !existingCategorySubscription.isFreePlan) {
+          const { Listing } = db;
+          const listingCount = await Listing.count({
+            where: {
+              userId,
+              userSubscriptionId: existingCategorySubscription.id,
+              status: {
+                [db.Sequelize.Op.in]: ['pending', 'active', 'sold', 'expired']
+              }
+            }
+          });
+
+          if (listingCount < existingCategorySubscription.listingQuotaLimit) {
+            throw new Error(
+              `Cannot downgrade to free plan. You have used ${listingCount} of ${existingCategorySubscription.listingQuotaLimit} listings. Please exhaust your current quota first.`
+            );
+          }
+        }
       }
 
       if (!plan.isActive || !plan.isPublic) {
         throw new Error("Plan is not available for subscription");
       }
 
-      // Validate payment gateway data
+      // For free plans, skip payment validation and auto-activate
+      if (plan.isFreePlan) {
+        // Calculate subscription period for free plan
+        const activatedAt = new Date();
+        const endsAt = new Date(activatedAt);
+        endsAt.setDate(endsAt.getDate() + plan.durationDays);
+
+        // Create subscription with ACTIVE status (auto-approved)
+        const subscriptionData = {
+          userId,
+          planId: plan.id,
+          endsAt,
+          activatedAt,
+          status: "active",
+          isTrial: false,
+          trialEndsAt: null,
+          autoRenew: false,
+
+          // Snapshot plan identification
+          planName: plan.name,
+          planCode: plan.planCode,
+          planVersion: plan.version,
+          isFreePlan: plan.isFreePlan,
+
+          // Snapshot pricing (free)
+          basePrice: 0,
+          discountAmount: 0,
+          finalPrice: 0,
+          currency: plan.currency,
+          billingCycle: plan.billingCycle,
+          durationDays: plan.durationDays,
+
+          // Snapshot quotas
+          maxTotalListings: plan.maxTotalListings,
+          maxActiveListings: plan.maxActiveListings,
+          listingQuotaLimit: plan.listingQuotaLimit,
+          listingQuotaRollingDays: plan.listingQuotaRollingDays,
+
+          // Snapshot featured & promotional
+          maxFeaturedListings: plan.maxFeaturedListings,
+          maxBoostedListings: plan.maxBoostedListings,
+          maxSpotlightListings: plan.maxSpotlightListings,
+          maxHomepageListings: plan.maxHomepageListings,
+          featuredDays: plan.featuredDays,
+          boostedDays: plan.boostedDays,
+          spotlightDays: plan.spotlightDays,
+
+          // Snapshot visibility & priority
+          priorityScore: plan.priorityScore,
+          searchBoostMultiplier: plan.searchBoostMultiplier,
+          recommendationBoostMultiplier: plan.recommendationBoostMultiplier,
+          crossCityVisibility: plan.crossCityVisibility,
+          nationalVisibility: plan.nationalVisibility,
+
+          // Snapshot listing management
+          autoRenewalEnabled: plan.autoRenewal,
+          maxRenewals: plan.maxRenewals,
+          listingDurationDays: plan.listingDurationDays,
+          autoRefreshEnabled: plan.autoRefreshEnabled,
+          refreshFrequencyDays: plan.refreshFrequencyDays,
+          manualRefreshPerCycle: plan.manualRefreshPerCycle,
+          isAutoApproveEnabled: plan.isAutoApproveEnabled,
+
+          // Snapshot support & features
+          supportLevel: plan.supportLevel,
+          features: plan.features,
+
+          // Payment info (free assignment)
+          paymentMethod: "free_plan",
+          transactionId: null,
+          amountPaid: 0,
+
+          // Metadata
+          metadata: { 
+            autoActivated: true,
+            activatedAt: new Date().toISOString()
+          },
+          notes: "Free plan - Auto-activated",
+        };
+
+        const subscription = await subscriptionRepository.createSubscription(
+          subscriptionData,
+          userId
+        );
+
+        // Expire previous subscription if exists
+        if (existingCategorySubscription) {
+          await subscriptionRepository.updateSubscription(
+            existingCategorySubscription.id,
+            {
+              status: "expired",
+              endsAt: new Date(),
+              notes: `${existingCategorySubscription.notes || ""}\nExpired due to upgrade to new plan on ${new Date().toISOString()}`,
+            },
+            userId
+          );
+        }
+
+        await transaction.commit();
+
+        return {
+          success: true,
+          message: "Free plan activated successfully",
+          data: subscription,
+        };
+      }
+
+      // Validate payment gateway data (for paid plans only)
       if (!paymentData.paymentMethod || !paymentData.transactionId) {
         throw new Error("Payment method and transaction ID are required");
       }
@@ -434,7 +588,7 @@ class SubscriptionService {
       const endsAt = new Date(activatedAt);
       endsAt.setDate(endsAt.getDate() + plan.durationDays);
 
-      // Create subscription with ACTIVE status
+      // Create subscription with ACTIVE status (for paid plans after payment verification)
       const subscriptionData = {
         userId,
         planId: plan.id,
@@ -449,6 +603,7 @@ class SubscriptionService {
         planName: plan.name,
         planCode: plan.planCode,
         planVersion: plan.version,
+        isFreePlan: plan.isFreePlan,
 
         // Snapshot pricing
         basePrice: plan.basePrice,
@@ -487,6 +642,7 @@ class SubscriptionService {
         autoRefreshEnabled: plan.autoRefreshEnabled,
         refreshFrequencyDays: plan.refreshFrequencyDays,
         manualRefreshPerCycle: plan.manualRefreshPerCycle,
+        isAutoApproveEnabled: plan.isAutoApproveEnabled,
 
         // Snapshot support & features
         supportLevel: plan.supportLevel,
@@ -507,6 +663,19 @@ class SubscriptionService {
         userId
       );
 
+      // Expire previous subscription if exists
+      if (existingCategorySubscription) {
+        await subscriptionRepository.updateSubscription(
+          existingCategorySubscription.id,
+          {
+            status: 'expired',
+            endsAt: new Date(),
+            notes: `${existingCategorySubscription.notes || ''}\nExpired due to upgrade to new plan on ${new Date().toISOString()}`
+          },
+          userId
+        );
+      }
+
       // Create invoice with PAID status using invoice repository
       const invoice = await invoiceRepository.create(
         {
@@ -519,6 +688,7 @@ class SubscriptionService {
           planName: plan.name,
           planCode: plan.planCode,
           planVersion: plan.version,
+          isFreePlan: plan.isFreePlan,
           planSnapshot: plan.toJSON(),
           subtotal: plan.finalPrice,
           discountAmount: 0,
@@ -864,10 +1034,59 @@ class SubscriptionService {
           userId,
           plan.categoryId
         );
+      
       if (existingCategorySubscription) {
-        throw new Error(
-          "User already has an active subscription for this category"
-        );
+        // If user has free plan, allow upgrade without quota check
+        if (existingCategorySubscription.isFreePlan) {
+          // Free plan user can upgrade anytime - no quota check needed
+        } else {
+          // Paid plan user - check if quota is exhausted
+          const { Listing } = db;
+          const listingCount = await Listing.count({
+            where: {
+              userId,
+              userSubscriptionId: existingCategorySubscription.id,
+              status: {
+                [db.Sequelize.Op.in]: ['pending', 'active', 'sold', 'expired']
+              }
+            }
+          });
+
+          // If quota not exhausted, don't allow upgrade
+          if (listingCount < existingCategorySubscription.listingQuotaLimit) {
+            throw new Error(
+              `Cannot upgrade. You have used ${listingCount} of ${existingCategorySubscription.listingQuotaLimit} listings. Please exhaust your current quota before upgrading.`
+            );
+          }
+        }
+      }
+
+      // Special validation for free plan subscriptions
+      if (plan.isFreePlan) {
+        // Check if user already has active free plan for this category
+        if (existingCategorySubscription && existingCategorySubscription.isFreePlan) {
+          throw new Error('You already have an active free plan for this category');
+        }
+
+        // Check if user has exhausted quota (if they have a paid plan)
+        if (existingCategorySubscription && !existingCategorySubscription.isFreePlan) {
+          const { Listing } = db;
+          const listingCount = await Listing.count({
+            where: {
+              userId,
+              userSubscriptionId: existingCategorySubscription.id,
+              status: {
+                [db.Sequelize.Op.in]: ['pending', 'active', 'sold', 'expired']
+              }
+            }
+          });
+
+          if (listingCount < existingCategorySubscription.listingQuotaLimit) {
+            throw new Error(
+              `Cannot downgrade to free plan. You have used ${listingCount} of ${existingCategorySubscription.listingQuotaLimit} listings. Please exhaust your current quota first.`
+            );
+          }
+        }
       }
 
       // Calculate dates if not provided
@@ -893,6 +1112,7 @@ class SubscriptionService {
         planName: plan.name,
         planCode: plan.planCode,
         planVersion: plan.version,
+        isFreePlan: plan.isFreePlan,
 
         // Snapshot pricing
         basePrice: plan.basePrice,
@@ -950,6 +1170,19 @@ class SubscriptionService {
         newSubscriptionData,
         adminUserId
       );
+
+      // Expire previous subscription if exists
+      if (existingCategorySubscription) {
+        await subscriptionRepository.updateSubscription(
+          existingCategorySubscription.id,
+          {
+            status: 'expired',
+            endsAt: new Date(),
+            notes: `${existingCategorySubscription.notes || ''}\nExpired due to manual upgrade by admin on ${new Date().toISOString()}`
+          },
+          adminUserId
+        );
+      }
 
       await transaction.commit();
 
@@ -1204,6 +1437,7 @@ class SubscriptionService {
             planName: plan.name,
             planCode: plan.planCode,
             planVersion: plan.version,
+            isFreePlan: plan.isFreePlan,
 
             // Snapshot pricing (free)
             basePrice: 0,

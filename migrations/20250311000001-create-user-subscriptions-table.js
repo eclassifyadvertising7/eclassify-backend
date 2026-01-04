@@ -88,6 +88,11 @@ export async function up(queryInterface, Sequelize) {
       type: Sequelize.INTEGER,
       allowNull: false
     },
+    is_free_plan: {
+      type: Sequelize.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+    },
     // Pricing Snapshot
     base_price: {
       type: Sequelize.DECIMAL(10, 2),

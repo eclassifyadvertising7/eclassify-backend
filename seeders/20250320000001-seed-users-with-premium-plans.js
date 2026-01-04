@@ -148,7 +148,7 @@ export async function up(queryInterface, Sequelize) {
       cross_city_visibility, national_visibility,
       auto_renewal, max_renewals, listing_duration_days, auto_refresh_enabled,
       refresh_frequency_days, manual_refresh_per_cycle, is_auto_approve_enabled,
-      support_level, features
+      support_level, features, is_free_plan
     FROM subscription_plans 
     WHERE id IN (${carsPremiumPlan.id}, ${propertiesPremiumPlan.id})
   `);
@@ -173,6 +173,7 @@ export async function up(queryInterface, Sequelize) {
       plan_name: carsPremiumPlanDetails.name,
       plan_code: carsPremiumPlanDetails.plan_code,
       plan_version: carsPremiumPlanDetails.version,
+      is_free_plan: carsPremiumPlanDetails.is_free_plan,
       // Pricing snapshot
       base_price: carsPremiumPlanDetails.base_price,
       discount_amount: carsPremiumPlanDetails.discount_amount,
@@ -239,6 +240,7 @@ export async function up(queryInterface, Sequelize) {
       plan_name: propertiesPremiumPlanDetails.name,
       plan_code: propertiesPremiumPlanDetails.plan_code,
       plan_version: propertiesPremiumPlanDetails.version,
+      is_free_plan: propertiesPremiumPlanDetails.is_free_plan,
       // Pricing snapshot
       base_price: propertiesPremiumPlanDetails.base_price,
       discount_amount: propertiesPremiumPlanDetails.discount_amount,
