@@ -10,6 +10,9 @@ router.use(authenticate);
 // Get user's favorites with pagination and filters
 router.get('/get/favorites', UserFavoriteController.getUserFavorites);
 
+// Get only listing IDs of user's favorites
+router.get('/favorites/ids', UserFavoriteController.getFavoriteListingIds);
+
 // Add listing to favorites
 router.post('/create/favorites', UserFavoriteController.addFavorite);
 

@@ -28,7 +28,7 @@ class CarDataService {
   }
 
   /**
-   * Get all car brands for public (grouped by featured and all, active only)
+   * Get all car brands for public (grouped by popular and all, active only)
    * @param {Object} filters - Filter options
    * @returns {Promise<Object>}
    */
@@ -126,6 +126,34 @@ class CarDataService {
     return {
       success: true,
       message: 'Car brand updated successfully',
+      data: updatedBrand
+    };
+  }
+
+  /**
+   * Update brand popular status
+   * @param {number} id - Brand ID
+   * @param {boolean} isPopular - Popular status
+   * @param {number} userId - User ID
+   * @param {string} userName - User name
+   * @returns {Promise<Object>}
+   */
+  async updateBrandPopularStatus(id, isPopular, userId, userName) {
+    const brand = await carBrandRepository.getById(id);
+
+    if (!brand) {
+      throw new Error('Car brand not found');
+    }
+
+    const updatedBrand = await carBrandRepository.update(
+      id,
+      { isPopular },
+      { userId, userName }
+    );
+
+    return {
+      success: true,
+      message: `Car brand ${isPopular ? 'marked as popular' : 'unmarked as popular'} successfully`,
       data: updatedBrand
     };
   }

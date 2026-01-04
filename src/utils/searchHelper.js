@@ -138,32 +138,48 @@ class SearchHelper {
    * @returns {Array} Sequelize order array
    */
   static buildSearchOrder(query, sortBy = 'relevance', userLocation = null) {
+    const orderClauses = [];
+
     switch (sortBy) {
       case 'price_low':
       case 'price_asc':
-        return [['price', 'ASC']];
+        orderClauses.push(['price', 'ASC']);
+        orderClauses.push(['id', 'ASC']);
+        return orderClauses;
       
       case 'price_high':
       case 'price_desc':
-        return [['price', 'DESC']];
+        orderClauses.push(['price', 'DESC']);
+        orderClauses.push(['id', 'DESC']);
+        return orderClauses;
       
       case 'date_new':
       case 'date_desc':
-        return [['created_at', 'DESC']];
+        orderClauses.push(['created_at', 'DESC']);
+        orderClauses.push(['id', 'DESC']);
+        return orderClauses;
       
       case 'date_old':
       case 'date_asc':
-        return [['created_at', 'ASC']];
+        orderClauses.push(['created_at', 'ASC']);
+        orderClauses.push(['id', 'ASC']);
+        return orderClauses;
+      
+      case 'views':
+        orderClauses.push(['view_count', 'DESC']);
+        orderClauses.push(['id', 'DESC']);
+        return orderClauses;
+      
+      case 'favorites':
+        orderClauses.push(['total_favorites', 'DESC']);
+        orderClauses.push(['id', 'DESC']);
+        return orderClauses;
       
       case 'relevance':
       default:
-        const orderClauses = [];
-
-        // Text search ranking (if query provided)
         if (query && query.trim()) {
           const searchQuery = query.trim().replace(/[^\w\s]/g, '');
           if (searchQuery) {
-            // Use Sequelize's safe parameter binding with qualified column names
             orderClauses.push([
               sequelize.fn(
                 'ts_rank',
@@ -185,9 +201,7 @@ class SearchHelper {
           }
         }
 
-        // Location-based ordering (if user location available)
         if (userLocation && userLocation.stateId && userLocation.cityId) {
-          // Prioritize same city, then same state
           orderClauses.push(
             sequelize.literal(`
               CASE 
@@ -199,10 +213,10 @@ class SearchHelper {
           );
         }
 
-        // Standard priority ordering
         orderClauses.push(['is_featured', 'DESC']);
         orderClauses.push(['is_paid_listing', 'DESC']);
         orderClauses.push(['created_at', 'DESC']);
+        orderClauses.push(['id', 'DESC']);
 
         return orderClauses;
     }

@@ -2,7 +2,8 @@ import listingService from '#services/listingService.js';
 import carListingService from '#services/carListingService.js';
 import propertyListingService from '#services/propertyListingService.js';
 import listingMediaService from '#services/listingMediaService.js';
-import { successResponse, errorResponse, createResponse, validationErrorResponse, paymentRequiredResponse } from '#utils/responseFormatter.js';
+import categoryRepository from '#repositories/categoryRepository.js';
+import { successResponse, errorResponse, createResponse, validationErrorResponse, paymentRequiredResponse, paginatedResponse } from '#utils/responseFormatter.js';
 import { 
   parseListingData, 
   parseCarListingData, 
@@ -17,15 +18,25 @@ class ListingController {
 
       const listingData = parseListingData(req.body);
 
-      let categoryData = null;
+      if (!listingData.categoryId) {
+        return errorResponse(res, 'Category is required', 400);
+      }
 
-      if (req.body.categoryType === 'car') {
+      const category = await categoryRepository.getById(listingData.categoryId);
+      if (!category) {
+        return errorResponse(res, 'Invalid category', 400);
+      }
+
+      let categoryData = null;
+      const categorySlug = category.slug.toLowerCase();
+
+      if (categorySlug === 'cars' || categorySlug === 'car') {
         const carData = parseCarListingData(req.body);
         categoryData = {
           type: 'car',
           data: carListingService.prepareCarData(carData)
         };
-      } else if (req.body.categoryType === 'property') {
+      } else if (categorySlug === 'properties' || categorySlug === 'property') {
         const propertyData = parsePropertyListingData(req.body);
         categoryData = {
           type: 'property',
@@ -48,6 +59,7 @@ class ListingController {
   static async getFeed(req, res) {
     try {
       const userId = req.user.userId;
+      const userLocation = LocationHelper.parseUserLocation(req);
 
       const filters = {
         status: 'active',
@@ -58,7 +70,7 @@ class ListingController {
         minPrice: req.query.minPrice ? parseFloat(req.query.minPrice) : undefined,
         maxPrice: req.query.maxPrice ? parseFloat(req.query.maxPrice) : undefined,
         search: req.query.search,
-        sortBy: req.query.sortBy || 'date_desc'
+        sortBy: req.query.sortBy || 'relevance'
       };
 
       const pagination = {
@@ -66,9 +78,8 @@ class ListingController {
         limit: req.query.limit ? parseInt(req.query.limit) : 20
       };
 
-      // TODO: Add personalization logic based on user preferences, browsing history, location
-      const result = await listingService.getAll(filters, pagination, userId);
-      return successResponse(res, result.data, 'Personalized feed retrieved successfully', result.pagination);
+      const result = await listingService.getAll(filters, pagination, userId, userLocation);
+      return paginatedResponse(res, result.data, result.pagination, 'Personalized feed retrieved successfully');
     } catch (error) {
       return errorResponse(res, error.message, 400);
     }
@@ -77,6 +88,7 @@ class ListingController {
   static async getMyListings(req, res) {
     try {
       const userId = req.user.userId;
+      const userLocation = LocationHelper.parseUserLocation(req);
 
       const filters = {
         userId,
@@ -90,8 +102,8 @@ class ListingController {
         limit: req.query.limit ? parseInt(req.query.limit) : 20
       };
 
-      const result = await listingService.getAll(filters, pagination, userId);
-      return successResponse(res, result.data, result.message, result.pagination);
+      const result = await listingService.getAll(filters, pagination, userId, userLocation);
+      return paginatedResponse(res, result.data, result.pagination, result.message);
     } catch (error) {
       return errorResponse(res, error.message, 400);
     }
@@ -132,13 +144,13 @@ class ListingController {
 
       let categoryData = null;
 
-      if (body.categoryType === 'car' && body.carData) {
+      if (body.carData) {
         const carData = typeof body.carData === 'string' ? JSON.parse(body.carData) : body.carData;
         categoryData = {
           type: 'car',
           data: carListingService.prepareCarData(carData)
         };
-      } else if (body.categoryType === 'property' && body.propertyData) {
+      } else if (body.propertyData) {
         const propertyData = typeof body.propertyData === 'string' ? JSON.parse(body.propertyData) : body.propertyData;
         categoryData = {
           type: 'property',
@@ -324,7 +336,7 @@ class ListingController {
       const result = await listingService.searchListings(searchParams, userContext, pagination);
 
       if (result.success) {
-        return successResponse(res, result.data, result.message);
+        return paginatedResponse(res, result.data.listings, result.data.pagination, result.message);
       } else {
         return errorResponse(res, result.message, 500);
       }

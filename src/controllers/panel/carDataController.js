@@ -79,6 +79,30 @@ class CarDataController {
     }
   }
 
+  static async updateBrandPopularStatus(req, res) {
+    try {
+      const { id } = req.params;
+      const { isPopular } = req.body;
+
+      if (isPopular === undefined) {
+        return errorResponse(res, 'isPopular field is required', 400);
+      }
+
+      const userId = req.user.userId;
+      const userName = req.user.email || req.user.mobile;
+
+      const result = await carDataService.updateBrandPopularStatus(
+        parseInt(id),
+        isPopular === 'true' || isPopular === true,
+        userId,
+        userName
+      );
+      return successResponse(res, result.data, result.message);
+    } catch (error) {
+      return errorResponse(res, error.message, 400);
+    }
+  }
+
   static async deleteBrand(req, res) {
     try {
       const { id } = req.params;

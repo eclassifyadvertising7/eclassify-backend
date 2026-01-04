@@ -535,6 +535,63 @@ GET /api/public/listings/honda-city-vx-2020-excellent-condition-a1b2c3
 
 **Success Response (200 OK):**
 
+Same as detailed listing response (see below).
+
+**Error Response (404 Not Found):**
+
+```json
+{
+  "success": false,
+  "message": "Listing not found"
+}
+```
+
+---
+
+### 4.1. Get Listing by Share Code
+
+**Endpoint:** `GET /api/public/listings/share/:shareCode`
+
+**Description:** Fetch detailed information about a specific listing using its unique share code. Share codes are short, alphanumeric codes (7 characters) that make listings easy to share via SMS, social media, or word of mouth.
+
+**Authentication:** Not required (public endpoint)
+
+**Use Case:** 
+- Quick sharing via SMS or messaging apps
+- Short URLs for social media
+- Easy verbal communication of listing references
+- QR code generation for print materials
+
+#### URL Parameters
+
+| Parameter | Type | Description | Example |
+|-----------|------|-------------|---------|
+| `shareCode` | string | Unique 7-character share code | `/share/A2B3C4D` |
+
+#### Share Code Format
+
+- **Length:** 7 characters
+- **Characters:** Uppercase letters (A-Z, excluding I, O) and numbers (2-9)
+- **Example:** `A2B3C4D`, `XYZ1234`, `K5M7N9P`
+- **Uniqueness:** Guaranteed unique across all listings
+- **Case-insensitive:** `a2b3c4d` and `A2B3C4D` are treated the same
+
+#### Example Requests
+
+**Get listing by share code:**
+```
+GET /api/public/listings/share/A2B3C4D
+```
+
+**Share code in URL (case-insensitive):**
+```
+GET /api/public/listings/share/a2b3c4d
+```
+
+#### Response Format
+
+**Success Response (200 OK):**
+
 ```json
 {
   "success": true,
@@ -657,14 +714,46 @@ GET /api/public/listings/honda-city-vx-2020-excellent-condition-a1b2c3
 }
 ```
 
-**Error Response (404 Not Found):**
+**Error Responses:**
 
+**404 Not Found (Listing Not Found):**
 ```json
 {
   "success": false,
   "message": "Listing not found"
 }
 ```
+
+**404 Not Found (Listing Not Active):**
+```json
+{
+  "success": false,
+  "message": "Listing is not approved or active"
+}
+```
+
+**400 Bad Request (Invalid Share Code):**
+```json
+{
+  "success": false,
+  "message": "Share code is required",
+  "errors": [
+    {
+      "field": "shareCode",
+      "message": "Share code is required"
+    }
+  ]
+}
+```
+
+#### Notes
+
+- Share codes are automatically generated when a listing is created
+- Share codes are case-insensitive for user convenience
+- Only **active** listings can be accessed via share code
+- Share codes never expire (they remain valid as long as the listing exists)
+- Share codes are unique across the entire platform
+- If share code generation fails, the listing is still created (share code can be regenerated later)
 
 ---
 

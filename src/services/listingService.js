@@ -45,8 +45,9 @@ class ListingService {
     
     this._validateRequiredFields(listingData);
 
-    if (!listingData.categoryType) {
-      throw new Error('Category type is required');
+    const category = await categoryRepository.getById(listingData.categoryId);
+    if (!category) {
+      throw new Error('Invalid category');
     }
 
     console.log(`[LISTING CREATE] Checking eligibility...`);
@@ -54,6 +55,7 @@ class ListingService {
     console.log(`[LISTING CREATE] Eligibility result:`, JSON.stringify(eligibility, null, 2));
 
     listingData.userId = userId;
+    listingData.categorySlug = category.slug;
     listingData.createdBy = userId;
     listingData.status = 'draft';
     listingData.isAutoApproved = false;
@@ -172,8 +174,43 @@ class ListingService {
     };
   }
 
-  async getAll(filters = {}, pagination = {}, userId = null) {
-    const result = await listingRepository.getAll(filters, pagination, userId);
+  async getByShareCode(shareCode, userId = null) {
+    if (!shareCode || shareCode.trim().length === 0) {
+      throw new Error('Share code is required');
+    }
+
+    const listing = await listingRepository.findByShareCode(shareCode.trim());
+
+    if (!listing) {
+      throw new Error(ERROR_MESSAGES.LISTING_NOT_FOUND);
+    }
+
+    if (listing.status !== 'active') {
+      throw new Error(ERROR_MESSAGES.LISTING_NOT_APPROVED);
+    }
+
+    const completeListing = await listingRepository.getById(listing.id, { includeAll: true }, userId);
+
+    return {
+      success: true,
+      message: SUCCESS_MESSAGES.LISTING_FETCHED,
+      data: completeListing
+    };
+  }
+
+  async getAllForAdmin(filters = {}, pagination = {}) {
+    const result = await listingRepository.getAllForAdmin(filters, pagination);
+
+    return {
+      success: true,
+      message: SUCCESS_MESSAGES.LISTINGS_FETCHED,
+      data: result.listings,
+      pagination: result.pagination
+    };
+  }
+
+  async getAll(filters = {}, pagination = {}, userId = null, userLocation = null) {
+    const result = await listingRepository.getAll(filters, pagination, userId, userLocation);
 
     return {
       success: true,
@@ -204,6 +241,14 @@ class ListingService {
 
     if (updateData.description && updateData.description.length < 50) {
       throw new Error('Description must be at least 50 characters');
+    }
+
+    if (updateData.categoryId && updateData.categoryId !== listing.categoryId) {
+      const category = await categoryRepository.getById(updateData.categoryId);
+      if (!category) {
+        throw new Error('Invalid category');
+      }
+      updateData.categorySlug = category.slug;
     }
 
     await listingRepository.update(id, updateData, { userId });
@@ -715,8 +760,7 @@ class ListingService {
     try {
       const searchParams = {
         ...filters,
-        featuredOnly: true,
-        sortBy: 'relevance'
+        featuredOnly: true
       };
 
       const result = await listingRepository.searchListings(
@@ -818,42 +862,25 @@ class ListingService {
 
   async getRelatedListings(listingId, limit = 6) {
     try {
-      // Validate listing ID
       if (!listingId || isNaN(listingId)) {
         throw new Error('Valid listing ID is required');
       }
 
-      // Validate limit
       const validLimit = Math.min(Math.max(parseInt(limit), 1), 12);
 
-      // Check if listing exists
       const listing = await listingRepository.getById(listingId);
       if (!listing) {
         throw new Error(ERROR_MESSAGES.LISTING_NOT_FOUND);
       }
 
-      // Get related listings
       const relatedListings = await listingRepository.findRelatedListings(listingId, validLimit);
-
-      // Format response
-      const formattedListings = relatedListings.map(listing => ({
-        id: listing.id,
-        title: listing.title,
-        price: listing.price,
-        location: `${listing.city_name}, ${listing.state_name}`,
-        thumbnailUrl: listing.thumbnail_url,
-        storageType: listing.storage_type,
-        thumbnailMimeType: listing.thumbnail_mime_type,
-        createdAt: listing.created_at,
-        categoryName: listing.category_name
-      }));
 
       return {
         success: true,
         message: 'Related listings retrieved successfully',
         data: {
-          listings: formattedListings,
-          count: formattedListings.length
+          listings: relatedListings,
+          count: relatedListings.length
         }
       };
     } catch (error) {

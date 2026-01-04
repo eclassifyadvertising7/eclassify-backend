@@ -4,7 +4,6 @@
  */
 
 import models from '#models/index.js';
-import { Op } from 'sequelize';
 
 const { ListingMedia, Listing } = models;
 
@@ -15,7 +14,20 @@ class ListingMediaRepository {
    * @returns {Promise<Object>}
    */
   async create(mediaData) {
-    return await ListingMedia.create(mediaData);
+    const media = await ListingMedia.create(mediaData);
+
+    if (mediaData.isPrimary) {
+      await Listing.update(
+        {
+          coverImage: media.getDataValue('mediaUrl'),
+          coverImageStorageType: media.storageType,
+          coverImageMimeType: media.mimeType
+        },
+        { where: { id: mediaData.listingId } }
+      );
+    }
+
+    return media;
   }
 
   /**
@@ -106,6 +118,16 @@ class ListingMediaRepository {
     if (!media) return false;
 
     await media.update({ isPrimary: true });
+
+    await Listing.update(
+      {
+        coverImage: media.getDataValue('mediaUrl'),
+        coverImageStorageType: media.storageType,
+        coverImageMimeType: media.mimeType
+      },
+      { where: { id: listingId } }
+    );
+
     return true;
   }
 
@@ -136,7 +158,38 @@ class ListingMediaRepository {
     const media = await ListingMedia.findByPk(id);
     if (!media) return null;
 
+    const wasPrimary = media.isPrimary;
+    const listingId = media.listingId;
+
     await media.destroy();
+
+    if (wasPrimary) {
+      const newPrimary = await ListingMedia.findOne({
+        where: { listingId },
+        order: [['displayOrder', 'ASC']]
+      });
+
+      if (newPrimary) {
+        await Listing.update(
+          {
+            coverImage: newPrimary.getDataValue('mediaUrl'),
+            coverImageStorageType: newPrimary.storageType,
+            coverImageMimeType: newPrimary.mimeType
+          },
+          { where: { id: listingId } }
+        );
+      } else {
+        await Listing.update(
+          {
+            coverImage: null,
+            coverImageStorageType: null,
+            coverImageMimeType: null
+          },
+          { where: { id: listingId } }
+        );
+      }
+    }
+
     return media;
   }
 
@@ -148,6 +201,16 @@ class ListingMediaRepository {
   async deleteByListingId(listingId) {
     const media = await ListingMedia.findAll({ where: { listingId } });
     await ListingMedia.destroy({ where: { listingId } });
+
+    await Listing.update(
+      {
+        coverImage: null,
+        coverImageStorageType: null,
+        coverImageMimeType: null
+      },
+      { where: { id: listingId } }
+    );
+
     return media;
   }
 

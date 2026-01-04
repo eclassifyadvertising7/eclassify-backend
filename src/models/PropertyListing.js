@@ -30,7 +30,20 @@ const PropertyListing = sequelize.define(
     bedrooms: {
       type: DataTypes.INTEGER,
       allowNull: true,
-      field: 'bedrooms'
+      field: 'bedrooms',
+      comment: 'Number of bedrooms (for filtering/sorting)'
+    },
+    unitType: {
+      type: DataTypes.ENUM('1rk', '1bhk', '2bhk', '3bhk', '4bhk', 'studio', 'penthouse', '1bed', '1room', 'custom'),
+      allowNull: true,
+      field: 'unit_type',
+      comment: 'Property unit configuration type'
+    },
+    customUnitType: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+      field: 'custom_unit_type',
+      comment: 'Custom unit type when unit_type is "custom"'
     },
     bathrooms: {
       type: DataTypes.INTEGER,
@@ -87,10 +100,60 @@ const PropertyListing = sequelize.define(
       allowNull: true,
       field: 'parking_spaces'
     },
+    washrooms: { // For commercial
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      field: 'washrooms'
+    },
     amenities: {
       type: DataTypes.JSON,
       allowNull: true,
       field: 'amenities'
+    },
+    foodIncluded: { // For PG/Hostel
+      type: DataTypes.ENUM('yes', 'no', 'optional'),
+      allowNull: true,
+      field: 'food_included'
+    },
+    genderPreference: { // For PG/Hostel
+      type: DataTypes.ENUM('male', 'female', 'any'),
+      allowNull: true,
+      field: 'gender_preference'
+    },
+    boundaryWall: { // For plot
+      type: DataTypes.BOOLEAN,
+      allowNull: true,
+      field: 'boundary_wall'
+    },
+    cornerPlot: { // For plot
+      type: DataTypes.BOOLEAN,
+      allowNull: true,
+      field: 'corner_plot'
+    },
+    gatedCommunity: { // For plot
+      type: DataTypes.BOOLEAN,
+      allowNull: true,
+      field: 'gated_community'
+    },
+    coveredAreaSqft: { // For warehouse
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      field: 'covered_area_sqft'
+    },
+    openAreaSqft: { // For warehouse
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      field: 'open_area_sqft'
+    },
+    ceilingHeightFt: { // For warehouse
+      type: DataTypes.DECIMAL(5, 2),
+      allowNull: true,
+      field: 'ceiling_height_ft'
+    },
+    loadingDocks: { // For warehouse
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      field: 'loading_docks'
     },
     availableFrom: {
       type: DataTypes.DATE,

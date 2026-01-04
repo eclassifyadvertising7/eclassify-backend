@@ -6,6 +6,7 @@
 import { DataTypes } from 'sequelize';
 import sequelize from '#config/database.js';
 import crypto from 'crypto';
+import { getFullUrl } from '#utils/storageHelper.js';
 
 const Listing = sequelize.define(
   'Listing',
@@ -26,10 +27,10 @@ const Listing = sequelize.define(
       allowNull: false,
       field: 'category_id'
     },
-    categoryType: {
-      type: DataTypes.ENUM('car', 'property'),
-      allowNull: false,
-      field: 'category_type'
+    categorySlug: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+      field: 'category_slug'
     },
     title: {
       type: DataTypes.STRING(200),
@@ -73,6 +74,16 @@ const Listing = sequelize.define(
       type: DataTypes.INTEGER,
       allowNull: false,
       field: 'city_id'
+    },
+    stateName: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+      field: 'state_name'
+    },
+    cityName: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+      field: 'city_name'
     },
     locality: {
       type: DataTypes.STRING(200),
@@ -169,6 +180,27 @@ const Listing = sequelize.define(
       defaultValue: 0,
       field: 'total_favorites'
     },
+    coverImage: {
+      type: DataTypes.STRING(500),
+      allowNull: true,
+      field: 'cover_image',
+      get() {
+        const rawValue = this.getDataValue('coverImage');
+        const storageType = this.getDataValue('coverImageStorageType');
+        const mimeType = this.getDataValue('coverImageMimeType');
+        return getFullUrl(rawValue, storageType, mimeType);
+      }
+    },
+    coverImageStorageType: {
+      type: DataTypes.ENUM('local', 'cloudinary', 'aws', 'gcs', 'digital_ocean'),
+      allowNull: true,
+      field: 'cover_image_storage_type'
+    },
+    coverImageMimeType: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+      field: 'cover_image_mime_type'
+    },
     isAutoApproved: {
       type: DataTypes.BOOLEAN,
       allowNull: false,
@@ -232,6 +264,11 @@ const Listing = sequelize.define(
       type: DataTypes.JSONB,
       allowNull: true,
       field: 'republish_history'
+    },
+    essentialData: {
+      type: DataTypes.JSONB,
+      allowNull: true,
+      field: 'essential_data'
     }
   },
   {

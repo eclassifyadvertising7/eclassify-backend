@@ -148,6 +148,27 @@ class UserFavoriteController {
       return errorResponse(res, ERROR_MESSAGES.INTERNAL_SERVER_ERROR, 500);
     }
   }
+
+  static async getFavoriteListingIds(req, res) {
+    try {
+      const userId = req.user?.userId;
+
+      if (!userId) {
+        return errorResponse(res, 'User not authenticated', 401);
+      }
+
+      const result = await userFavoriteService.getFavoriteListingIds(parseInt(userId));
+
+      if (result.success) {
+        return successResponse(res, result.data);
+      } else {
+        return errorResponse(res, result.message, 500);
+      }
+    } catch (error) {
+      console.error('Error in getFavoriteListingIds:', error);
+      return errorResponse(res, ERROR_MESSAGES.INTERNAL_SERVER_ERROR, 500);
+    }
+  }
 }
 
 export default UserFavoriteController;

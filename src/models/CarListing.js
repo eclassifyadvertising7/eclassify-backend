@@ -5,6 +5,7 @@
 
 import { DataTypes } from 'sequelize';
 import sequelize from '#config/database.js';
+import { buildCarEssentialData } from '#utils/essentialDataBuilder.js';
 
 const CarListing = sequelize.define(
   'CarListing',
@@ -70,7 +71,14 @@ const CarListing = sequelize.define(
     mileageKm: {
       type: DataTypes.INTEGER,
       allowNull: true,
-      field: 'mileage_km'
+      field: 'mileage_km',
+      comment: 'Total kilometers driven (odometer reading)'
+    },
+    fuelEfficiencyKmpl: {
+      type: DataTypes.DECIMAL(5, 2),
+      allowNull: true,
+      field: 'fuel_efficiency_kmpl',
+      comment: 'Current fuel efficiency in kilometers per liter'
     },
     ownersCount: {
       type: DataTypes.INTEGER,
@@ -146,9 +154,36 @@ const CarListing = sequelize.define(
     timestamps: true,
     underscored: true,
     createdAt: 'created_at',
-    updatedAt: 'updated_at'
+    updatedAt: 'updated_at',
+    hooks: {
+      afterCreate: async (carListing, options) => {
+        await syncEssentialData(carListing.listingId, carListing, options.transaction);
+      },
+      afterUpdate: async (carListing, options) => {
+        await syncEssentialData(carListing.listingId, carListing, options.transaction);
+      }
+    }
   }
 );
+
+async function syncEssentialData(listingId, carListing, transaction) {
+  try {
+    const { Listing } = sequelize.models;
+    
+    const essentialData = buildCarEssentialData(carListing);
+    
+    await Listing.update(
+      { essentialData },
+      { 
+        where: { id: listingId },
+        transaction,
+        hooks: false
+      }
+    );
+  } catch (error) {
+    console.error('Error syncing essential data:', error);
+  }
+}
 
 // Define associations
 CarListing.associate = (models) => {

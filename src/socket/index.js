@@ -31,7 +31,7 @@ export const initializeSocket = (server) => {
       const token = socket.handshake.auth.token || socket.handshake.headers.authorization?.split(' ')[1];
 
       if (!token) {
-        return next(new Error('Authentication token required'));
+        return next(new Error('AUTH_TOKEN_MISSING'));
       }
 
       // Verify JWT token
@@ -46,7 +46,14 @@ export const initializeSocket = (server) => {
       next();
     } catch (error) {
       logger.error('Socket authentication error:', error);
-      next(new Error('Invalid authentication token'));
+      
+      if (error.name === 'TokenExpiredError') {
+        return next(new Error('AUTH_TOKEN_EXPIRED'));
+      }
+      if (error.name === 'JsonWebTokenError') {
+        return next(new Error('AUTH_TOKEN_INVALID'));
+      }
+      return next(new Error('AUTH_FAILED'));
     }
   });
 

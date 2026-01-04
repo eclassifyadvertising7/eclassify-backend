@@ -30,6 +30,14 @@ export async function up(queryInterface, Sequelize) {
       type: Sequelize.INTEGER,
       allowNull: true
     },
+    unit_type: {
+      type: Sequelize.ENUM('1rk', '1bhk', '2bhk', '3bhk', '4bhk', 'studio', 'penthouse', '1bed', '1room', 'custom'),
+      allowNull: true
+    },
+    custom_unit_type: {
+      type: Sequelize.STRING(50),
+      allowNull: true
+    },
     bathrooms: {
       type: Sequelize.INTEGER,
       allowNull: true
@@ -74,8 +82,48 @@ export async function up(queryInterface, Sequelize) {
       type: Sequelize.INTEGER,
       allowNull: true
     },
+    washrooms: { // For commercial
+      type: Sequelize.INTEGER,
+      allowNull: true
+    },
     amenities: {
       type: Sequelize.JSON,
+      allowNull: true
+    },
+    food_included: { // For PG/Hostel
+      type: Sequelize.ENUM('yes', 'no', 'optional'),
+      allowNull: true
+    },
+    gender_preference: { // For PG/Hostel
+      type: Sequelize.ENUM('male', 'female', 'any'),
+      allowNull: true
+    },
+    boundary_wall: { // For plot
+      type: Sequelize.BOOLEAN,
+      allowNull: true
+    },
+    corner_plot: { // For plot
+      type: Sequelize.BOOLEAN,
+      allowNull: true
+    },
+    gated_community: { // For plot
+      type: Sequelize.BOOLEAN,
+      allowNull: true
+    },
+    covered_area_sqft: { // For warehouse
+      type: Sequelize.INTEGER,
+      allowNull: true
+    },
+    open_area_sqft: { // For warehouse
+      type: Sequelize.INTEGER,
+      allowNull: true
+    },
+    ceiling_height_ft: { // For warehouse
+      type: Sequelize.DECIMAL(5, 2),
+      allowNull: true
+    },
+    loading_docks: { // For warehouse
+      type: Sequelize.INTEGER,
       allowNull: true
     },
     available_from: {

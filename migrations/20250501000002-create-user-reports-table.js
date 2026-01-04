@@ -112,14 +112,14 @@ export default {
     });
 
     // Add check constraint (users cannot report themselves)
-    await queryInterface.addConstraint('user_reports', {
-      fields: ['reported_user_id', 'reported_by'],
-      type: 'check',
-      name: 'check_not_self_report',
-      where: {
-        [Sequelize.Op.ne]: Sequelize.literal('reported_user_id = reported_by')
-      }
-    });
+    // await queryInterface.addConstraint('user_reports', {
+    //   fields: ['reported_user_id', 'reported_by'],
+    //   type: 'check',
+    //   name: 'check_not_self_report',
+    //   where: {
+    //     [Sequelize.Op.ne]: Sequelize.literal('reported_user_id = reported_by')
+    //   }
+    // });
 
     // Add indexes
     await queryInterface.addIndex('user_reports', ['reported_user_id'], {

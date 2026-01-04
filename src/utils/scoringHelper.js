@@ -111,6 +111,67 @@ class ScoringHelper {
     });
   }
 
+  static sortListingsWithPrimary(listings, sortBy = 'relevance') {
+    return listings.sort((a, b) => {
+      let primaryComparison = 0;
+
+      switch (sortBy) {
+        case 'relevance':
+          primaryComparison = (b.totalScore || 0) - (a.totalScore || 0);
+          if (primaryComparison !== 0) return primaryComparison;
+          return (b.id || 0) - (a.id || 0);
+
+        case 'views':
+          primaryComparison = (b.viewCount || 0) - (a.viewCount || 0);
+          if (primaryComparison !== 0) return primaryComparison;
+          break;
+
+        case 'favorites':
+          primaryComparison = (b.totalFavorites || 0) - (a.totalFavorites || 0);
+          if (primaryComparison !== 0) return primaryComparison;
+          break;
+
+        case 'price_low':
+        case 'price_asc':
+          primaryComparison = (a.price || 0) - (b.price || 0);
+          if (primaryComparison !== 0) return primaryComparison;
+          break;
+
+        case 'price_high':
+        case 'price_desc':
+          primaryComparison = (b.price || 0) - (a.price || 0);
+          if (primaryComparison !== 0) return primaryComparison;
+          break;
+
+        case 'date_new':
+        case 'date_desc':
+          const aDate = new Date(a.createdAt || a.created_at || 0);
+          const bDate = new Date(b.createdAt || b.created_at || 0);
+          primaryComparison = bDate - aDate;
+          if (primaryComparison !== 0) return primaryComparison;
+          break;
+
+        case 'date_old':
+        case 'date_asc':
+          const aDateOld = new Date(a.createdAt || a.created_at || 0);
+          const bDateOld = new Date(b.createdAt || b.created_at || 0);
+          primaryComparison = aDateOld - bDateOld;
+          if (primaryComparison !== 0) return primaryComparison;
+          break;
+
+        default:
+          primaryComparison = (b.totalScore || 0) - (a.totalScore || 0);
+          if (primaryComparison !== 0) return primaryComparison;
+          return (b.id || 0) - (a.id || 0);
+      }
+
+      const scoreComparison = (b.totalScore || 0) - (a.totalScore || 0);
+      if (scoreComparison !== 0) return scoreComparison;
+
+      return (b.id || 0) - (a.id || 0);
+    });
+  }
+
   static calculateSimilarityScore(listing, referenceListing) {
     let score = 0;
 

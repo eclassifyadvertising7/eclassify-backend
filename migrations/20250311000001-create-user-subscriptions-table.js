@@ -232,6 +232,19 @@ export async function up(queryInterface, Sequelize) {
       defaultValue: false,
       comment: 'Snapshot: auto-approve setting from plan'
     },
+    // Republish Settings Snapshot
+    max_republish_count: {
+      type: Sequelize.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+      comment: 'Maximum times a listing can be republished (0 = unlimited)'
+    },
+    republish_cooldown_days: {
+      type: Sequelize.INTEGER,
+      allowNull: false,
+      defaultValue: 7,
+      comment: 'Minimum days required between consecutive republishes'
+    },
     // Support Snapshot
     support_level: {
       type: Sequelize.STRING(20),

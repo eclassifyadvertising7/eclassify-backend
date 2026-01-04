@@ -23,7 +23,7 @@ class ListingController {
         limit: req.query.limit ? parseInt(req.query.limit) : 20
       };
 
-      const result = await listingService.getAll(filters, pagination, null);
+      const result = await listingService.getAllForAdmin(filters, pagination);
       return successResponse(res, result.data, result.message, result.pagination);
     } catch (error) {
       return errorResponse(res, error.message, 400);

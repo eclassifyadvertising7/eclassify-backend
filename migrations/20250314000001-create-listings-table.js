@@ -31,10 +31,15 @@ export async function up(queryInterface, Sequelize) {
       onUpdate: 'CASCADE',
       onDelete: 'RESTRICT'
     },
-    category_type: {
-      type: Sequelize.ENUM('car', 'property'),
-      allowNull: false,
-      comment: 'Denormalized category type for faster queries'
+    category_slug: {
+      type: Sequelize.STRING(100),
+      allowNull: true,
+      references: {
+        model: 'categories',
+        key: 'slug'
+      },
+      onUpdate: 'CASCADE',
+      onDelete: 'RESTRICT'
     },
     title: {
       type: Sequelize.STRING(200),
@@ -49,7 +54,6 @@ export async function up(queryInterface, Sequelize) {
       type: Sequelize.STRING(10),
       allowNull: true,
       unique: true,
-      comment: 'Short alphanumeric code for sharing (e.g., K9M3P7Q)'
     },
     description: {
       type: Sequelize.TEXT,
@@ -83,6 +87,14 @@ export async function up(queryInterface, Sequelize) {
       },
       onUpdate: 'CASCADE',
       onDelete: 'RESTRICT'
+    },
+    state_name: {
+      type: Sequelize.STRING(100),
+      allowNull: true,
+    },
+    city_name: {
+      type: Sequelize.STRING(100),
+      allowNull: true,
     },
     locality: {
       type: Sequelize.STRING(200),
@@ -174,6 +186,18 @@ export async function up(queryInterface, Sequelize) {
       allowNull: false,
       defaultValue: 0
     },
+    cover_image: {
+      type: Sequelize.STRING(500),
+      allowNull: true
+    },
+    cover_image_storage_type: {
+      type: Sequelize.ENUM('local', 'cloudinary', 'aws', 'gcs', 'digital_ocean'),
+      allowNull: true
+    },
+    cover_image_mime_type: {
+      type: Sequelize.STRING(100),
+      allowNull: true
+    },
     is_auto_approved: {
       type: Sequelize.BOOLEAN,
       allowNull: false,
@@ -245,6 +269,10 @@ export async function up(queryInterface, Sequelize) {
       type: Sequelize.JSONB,
       allowNull: true,
     },
+    essential_data: {
+      type: Sequelize.JSONB,
+      allowNull: true,
+    },
     created_at: {
       type: Sequelize.DATE,
       allowNull: false,
@@ -266,8 +294,8 @@ export async function up(queryInterface, Sequelize) {
     name: 'idx_listings_category_id'
   });
 
-  await queryInterface.addIndex('listings', ['category_type'], {
-    name: 'idx_listings_category_type'
+  await queryInterface.addIndex('listings', ['category_slug'], {
+    name: 'idx_listings_category_slug'
   });
 
   await queryInterface.addIndex('listings', ['state_id', 'city_id'], {
@@ -297,6 +325,12 @@ export async function up(queryInterface, Sequelize) {
 
   await queryInterface.addIndex('listings', ['share_code'], {
     name: 'idx_listings_share_code'
+  });
+
+  // Add GIN index for essential_data JSONB column
+  await queryInterface.addIndex('listings', ['essential_data'], {
+    name: 'idx_listings_essential_data',
+    using: 'GIN'
   });
 }
 

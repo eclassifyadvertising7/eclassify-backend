@@ -78,27 +78,27 @@ const UserReport = sequelize.define('UserReport', {
 
 UserReport.associate = (models) => {
   UserReport.belongsTo(models.User, {
-    foreignKey: 'reported_user_id',
+    foreignKey: 'reportedUserId',
     as: 'reportedUser'
   });
 
   UserReport.belongsTo(models.User, {
-    foreignKey: 'reported_by',
+    foreignKey: 'reportedBy',
     as: 'reporter'
   });
 
   UserReport.belongsTo(models.User, {
-    foreignKey: 'reviewed_by',
+    foreignKey: 'reviewedBy',
     as: 'reviewer'
   });
 
   UserReport.belongsTo(models.Listing, {
-    foreignKey: 'related_listing_id',
+    foreignKey: 'relatedListingId',
     as: 'relatedListing'
   });
 
   UserReport.belongsTo(models.ChatRoom, {
-    foreignKey: 'related_chat_room_id',
+    foreignKey: 'relatedChatRoomId',
     as: 'relatedChatRoom'
   });
 };

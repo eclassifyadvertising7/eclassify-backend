@@ -14,7 +14,7 @@ Separated admin and public brand listing endpoints to serve different use cases.
 
 **After:** Two separate methods:
 - `getAllBrandsForAdmin()` - Returns flat list with all statuses
-- `getAllBrandsForPublic()` - Returns grouped structure (featured/all), active only
+- `getAllBrandsForPublic()` - Returns grouped structure (popular/all), active only
 
 ### 2. Controllers
 
@@ -105,7 +105,7 @@ Enhanced `getAll()` method:
   "success": true,
   "message": "Car brands retrieved successfully",
   "data": {
-    "featured": [
+    "popular": [
       {
         "id": 1,
         "name": "Toyota",
@@ -132,10 +132,10 @@ Enhanced `getAll()` method:
 ```
 
 **Key Features:**
-- ✅ Grouped structure (featured brands highlighted)
+- ✅ Grouped structure (popular brands highlighted)
 - ✅ Active brands only
 - ✅ Minimal fields (optimized for dropdowns)
-- ✅ Featured ordered by displayOrder
+- ✅ Popular ordered by displayOrder
 - ✅ All ordered alphabetically
 
 ---
@@ -155,6 +155,9 @@ GET /api/panel/car-brands?isActive=false
 
 // View only featured brands (to adjust display order)
 GET /api/panel/car-brands?isFeatured=true
+
+// View only popular brands (to manage popular section)
+GET /api/panel/car-brands?isPopular=true
 
 // Search for specific brand
 GET /api/panel/car-brands?search=toyota
@@ -177,7 +180,7 @@ GET /api/panel/car-brands?search=toyota
 GET /api/public/car-brands
 
 // Frontend displays:
-// - Featured section (Toyota, Honda, Maruti)
+// - Popular section (Toyota, Honda, Maruti) - brands with isPopular: true
 // - All brands section (alphabetical)
 
 // Step 2: User selects brand
@@ -227,4 +230,4 @@ curl http://localhost:5000/api/public/car-brands?search=bmw
 
 ---
 
-**Last Updated:** November 23, 2024
+**Last Updated:** January 4, 2025

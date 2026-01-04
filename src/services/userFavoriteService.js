@@ -2,6 +2,7 @@ import models from '#models/index.js';
 import { Op } from 'sequelize';
 import sequelize from '#config/database.js';
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '#utils/constants/messages.js';
+import userFavoriteRepository from '#repositories/userFavoriteRepository.js';
 
 const { UserFavorite, Listing } = models;
 
@@ -168,7 +169,8 @@ class UserFavoriteService {
 
       const offset = (page - 1) * limit;
       
-      // Build where clause for listing filters
+      const { User, UserProfile } = models;
+      
       const listingWhere = {};
       
       if (categoryId) {
@@ -181,7 +183,6 @@ class UserFavoriteService {
         if (priceMax) listingWhere.price[Op.lte] = priceMax;
       }
 
-      // Map sortBy to correct column name (snake_case for database)
       const sortColumn = sortBy === 'created_at' ? 'created_at' : sortBy;
 
       const { count, rows } = await UserFavorite.findAndCountAll({
@@ -193,10 +194,31 @@ class UserFavoriteService {
           {
             association: 'listing',
             where: listingWhere,
-            attributes: ['id', 'title', 'price', 'status', 'categoryId', ['created_at', 'createdAt']],
-            required: true
+            required: true,
+            include: [
+              { 
+                model: User, 
+                as: 'user', 
+                attributes: ['id', 'fullName', 'email', 'mobile'],
+                include: [
+                  {
+                    model: UserProfile,
+                    as: 'profile',
+                    attributes: ['profilePhoto', 'profilePhotoStorageType', 'profilePhotoMimeType']
+                  }
+                ]
+              }
+            ]
           }
         ]
+      });
+
+      // Add isFavorited flag (always true for user's favorites)
+      const favoritesWithStatus = rows.map((favorite) => {
+        if (favorite.listing) {
+          favorite.listing.dataValues.isFavorited = true;
+        }
+        return favorite;
       });
 
       const totalPages = Math.ceil(count / limit);
@@ -205,7 +227,7 @@ class UserFavoriteService {
         success: true,
         message: SUCCESS_MESSAGES.FAVORITES_RETRIEVED,
         data: {
-          favorites: rows,
+          favorites: favoritesWithStatus,
           pagination: {
             currentPage: page,
             totalPages,
@@ -303,22 +325,29 @@ class UserFavoriteService {
   }
 
   /**
-   * Get favorite count for a specific listing
+   * Get favorite count for a specific listing (uses denormalized total_favorites)
    * @param {number} listingId - Listing ID
    * @returns {Promise<Object>} Service response
    */
   async getListingFavoriteCount(listingId) {
     try {
-      const favoriteCount = await UserFavorite.count({
-        where: { listingId }
+      const listing = await Listing.findByPk(listingId, {
+        attributes: ['id', 'totalFavorites']
       });
+
+      if (!listing) {
+        return {
+          success: false,
+          message: ERROR_MESSAGES.LISTING_NOT_FOUND
+        };
+      }
 
       return {
         success: true,
         message: SUCCESS_MESSAGES.FAVORITE_COUNT_RETRIEVED,
         data: {
           listingId,
-          favoriteCount
+          favoriteCount: listing.totalFavorites
         }
       };
     } catch (error) {
@@ -331,8 +360,22 @@ class UserFavoriteService {
     }
   }
 
+  async getFavoriteListingIds(userId) {
+    try {
+      const listingIds = await userFavoriteRepository.getFavoriteListingIds(userId);
 
+      return {
+        success: true,
+        data: { listingIds }
+      };
+    } catch (error) {
+      console.error('Error in getFavoriteListingIds:', error);
+      return {
+        success: false,
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR
+      };
+    }
+  }
 }
 
-// Export singleton instance
 export default new UserFavoriteService();

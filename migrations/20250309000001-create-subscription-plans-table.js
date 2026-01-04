@@ -238,6 +238,19 @@ export async function up(queryInterface, Sequelize) {
       defaultValue: false,
       comment: 'If true, listings under this plan are auto-approved'
     },
+    // Republish Settings
+    max_republish_count: {
+      type: Sequelize.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+      comment: 'Maximum times a listing can be republished (0 = unlimited)'
+    },
+    republish_cooldown_days: {
+      type: Sequelize.INTEGER,
+      allowNull: false,
+      defaultValue: 7,
+      comment: 'Minimum days required between consecutive republishes'
+    },
     // Support
     support_level: {
       type: Sequelize.ENUM('none', 'standard', 'priority', 'dedicated'),

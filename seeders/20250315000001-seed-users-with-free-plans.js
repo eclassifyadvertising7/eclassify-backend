@@ -143,7 +143,7 @@ export async function up(queryInterface, Sequelize) {
     },
     {
       country_code: "+91",
-      mobile: "8002445566",
+      mobile: "8002444555",
       full_name: "Amit",
       email: "amit.eclassify@yopmail.com",
       password_hash: userHashedPassword,
@@ -367,7 +367,7 @@ export async function down(queryInterface, Sequelize) {
   // Then delete all users (including super admins)
   await queryInterface.bulkDelete("users", {
     mobile: {
-      [Sequelize.Op.in]: ["9175113022", "9123456789", "8002111222", "8002333444", "8002445566"],
+      [Sequelize.Op.in]: ["9175113022", "9123456789", "8002111222", "8002333444", "8002444555"],
     },
   });
 

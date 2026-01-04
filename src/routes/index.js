@@ -47,12 +47,16 @@ const router = express.Router();
 
 // Health check endpoint
 router.get('/health', (req, res) => {
+  const getUptime = req.app.get('getUptime');
+  const uptime = getUptime ? getUptime() : null;
+  
   res.json({
     success: true,
     message: 'API is running',
     data: {
+      status: 'healthy',
       timestamp: new Date().toISOString(),
-      uptime: process.uptime()
+      uptime: uptime
     }
   });
 });

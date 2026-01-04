@@ -3,11 +3,12 @@ import imageService from '#services/imageService.js';
 import { uploadFile, deleteFile } from '#config/storageConfig.js';
 import { getRelativePath } from '#utils/storageHelper.js';
 import { UPLOAD_CONFIG } from '#config/uploadConfig.js';
-import db from '#models/index.js';
+import { sequelize } from '#models/index.js';
+import models from '#models/index.js';
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '#utils/constants/messages.js';
 import sharp from 'sharp';
 
-const { sequelize } = db;
+const { User } = models;
 const STORAGE_TYPE = process.env.STORAGE_TYPE || 'local';
 
 /**
@@ -347,10 +348,9 @@ class ProfileService {
   }
 
   async updatePreferredLocation(userId, locationData) {
-    const transaction = await sequelize.transaction();
-
     try {
-      const user = await profileRepository.getUserWithProfile(userId);
+      // Check if user exists
+      const user = await User.findByPk(userId);
       if (!user) {
         throw new Error(ERROR_MESSAGES.USER_NOT_FOUND);
       }
@@ -381,9 +381,7 @@ class ProfileService {
         updateData.preferredLongitude = locationData.preferredLongitude ? parseFloat(locationData.preferredLongitude) : null;
       }
 
-      await profileRepository.updateOrCreateProfile(userId, updateData, transaction);
-
-      await transaction.commit();
+      await profileRepository.updateOrCreateProfile(userId, updateData);
 
       const result = await this.getPreferredLocation(userId);
 
@@ -393,7 +391,6 @@ class ProfileService {
         data: result.data
       };
     } catch (error) {
-      await transaction.rollback();
       throw error;
     }
   }

@@ -141,7 +141,6 @@ export const parseArray = (value, defaultValue = []) => {
 export const parseListingData = (body) => {
   return {
     categoryId: parseInteger(body.categoryId),
-    categoryType: parseString(body.categoryType),
     title: parseString(body.title),
     description: parseString(body.description),
     price: parseFloat(body.price),
@@ -161,14 +160,17 @@ export const parseListingData = (body) => {
  * @returns {Object}
  */
 export const parseCarListingData = (body) => {
+  const registrationYear = parseInteger(body.registrationYear);
+  
   return {
     brandId: parseInteger(body.brandId),
     modelId: parseInteger(body.modelId),
     variantId: parseInteger(body.variantId),
-    year: parseInteger(body.year),
-    registrationYear: parseInteger(body.registrationYear),
+    year: registrationYear,
+    registrationYear: registrationYear,
     condition: parseString(body.condition, 'used'),
     mileageKm: parseInteger(body.mileageKm),
+    fuelEfficiencyKmpl: parseFloat(body.fuelEfficiencyKmpl),
     ownersCount: parseInteger(body.ownersCount, 1),
     fuelType: parseString(body.fuelType),
     transmission: parseString(body.transmission),
@@ -181,7 +183,7 @@ export const parseCarListingData = (body) => {
     registrationStateId: parseInteger(body.registrationStateId),
     vinNumber: parseString(body.vinNumber),
     insuranceValidUntil: parseString(body.insuranceValidUntil),
-    features: parseArray(body.features) // Always use parseArray for features to handle both JSON arrays and comma-separated strings
+    features: parseArray(body.features)
   };
 };
 
@@ -195,6 +197,8 @@ export const parsePropertyListingData = (body) => {
     propertyType: parseString(body.propertyType),
     listingType: parseString(body.listingType),
     bedrooms: parseInteger(body.bedrooms),
+    unitType: parseString(body.unitType),
+    customUnitType: parseString(body.customUnitType),
     bathrooms: parseInteger(body.bathrooms),
     balconies: parseInteger(body.balconies, 0),
     areaSqft: parseInteger(body.areaSqft),
@@ -206,10 +210,24 @@ export const parsePropertyListingData = (body) => {
     facing: parseString(body.facing),
     furnished: parseString(body.furnished, 'unfurnished'),
     parkingSpaces: parseInteger(body.parkingSpaces, 0),
-    amenities: parseArray(body.amenities), // Always use parseArray for amenities to handle both JSON arrays and comma-separated strings
+    washrooms: parseInteger(body.washrooms),
+    amenities: parseArray(body.amenities),
+    foodIncluded: parseString(body.foodIncluded),
+    genderPreference: parseString(body.genderPreference),
+    boundaryWall: parseBoolean(body.boundaryWall),
+    cornerPlot: parseBoolean(body.cornerPlot),
+    gatedCommunity: parseBoolean(body.gatedCommunity),
+    coveredAreaSqft: parseInteger(body.coveredAreaSqft),
+    openAreaSqft: parseInteger(body.openAreaSqft),
+    ceilingHeightFt: parseFloat(body.ceilingHeightFt),
+    loadingDocks: parseInteger(body.loadingDocks),
+    plotLengthFt: parseFloat(body.plotLengthFt),
+    plotWidthFt: parseFloat(body.plotWidthFt),
+    plotElevationFt: parseFloat(body.plotElevationFt),
     availableFrom: parseString(body.availableFrom),
     ownershipType: parseString(body.ownershipType),
     reraApproved: parseBoolean(body.reraApproved, false),
-    reraId: parseString(body.reraId)
+    reraId: parseString(body.reraId),
+    otherDetails: parseJSON(body.otherDetails)
   };
 };

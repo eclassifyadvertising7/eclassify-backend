@@ -62,7 +62,7 @@ class ListingRepository {
   async findByShareCode(shareCode) {
     return await Listing.findOne({
       where: { shareCode },
-      attributes: ['id', 'shareCode']
+      attributes: ['id', 'shareCode', 'status']
     });
   }
 
@@ -89,9 +89,6 @@ class ListingRepository {
           }
         ]
       },
-      { model: Category, as: 'category', attributes: ['id', 'name', 'slug'] },
-      { model: State, as: 'state', attributes: ['id', 'name', 'slug'] },
-      { model: City, as: 'city', attributes: ['id', 'name', 'slug'] },
       { 
         model: CarListing, 
         as: 'carListing',
@@ -110,16 +107,8 @@ class ListingRepository {
       paranoid: options.includeDeleted ? false : true
     });
 
-    // Add favorite count if listing exists
+    // Add isFavorited field for the current user
     if (listing && options.includeAll) {
-      const favoriteCount = await UserFavorite.count({
-        where: { listingId: id }
-      });
-      
-      // Add favoriteCount as a virtual field
-      listing.dataValues.favoriteCount = favoriteCount;
-
-      // Add isFavorited field for the current user
       if (userId) {
         const userFavorite = await UserFavorite.findOne({
           where: { userId, listingId: id }
@@ -156,9 +145,6 @@ class ListingRepository {
           }
         ]
       },
-      { model: Category, as: 'category', attributes: ['id', 'name', 'slug'] },
-      { model: State, as: 'state', attributes: ['id', 'name', 'slug'] },
-      { model: City, as: 'city', attributes: ['id', 'name', 'slug'] },
       { 
         model: CarListing, 
         as: 'carListing',
@@ -177,16 +163,8 @@ class ListingRepository {
       include
     });
 
-    // Add favorite count if listing exists
+    // Add isFavorited field for the current user
     if (listing && options.includeAll) {
-      const favoriteCount = await UserFavorite.count({
-        where: { listingId: listing.id }
-      });
-      
-      // Add favoriteCount as a virtual field
-      listing.dataValues.favoriteCount = favoriteCount;
-
-      // Add isFavorited field for the current user
       if (userId) {
         const userFavorite = await UserFavorite.findOne({
           where: { userId, listingId: listing.id }
@@ -201,13 +179,115 @@ class ListingRepository {
   }
 
   /**
+   * Get all listings for admin panel with user details
+   * @param {Object} filters - Filter options
+   * @param {Object} pagination - Pagination options
+   * @returns {Promise<Object>}
+   */
+  async getAllForAdmin(filters = {}, pagination = {}) {
+    const where = {};
+    const { page = 1, limit = 20 } = pagination;
+    const offset = (page - 1) * limit;
+
+    // Filter by user
+    if (filters.userId) {
+      where.userId = filters.userId;
+    }
+
+    // Filter by category ID
+    if (filters.categoryId) {
+      where.categoryId = filters.categoryId;
+    }
+
+    // Filter by status
+    if (filters.status) {
+      where.status = filters.status;
+    }
+
+    // Filter by location
+    if (filters.stateId) {
+      where.stateId = filters.stateId;
+    }
+    if (filters.cityId) {
+      where.cityId = filters.cityId;
+    }
+
+    // Filter by price range
+    if (filters.minPrice || filters.maxPrice) {
+      where.price = {};
+      if (filters.minPrice) where.price[Op.gte] = filters.minPrice;
+      if (filters.maxPrice) where.price[Op.lte] = filters.maxPrice;
+    }
+
+    // Filter by featured
+    if (filters.isFeatured !== undefined) {
+      where.isFeatured = filters.isFeatured;
+      if (filters.isFeatured) {
+        where.featuredUntil = { [Op.gt]: new Date() };
+      }
+    }
+
+    // Search by title and description
+    if (filters.search) {
+      where[Op.or] = [
+        { title: { [Op.iLike]: `%${filters.search}%` } },
+        { description: { [Op.iLike]: `%${filters.search}%` } }
+      ];
+    }
+
+    // Include user details for admin panel
+    const include = [
+      { 
+        model: User, 
+        as: 'user', 
+        attributes: ['id', 'fullName', 'email', 'mobile'],
+        include: [
+          {
+            model: UserProfile,
+            as: 'profile',
+            attributes: ['profilePhoto', 'profilePhotoStorageType', 'profilePhotoMimeType']
+          }
+        ]
+      },
+      {
+        model: Category,
+        as: 'category',
+        attributes: ['id', 'name', 'slug']
+      }
+    ];
+
+    // Order by creation date (newest first)
+    const order = [['created_at', 'DESC']];
+
+    const { count, rows } = await Listing.findAndCountAll({
+      where,
+      include,
+      order,
+      limit,
+      offset,
+      distinct: true
+    });
+
+    return {
+      listings: rows,
+      pagination: {
+        total: count,
+        page,
+        limit,
+        totalPages: Math.ceil(count / limit)
+      }
+    };
+  }
+
+  /**
    * Get all listings with filters and pagination
    * @param {Object} filters - Filter options
    * @param {Object} pagination - Pagination options
    * @param {number|null} userId - User ID to check favorites for
+   * @param {Object} userLocation - User location for scoring
    * @returns {Promise<Object>}
    */
-  async getAll(filters = {}, pagination = {}, userId = null) {
+  async getAll(filters = {}, pagination = {}, userId = null, userLocation = null) {
     const where = {};
     const { page = 1, limit = 20 } = pagination;
     const offset = (page - 1) * limit;
@@ -264,30 +344,19 @@ class ListingRepository {
       ];
     }
 
-    // Include associations
-    const include = [
-      { 
-        model: User, 
-        as: 'user', 
-        attributes: ['id', 'fullName', 'mobile']
-      },
-      { 
-        model: Category, 
-        as: 'category', 
-        attributes: ['id', 'name', 'slug'],
-        where: filters.categorySlug ? { slug: filters.categorySlug } : undefined,
-        required: categoryJoinRequired
-      },
-      { model: State, as: 'state', attributes: ['id', 'name', 'slug'] },
-      { model: City, as: 'city', attributes: ['id', 'name', 'slug'] },
-      { 
-        model: ListingMedia, 
-        as: 'media', 
-        where: { isPrimary: true },
-        required: false,
-        attributes: ['id', 'mediaUrl', 'thumbnailUrl', 'mediaType', 'storageType', 'mimeType', 'thumbnailMimeType']
-      }
-    ];
+    // Include associations - minimal for list view
+    const include = [];
+    
+    // Only add category join if filtering by slug (need to validate slug exists)
+    if (categoryJoinRequired) {
+      include.push({
+        model: Category,
+        as: 'category',
+        attributes: ['id'],
+        where: { slug: filters.categorySlug },
+        required: true
+      });
+    }
 
     // Car-specific filters
     const carWhere = {};
@@ -357,47 +426,65 @@ class ListingRepository {
       });
     }
 
-    // Order
+    // Order - Always fetch enough records for scoring and pagination
+    const useScoring = true;
+    
     const order = [];
-    if (filters.isFeatured) {
-      order.push(['is_featured', 'DESC']);
-    }
-    if (filters.sortBy === 'price_asc') {
-      order.push(['price', 'ASC']);
-    } else if (filters.sortBy === 'price_desc') {
-      order.push(['price', 'DESC']);
-    } else if (filters.sortBy === 'date_asc') {
-      order.push(['created_at', 'ASC']);
-    } else if (filters.sortBy === 'views') {
-      order.push(['view_count', 'DESC']);
-    } else {
-      order.push(['created_at', 'DESC']);
+    if (!useScoring) {
+      if (filters.isFeatured) {
+        order.push(['is_featured', 'DESC']);
+      }
+      if (filters.sortBy === 'price_asc' || filters.sortBy === 'price_low') {
+        order.push(['price', 'ASC']);
+      } else if (filters.sortBy === 'price_desc' || filters.sortBy === 'price_high') {
+        order.push(['price', 'DESC']);
+      } else if (filters.sortBy === 'date_asc' || filters.sortBy === 'date_old') {
+        order.push(['created_at', 'ASC']);
+      } else if (filters.sortBy === 'date_desc' || filters.sortBy === 'date_new') {
+        order.push(['created_at', 'DESC']);
+      } else if (filters.sortBy === 'views') {
+        order.push(['view_count', 'DESC']);
+      } else {
+        order.push(['created_at', 'DESC']);
+      }
     }
 
     const { count, rows } = await Listing.findAndCountAll({
       where,
       include,
-      order,
-      limit,
-      offset,
+      order: useScoring ? [['created_at', 'DESC']] : order,
+      limit: useScoring ? undefined : limit,
+      offset: useScoring ? undefined : offset,
       distinct: true
     });
 
-    // Add favorite counts to each listing
-    const listingsWithFavorites = await Promise.all(
-      rows.map(async (listing) => {
-        const favoriteCount = await UserFavorite.count({
-          where: { listingId: listing.id }
-        });
-        
-        // Add favoriteCount as a virtual field
-        listing.dataValues.favoriteCount = favoriteCount;
-        return listing;
-      })
-    );
+    let listingsWithFavoritedStatus = await this.addIsFavoritedField(rows, userId);
 
-    // Add isFavorited field for the current user
-    const listingsWithFavoritedStatus = await this.addIsFavoritedField(listingsWithFavorites, userId);
+    if (useScoring) {
+      const scoredListings = listingsWithFavoritedStatus.map(listing => {
+        const listingData = listing.toJSON();
+        const scoreResult = ScoringHelper.calculateTotalScore(listingData, { userLocation });
+        
+        return {
+          ...listing.dataValues,
+          totalScore: scoreResult.totalScore,
+          scoreBreakdown: scoreResult.breakdown
+        };
+      });
+
+      const sortBy = filters.sortBy || 'relevance';
+      const sortedListings = sortBy === 'relevance'
+        ? ScoringHelper.sortListings(scoredListings)
+        : ScoringHelper.sortListingsWithPrimary(scoredListings, sortBy);
+      
+      const paginatedListings = sortedListings.slice(offset, offset + limit);
+      
+      listingsWithFavoritedStatus = paginatedListings.map(listingData => {
+        const listing = Listing.build(listingData, { isNewRecord: false, raw: true });
+        listing.dataValues = listingData;
+        return listing;
+      });
+    }
 
     return {
       listings: listingsWithFavoritedStatus,
@@ -586,36 +673,8 @@ class ListingRepository {
       where.locality = { [Op.iLike]: `%${locality}%` };
     }
 
-    // Build includes for associations
-    const include = [
-      { 
-        model: User, 
-        as: 'user', 
-        attributes: ['id', 'fullName', 'mobile']
-      },
-      { 
-        model: Category, 
-        as: 'category', 
-        attributes: ['id', 'name', 'slug']
-      },
-      { 
-        model: State, 
-        as: 'state', 
-        attributes: ['id', 'name', 'slug']
-      },
-      { 
-        model: City, 
-        as: 'city', 
-        attributes: ['id', 'name', 'slug']
-      },
-      { 
-        model: ListingMedia, 
-        as: 'media', 
-        where: { isPrimary: true },
-        required: false,
-        attributes: ['id', 'mediaUrl', 'thumbnailUrl', 'mediaType', 'storageType', 'mimeType', 'thumbnailMimeType']
-      }
-    ];
+    // Build includes for associations - minimal for search results
+    const include = [];
 
     // Add category-specific includes and filters
     if (categoryId) {
@@ -692,49 +751,32 @@ class ListingRepository {
       distinct: true
     });
 
-    // Calculate search scores and location matches for each result, and add favorite counts
-    const enrichedResults = await Promise.all(
-      rows.map(async (listing) => {
-        const listingData = listing.toJSON();
-        
-        // Get favorite count
-        const favoriteCount = await UserFavorite.count({
-          where: { listingId: listing.id }
-        });
-        
-        // Calculate location match
-        const locationMatch = LocationHelper.getLocationMatch(
-          userLocation,
-          { stateId: listing.stateId, cityId: listing.cityId }
-        );
+    // Calculate search scores and location matches for each result
+    const listingsWithFavorited = await this.addIsFavoritedField(rows, userId);
+    
+    const enrichedResults = listingsWithFavorited.map((listing) => {
+      const listingData = listing.toJSON ? listing.toJSON() : listing;
+      
+      const locationMatch = LocationHelper.getLocationMatch(
+        userLocation,
+        { stateId: listingData.stateId, cityId: listingData.cityId }
+      );
 
-        const scoreResult = ScoringHelper.calculateTotalScore(listing, {
-          userLocation
-        });
+      const scoreResult = ScoringHelper.calculateTotalScore(listingData, {
+        userLocation
+      });
 
-        // Check if user has favorited this listing
-        let isFavorited = false;
-        if (userId) {
-          const userFavorite = await UserFavorite.findOne({
-            where: { userId, listingId: listing.id }
-          });
-          isFavorited = !!userFavorite;
-        }
-
-        return {
-          ...listingData,
-          favoriteCount,
-          isFavorited,
-          totalScore: scoreResult.totalScore,
-          locationMatch: locationMatch.type,
-          scoreBreakdown: scoreResult.breakdown
-        };
-      })
-    );
+      return {
+        ...listingData,
+        totalScore: scoreResult.totalScore,
+        locationMatch: locationMatch.type,
+        scoreBreakdown: scoreResult.breakdown
+      };
+    });
 
     const sortedResults = sortBy === 'relevance' 
       ? ScoringHelper.sortListings(enrichedResults)
-      : enrichedResults;
+      : ScoringHelper.sortListingsWithPrimary(enrichedResults, sortBy);
 
     return {
       listings: sortedResults,
@@ -935,7 +977,8 @@ class ListingRepository {
     const {
       categories = [],
       limit = 10,
-      featuredLimit = 10
+      featuredLimit = 10,
+      userLocation = null
     } = filters;
 
     const baseWhere = {
@@ -958,32 +1001,25 @@ class ListingRepository {
         {
           model: Category,
           as: 'category',
-          attributes: ['id', 'name', 'slug'],
+          attributes: ['id'],
           where: { isActive: true }
-        },
-        {
-          model: State,
-          as: 'state',
-          attributes: ['id', 'name', 'slug']
-        },
-        {
-          model: City,
-          as: 'city',
-          attributes: ['id', 'name', 'slug']
-        },
-        {
-          model: ListingMedia,
-          as: 'media',
-          attributes: ['id', 'mediaUrl', 'thumbnailUrl', 'mediaType', 'storageType', 'mimeType', 'thumbnailMimeType', 'isPrimary'],
-          where: { isPrimary: true },
-          required: false
         }
-      ],
-      order: [['created_at', 'DESC']],
-      limit: parseInt(featuredLimit)
+      ]
     });
 
-    result.featured = featuredListings;
+    const scoredFeaturedListings = featuredListings.map(listing => {
+      const listingData = listing.toJSON();
+      const scoreResult = ScoringHelper.calculateTotalScore(listingData, { userLocation });
+      
+      return {
+        ...listingData,
+        totalScore: scoreResult.totalScore,
+        scoreBreakdown: scoreResult.breakdown
+      };
+    });
+
+    const sortedFeaturedListings = ScoringHelper.sortListings(scoredFeaturedListings);
+    result.featured = sortedFeaturedListings.slice(0, parseInt(featuredLimit));
 
     if (categories.length > 0) {
       for (const categoryId of categories) {
@@ -998,28 +1034,22 @@ class ListingRepository {
               as: 'category',
               attributes: ['id', 'name', 'slug'],
               where: { isActive: true }
-            },
-            {
-              model: State,
-              as: 'state',
-              attributes: ['id', 'name', 'slug']
-            },
-            {
-              model: City,
-              as: 'city',
-              attributes: ['id', 'name', 'slug']
-            },
-            {
-              model: ListingMedia,
-              as: 'media',
-              attributes: ['id', 'mediaUrl', 'thumbnailUrl', 'mediaType', 'storageType', 'mimeType', 'thumbnailMimeType', 'isPrimary'],
-              where: { isPrimary: true },
-              required: false
             }
-          ],
-          order: [['created_at', 'DESC']],
-          limit: parseInt(limit)
+          ]
         });
+
+        const scoredCategoryListings = categoryListings.map(listing => {
+          const listingData = listing.toJSON();
+          const scoreResult = ScoringHelper.calculateTotalScore(listingData, { userLocation });
+          
+          return {
+            ...listingData,
+            totalScore: scoreResult.totalScore,
+            scoreBreakdown: scoreResult.breakdown
+          };
+        });
+
+        const sortedCategoryListings = ScoringHelper.sortListings(scoredCategoryListings);
 
         const totalCount = await Listing.count({
           where: {
@@ -1035,13 +1065,13 @@ class ListingRepository {
           ]
         });
 
-        if (categoryListings.length > 0) {
+        if (sortedCategoryListings.length > 0) {
           const category = categoryListings[0].category;
           result.byCategory[categoryId] = {
             categoryId: category.id,
             categoryName: category.name,
             categorySlug: category.slug,
-            listings: categoryListings,
+            listings: sortedCategoryListings.slice(0, parseInt(limit)),
             totalCount
           };
         }
@@ -1053,58 +1083,148 @@ class ListingRepository {
 
   async findRelatedListings(listingId, limit = 6) {
     const currentListing = await Listing.findByPk(listingId, {
-      attributes: ['id', 'categoryId', 'price', 'stateId', 'cityId']
+      attributes: ['id', 'categoryId', 'categorySlug', 'price', 'stateId', 'cityId'],
+      include: [
+        {
+          model: CarListing,
+          as: 'carListing',
+          attributes: ['brandId', 'modelId', 'variantId'],
+          required: false
+        },
+        {
+          model: PropertyListing,
+          as: 'propertyListing',
+          attributes: ['propertyType'],
+          required: false
+        }
+      ]
     });
 
     if (!currentListing) {
       return [];
     }
 
+    const categorySlug = currentListing.categorySlug?.toLowerCase();
+    const isCar = categorySlug === 'cars' || categorySlug === 'car';
+    const isProperty = categorySlug === 'properties' || categorySlug === 'property';
+
     const where = {
       id: { [Op.ne]: listingId },
+      categoryId: currentListing.categoryId,
       status: 'active',
       expiresAt: { [Op.gt]: new Date() }
     };
 
-    const listings = await Listing.findAll({
-      where,
-      include: [
-        {
-          model: Category,
-          as: 'category',
-          attributes: ['id', 'name', 'slug']
-        },
-        {
-          model: State,
-          as: 'state',
-          attributes: ['id', 'name', 'slug']
-        },
-        {
-          model: City,
-          as: 'city',
-          attributes: ['id', 'name', 'slug']
-        },
-        {
-          model: ListingMedia,
-          as: 'media',
-          attributes: ['id', 'mediaUrl', 'thumbnailUrl', 'mediaType', 'storageType', 'mimeType', 'thumbnailMimeType'],
-          where: { isPrimary: true },
-          required: false
+    let listings = [];
+
+    if (isCar && currentListing.carListing) {
+      const carWhere = {};
+      if (currentListing.carListing.brandId) {
+        carWhere.brandId = currentListing.carListing.brandId;
+      }
+      if (currentListing.carListing.modelId) {
+        carWhere.modelId = currentListing.carListing.modelId;
+      }
+      if (currentListing.carListing.variantId) {
+        carWhere.variantId = currentListing.carListing.variantId;
+      }
+
+      if (Object.keys(carWhere).length > 0) {
+        listings = await Listing.findAll({
+          where,
+          include: [
+            {
+              model: CarListing,
+              as: 'carListing',
+              where: carWhere,
+              required: true
+            }
+          ],
+          limit: limit * 3,
+          order: [['created_at', 'DESC']]
+        });
+      }
+
+      if (listings.length < limit) {
+        const additionalListings = await Listing.findAll({
+          where: {
+            ...where,
+            id: { 
+              [Op.notIn]: [listingId, ...listings.map(l => l.id)]
+            }
+          },
+          limit: (limit * 3) - listings.length,
+          order: [['created_at', 'DESC']]
+        });
+        listings = [...listings, ...additionalListings];
+      }
+    } else if (isProperty && currentListing.propertyListing) {
+      const propertyType = currentListing.propertyListing.propertyType?.toLowerCase();
+      
+      const propertyGroups = {
+        residential: ['house', 'apartment', 'villa'],
+        commercial: ['office', 'shop'],
+        accommodation: ['pg', 'hostel'],
+        plot: ['plot'],
+        warehouse: ['warehouse']
+      };
+
+      let allowedPropertyTypes = [propertyType];
+      
+      for (const [group, types] of Object.entries(propertyGroups)) {
+        if (types.includes(propertyType)) {
+          allowedPropertyTypes = types;
+          break;
         }
-      ],
-      limit: limit * 3,
-      order: [['created_at', 'DESC']]
-    });
+      }
+
+      listings = await Listing.findAll({
+        where,
+        include: [
+          {
+            model: PropertyListing,
+            as: 'propertyListing',
+            where: {
+              propertyType: { [Op.in]: allowedPropertyTypes }
+            },
+            required: true
+          }
+        ],
+        limit: limit * 3,
+        order: [['created_at', 'DESC']]
+      });
+    } else {
+      listings = await Listing.findAll({
+        where,
+        limit: limit * 3,
+        order: [['created_at', 'DESC']]
+      });
+    }
+
+    if (listings.length === 0) {
+      return [];
+    }
+
+    const userLocation = {
+      stateId: currentListing.stateId,
+      cityId: currentListing.cityId
+    };
 
     const scoredListings = listings.map(listing => {
+      const listingData = listing.toJSON();
+      
       const similarityScore = ScoringHelper.calculateSimilarityScore(
-        listing,
+        listingData,
         currentListing
       );
 
+      const scoreResult = ScoringHelper.calculateTotalScore(listingData, { userLocation });
+
       return {
-        ...listing.toJSON(),
-        similarityScore
+        ...listingData,
+        similarityScore,
+        totalScore: scoreResult.totalScore,
+        scoreBreakdown: scoreResult.breakdown
       };
     });
 
@@ -1112,7 +1232,10 @@ class ListingRepository {
       if (b.similarityScore !== a.similarityScore) {
         return b.similarityScore - a.similarityScore;
       }
-      return new Date(b.createdAt) - new Date(a.createdAt);
+      if (b.totalScore !== a.totalScore) {
+        return b.totalScore - a.totalScore;
+      }
+      return b.id - a.id;
     });
 
     return scoredListings.slice(0, limit);

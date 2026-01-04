@@ -4,7 +4,7 @@ Complete API documentation for listing management endpoints.
 
 ## Important Notes
 
-- **Favorite Counts**: All listing responses automatically include a `favoriteCount` field showing the total number of users who have favorited that listing.
+- **Favorite Counts**: All listing responses automatically include a `totalFavorites` field showing the total number of users who have favorited that listing.
 - **Authentication**: End-user endpoints require user authentication. Panel endpoints require admin/staff roles.
 
 ---
@@ -995,6 +995,24 @@ Get featured listings only.
 **Query Parameters:**
 - `categoryId` - Filter by category
 - `limit` (default: 10) - Number of listings
+
+**Examples**
+
+- All featured listings
+GET /api/public/listings/featured
+
+- Featured listings in a specific category
+GET /api/public/listings/featured?categoryId=1
+
+- Featured listings in a state
+GET /api/public/listings/featured?stateId=5
+
+- Featured listings with search
+GET /api/public/listings/featured?search=toyota
+
+- Combined filters with pagination
+GET /api/public/listings/featured?categoryId=1&stateId=5&search=luxury&page=2&limit=30
+
 
 **Response (200 OK):**
 ```json

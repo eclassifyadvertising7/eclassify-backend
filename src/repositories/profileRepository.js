@@ -111,16 +111,31 @@ class ProfileRepository {
    * @param {Object} transaction
    * @returns {Promise<Object>}
    */
-  async updateOrCreateProfile(userId, data, transaction) {
-    const [profile] = await UserProfile.upsert(
-      {
-        userId,
-        ...data
-      },
-      { transaction }
-    );
+  async updateOrCreateProfile(userId, data, transaction = null) {
+    try {
+      const options = transaction ? { transaction } : {};
+      
+      const existingProfile = await UserProfile.findOne({
+        where: { userId },
+        ...options
+      });
 
-    return profile;
+      if (existingProfile) {
+        await existingProfile.update(data, options);
+        return existingProfile;
+      } else {
+        return await UserProfile.create(
+          {
+            userId,
+            ...data
+          },
+          options
+        );
+      }
+    } catch (error) {
+      console.error('Error in updateOrCreateProfile:', error);
+      throw error;
+    }
   }
 
   /**
@@ -130,16 +145,26 @@ class ProfileRepository {
    * @param {Object} transaction
    * @returns {Promise<Object>}
    */
-  async updateBusinessInfo(userId, data, transaction) {
-    const [profile] = await UserProfile.upsert(
-      {
-        userId,
-        ...data
-      },
-      { transaction }
-    );
+  async updateBusinessInfo(userId, data, transaction = null) {
+    const options = transaction ? { transaction } : {};
+    
+    const existingProfile = await UserProfile.findOne({
+      where: { userId },
+      ...options
+    });
 
-    return profile;
+    if (existingProfile) {
+      await existingProfile.update(data, options);
+      return existingProfile;
+    } else {
+      return await UserProfile.create(
+        {
+          userId,
+          ...data
+        },
+        options
+      );
+    }
   }
 
   /**
@@ -163,12 +188,12 @@ class ProfileRepository {
       where: { userId },
       attributes: [
         'id',
-        'preferredStateId',
-        'preferredStateName',
-        'preferredCityId',
-        'preferredCityName',
-        'preferredLatitude',
-        'preferredLongitude'
+        ['preferred_state_id', 'preferredStateId'],
+        ['preferred_state_name', 'preferredStateName'],
+        ['preferred_city_id', 'preferredCityId'],
+        ['preferred_city_name', 'preferredCityName'],
+        ['preferred_latitude', 'preferredLatitude'],
+        ['preferred_longitude', 'preferredLongitude']
       ]
     });
 

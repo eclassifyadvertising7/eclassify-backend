@@ -521,9 +521,10 @@ class ChatRoomRepository {
     const room = await ChatRoom.findByPk(roomId);
     if (!room) return null;
 
-    if (room.buyerId === userId) {
+    // Use loose equality to handle string/number type mismatch
+    if (room.buyerId == userId) {
       return { userType: 'buyer', room };
-    } else if (room.sellerId === userId) {
+    } else if (room.sellerId == userId) {
       return { userType: 'seller', room };
     }
     return null;

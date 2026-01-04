@@ -84,7 +84,12 @@ export async function up(queryInterface, Sequelize) {
     mileage_km: {
       type: Sequelize.INTEGER,
       allowNull: true,
-      comment: 'Mileage in kilometers'
+      comment: 'Total kilometers driven (odometer reading)'
+    },
+    fuel_efficiency_kmpl: {
+      type: Sequelize.DECIMAL(5, 2),
+      allowNull: true,
+      comment: 'Current fuel efficiency in kilometers per liter'
     },
     owners_count: {
       type: Sequelize.INTEGER,
