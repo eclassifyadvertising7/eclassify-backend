@@ -53,6 +53,26 @@ class SubscriptionController {
     }
   }
 
+  static async checkEligibility(req, res) {
+    try {
+      const userId = req.user.userId;
+      const { planId } = req.params;
+
+      if (!planId) {
+        return errorResponse(res, 'Plan ID is required', 400);
+      }
+
+      const result = await subscriptionService.checkSubscriptionEligibility(
+        userId,
+        parseInt(planId)
+      );
+
+      return successResponse(res, result.data, result.message);
+    } catch (error) {
+      return errorResponse(res, error.message, 400);
+    }
+  }
+
   static async subscribeToPlan(req, res) {
     try {
       const userId = req.user.userId;

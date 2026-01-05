@@ -2,6 +2,7 @@ import subscriptionRepository from "#repositories/subscriptionRepository.js";
 import invoiceRepository from "#repositories/invoiceRepository.js";
 import transactionRepository from "#repositories/transactionRepository.js";
 import quotaService from "#services/quotaService.js";
+import quotaRepository from "#repositories/quotaRepository.js";
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from "#utils/constants/messages.js";
 import { customSlugify } from "#utils/customSlugify.js";
 import db, { sequelize } from "#models/index.js";
@@ -376,6 +377,256 @@ class SubscriptionService {
   }
 
   /**
+   * Check subscription eligibility before purchase
+   * @param {number} userId - User ID
+   * @param {number} planId - Plan ID
+   * @returns {Promise<Object>} Service response with eligibility details
+   */
+  async checkSubscriptionEligibility(userId, planId) {
+    try {
+      const targetPlan = await subscriptionRepository.findPlanById(planId);
+
+      if (!targetPlan) {
+        return {
+          success: true,
+          message: 'Plan not found',
+          data: {
+            eligible: false,
+            reason: 'PLAN_NOT_FOUND',
+            message: 'The selected plan does not exist',
+            targetPlan: null,
+            currentSubscription: null,
+            quotaInfo: null,
+            suggestions: ['Please select a valid plan']
+          }
+        };
+      }
+
+      if (!targetPlan.isActive || !targetPlan.isPublic) {
+        return {
+          success: true,
+          message: 'Plan not available',
+          data: {
+            eligible: false,
+            reason: 'PLAN_NOT_AVAILABLE',
+            message: 'This plan is not currently available for subscription',
+            targetPlan: {
+              id: targetPlan.id,
+              name: targetPlan.name,
+              isActive: targetPlan.isActive,
+              isPublic: targetPlan.isPublic
+            },
+            currentSubscription: null,
+            quotaInfo: null,
+            suggestions: ['Please select an available plan']
+          }
+        };
+      }
+
+      const pendingSubscription = await subscriptionRepository.getUserPendingSubscriptionByCategory(
+        userId,
+        targetPlan.categoryId
+      );
+
+      if (pendingSubscription) {
+        return {
+          success: true,
+          message: 'You have a pending subscription awaiting approval',
+          data: {
+            eligible: false,
+            reason: 'PENDING_SUBSCRIPTION_EXISTS',
+            message: 'You have a pending subscription for this category. Please wait for admin approval or cancel it to subscribe to a different plan.',
+            targetPlan: {
+              id: targetPlan.id,
+              name: targetPlan.name,
+              price: targetPlan.finalPrice,
+              isFreePlan: targetPlan.isFreePlan,
+              categoryId: targetPlan.categoryId
+            },
+            pendingSubscription: {
+              id: pendingSubscription.id,
+              planName: pendingSubscription.planName,
+              submittedAt: pendingSubscription.createdAt,
+              status: 'pending',
+              paymentMethod: pendingSubscription.paymentMethod
+            },
+            currentSubscription: null,
+            quotaInfo: null,
+            suggestions: [
+              'Wait for admin to approve your pending subscription',
+              'Cancel your pending subscription to subscribe to a different plan',
+              'Contact support for assistance'
+            ]
+          }
+        };
+      }
+
+      const quotaUsage = await quotaRepository.getUserQuotaUsage(
+        userId,
+        targetPlan.categoryId
+      );
+
+      const existingSubscription = quotaUsage?.subscription;
+
+      const eligibilityResult = this._evaluateEligibility(
+        targetPlan,
+        existingSubscription,
+        quotaUsage
+      );
+
+      return {
+        success: true,
+        message: eligibilityResult.eligible 
+          ? 'You are eligible to subscribe to this plan' 
+          : eligibilityResult.message,
+        data: eligibilityResult
+      };
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  /**
+   * Evaluate subscription eligibility based on rules
+   * @param {Object} targetPlan - Target plan to subscribe to
+   * @param {Object} existingSubscription - Current subscription (if any)
+   * @param {Object} quotaUsage - Current quota usage data
+   * @returns {Object} Eligibility result
+   * @private
+   */
+  _evaluateEligibility(targetPlan, existingSubscription, quotaUsage) {
+    const targetPlanInfo = {
+      id: targetPlan.id,
+      name: targetPlan.name,
+      price: targetPlan.finalPrice,
+      isFreePlan: targetPlan.isFreePlan,
+      categoryId: targetPlan.categoryId
+    };
+
+    if (!existingSubscription) {
+      return {
+        eligible: true,
+        reason: 'NEW_SUBSCRIPTION',
+        message: 'You can subscribe to this plan',
+        targetPlan: targetPlanInfo,
+        currentSubscription: null,
+        quotaInfo: quotaUsage,
+        suggestions: null
+      };
+    }
+
+    const currentSubscriptionInfo = {
+      id: existingSubscription.id,
+      planName: existingSubscription.planName,
+      isFreePlan: existingSubscription.isFreePlan,
+      quotaLimit: quotaUsage?.quotaLimit || 0,
+      quotaUsed: quotaUsage?.quotaUsed || 0,
+      quotaRemaining: quotaUsage?.quotaRemaining || 0,
+      rollingDays: quotaUsage?.rollingDays || 30
+    };
+
+    if (targetPlan.isFreePlan) {
+      if (existingSubscription.isFreePlan) {
+        return {
+          eligible: false,
+          reason: 'ALREADY_HAS_FREE_PLAN',
+          message: 'You already have an active free plan for this category',
+          targetPlan: targetPlanInfo,
+          currentSubscription: currentSubscriptionInfo,
+          quotaInfo: quotaUsage,
+          suggestions: [
+            'You can upgrade to a paid plan anytime',
+            'Your current free plan will be replaced upon upgrade'
+          ]
+        };
+      }
+
+      if (!existingSubscription.isFreePlan) {
+        const quotaExhausted = (quotaUsage?.quotaRemaining || 0) === 0;
+
+        if (!quotaExhausted) {
+          return {
+            eligible: false,
+            reason: 'QUOTA_NOT_EXHAUSTED',
+            message: `Cannot downgrade to free plan. You have used ${quotaUsage.quotaUsed} of ${quotaUsage.quotaLimit} listings. Please exhaust your current quota first.`,
+            targetPlan: targetPlanInfo,
+            currentSubscription: currentSubscriptionInfo,
+            quotaInfo: quotaUsage,
+            suggestions: [
+              `Create ${quotaUsage.quotaRemaining} more listings to exhaust your quota`,
+              `Your quota resets ${quotaUsage.rollingDays} days after each listing creation`,
+              'Wait for your subscription to expire',
+              'Contact support for assistance'
+            ]
+          };
+        }
+
+        return {
+          eligible: true,
+          reason: 'DOWNGRADE_ALLOWED',
+          message: 'You can downgrade to free plan (quota exhausted)',
+          targetPlan: targetPlanInfo,
+          currentSubscription: currentSubscriptionInfo,
+          quotaInfo: quotaUsage,
+          suggestions: null
+        };
+      }
+    }
+
+    if (!targetPlan.isFreePlan && existingSubscription.isFreePlan) {
+      return {
+        eligible: true,
+        reason: 'FREE_PLAN_UPGRADE',
+        message: 'You can upgrade from free plan anytime',
+        targetPlan: targetPlanInfo,
+        currentSubscription: currentSubscriptionInfo,
+        quotaInfo: quotaUsage,
+        suggestions: null
+      };
+    }
+
+    if (!targetPlan.isFreePlan && !existingSubscription.isFreePlan) {
+      const quotaExhausted = (quotaUsage?.quotaRemaining || 0) === 0;
+
+      if (!quotaExhausted) {
+        return {
+          eligible: false,
+          reason: 'QUOTA_NOT_EXHAUSTED',
+          message: `Cannot upgrade. You have used ${quotaUsage.quotaUsed} of ${quotaUsage.quotaLimit} listings. Please exhaust your current quota before upgrading.`,
+          targetPlan: targetPlanInfo,
+          currentSubscription: currentSubscriptionInfo,
+          quotaInfo: quotaUsage,
+          suggestions: [
+            `Create ${quotaUsage.quotaRemaining} more listings to exhaust your quota`,
+            `Your quota resets ${quotaUsage.rollingDays} days after each listing creation`,
+            'Contact support if you need immediate upgrade'
+          ]
+        };
+      }
+
+      return {
+        eligible: true,
+        reason: 'UPGRADE_ALLOWED',
+        message: 'You can upgrade to this plan (quota exhausted)',
+        targetPlan: targetPlanInfo,
+        currentSubscription: currentSubscriptionInfo,
+        quotaInfo: quotaUsage,
+        suggestions: null
+      };
+    }
+
+    return {
+      eligible: false,
+      reason: 'UNKNOWN',
+      message: 'Unable to determine eligibility',
+      targetPlan: targetPlanInfo,
+      currentSubscription: currentSubscriptionInfo,
+      quotaInfo: quotaUsage,
+      suggestions: ['Contact support for assistance']
+    };
+  }
+
+  /**
    * Subscribe user to plan with payment gateway
    * @param {number} userId - User ID
    * @param {number} planId - Plan ID
@@ -391,6 +642,17 @@ class SubscriptionService {
 
       if (!plan) {
         throw new Error(ERROR_MESSAGES.SUBSCRIPTION_PLAN_NOT_FOUND);
+      }
+
+      const pendingSubscription = await subscriptionRepository.getUserPendingSubscriptionByCategory(
+        userId,
+        plan.categoryId
+      );
+
+      if (pendingSubscription) {
+        throw new Error(
+          'You have a pending subscription for this category. Please wait for admin approval or cancel it to subscribe to a different plan.'
+        );
       }
 
       // Check if user already has active subscription for this plan's category
@@ -1026,6 +1288,17 @@ class SubscriptionService {
 
       if (!plan) {
         throw new Error(ERROR_MESSAGES.SUBSCRIPTION_PLAN_NOT_FOUND);
+      }
+
+      const pendingSubscription = await subscriptionRepository.getUserPendingSubscriptionByCategory(
+        userId,
+        plan.categoryId
+      );
+
+      if (pendingSubscription) {
+        throw new Error(
+          'User has a pending subscription for this category. Please approve/reject it before creating a new subscription.'
+        );
       }
 
       // Check if user already has active subscription for this plan's category

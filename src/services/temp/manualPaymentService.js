@@ -8,7 +8,6 @@ import { generateInvoiceNumber, generateTransactionNumber } from '#utils/invoice
 import { customSlugify } from '#utils/customSlugify.js';
 import { deleteFile } from '#config/storageConfig.js';
 import { sequelize } from '#models/index.js';
-import { Op } from 'sequelize';
 
 /**
  * ManualPaymentService - TEMPORARY service for manual payment verification
@@ -37,91 +36,57 @@ class ManualPaymentService {
         throw new Error('UPI ID and Transaction ID are required');
       }
 
-      // Get plan details first
-      const plan = await subscriptionRepository.findPlanById(planId);
+      // Get TARGET plan details
+      const targetPlan = await subscriptionRepository.findPlanById(planId);
 
-      if (!plan) {
+      if (!targetPlan) {
         throw new Error(ERROR_MESSAGES.SUBSCRIPTION_PLAN_NOT_FOUND);
       }
 
-      if (!plan.isActive || !plan.isPublic) {
+      if (!targetPlan.isActive || !targetPlan.isPublic) {
         throw new Error('Plan is not available for subscription');
       }
 
-      // Check if user already has active subscription for this plan's category
-      const existingSubscription = await subscriptionRepository.getUserActiveSubscriptionByCategory(
-        userId,
-        plan.categoryId
-      );
-
-      if (existingSubscription) {
-        // If user has free plan, allow upgrade without quota check
-        if (existingSubscription.isFreePlan) {
-          // Free plan user can upgrade anytime - no quota check needed
-        } else {
-          // Paid plan user - check if quota is exhausted
-          const { Listing } = await import('#models/index.js');
-          const listingCount = await Listing.count({
-            where: {
-              userId,
-              userSubscriptionId: existingSubscription.id,
-              status: {
-                [Op.in]: ['pending', 'active', 'sold', 'expired']
-              }
-            }
-          });
-
-          // If quota not exhausted, don't allow upgrade
-          if (listingCount < existingSubscription.listingQuotaLimit) {
-            throw new Error(
-              `Cannot upgrade. You have used ${listingCount} of ${existingSubscription.listingQuotaLimit} listings. Please exhaust your current quota before upgrading.`
-            );
-          }
-        }
-      }
-
-      // Special validation for free plan subscriptions
-      if (plan.isFreePlan) {
-        // Check if user already has active free plan for this category
-        if (existingSubscription && existingSubscription.isFreePlan) {
-          throw new Error('You already have an active free plan for this category');
-        }
-
-        // Check if user has exhausted quota (if they have a paid plan)
-        if (existingSubscription && !existingSubscription.isFreePlan) {
-          const { Listing } = await import('#models/index.js');
-          const listingCount = await Listing.count({
-            where: {
-              userId,
-              userSubscriptionId: existingSubscription.id,
-              status: {
-                [Op.in]: ['pending', 'active', 'sold', 'expired']
-              }
-            }
-          });
-
-          if (listingCount < existingSubscription.listingQuotaLimit) {
-            throw new Error(
-              `Cannot downgrade to free plan. You have used ${listingCount} of ${existingSubscription.listingQuotaLimit} listings. Please exhaust your current quota first.`
-            );
-          }
-        }
-      }
-
-      // Free plans cannot use manual payment flow
-      if (plan.isFreePlan) {
+      // Block free plans from manual payment flow (early check)
+      if (targetPlan.isFreePlan) {
         throw new Error('Free plans cannot be purchased through manual payment. Please use the regular subscription flow.');
       }
+
+      // Check if user has pending subscription for this category
+      const pendingSubscription = await subscriptionRepository.getUserPendingSubscriptionByCategory(
+        userId,
+        targetPlan.categoryId
+      );
+
+      if (pendingSubscription) {
+        throw new Error(
+          'You already have a pending subscription for this category. Please wait for admin verification or cancel the pending subscription before creating a new one.'
+        );
+      }
+
+      // Check eligibility using subscriptionService (reuses existing logic)
+      const { default: subscriptionService } = await import('#services/subscriptionService.js');
+      const eligibilityCheck = await subscriptionService.checkSubscriptionEligibility(userId, planId);
+
+      if (!eligibilityCheck.data.eligible) {
+        throw new Error(eligibilityCheck.data.message);
+      }
+
+      // Get CURRENT subscription for expiration (if exists)
+      const currentSubscription = await subscriptionRepository.getUserActiveSubscriptionByCategory(
+        userId,
+        targetPlan.categoryId
+      );
 
       // Calculate temporary dates (will be recalculated on verification)
       const tempActivatedAt = new Date();
       const tempEndsAt = new Date(tempActivatedAt);
-      tempEndsAt.setDate(tempEndsAt.getDate() + plan.durationDays);
+      tempEndsAt.setDate(tempEndsAt.getDate() + targetPlan.durationDays);
 
       // Create subscription with PENDING status
       const subscriptionData = {
         userId,
-        planId: plan.id,
+        planId: targetPlan.id,
         endsAt: tempEndsAt, // Temporary - will be recalculated when admin verifies
         activatedAt: null, // Will be set when admin verifies
         status: 'pending', // PENDING until admin verifies
@@ -130,52 +95,52 @@ class ManualPaymentService {
         autoRenew: false,
         
         // Snapshot plan identification
-        planName: plan.name,
-        planCode: plan.planCode,
-        planVersion: plan.version,
-        isFreePlan: plan.isFreePlan,
+        planName: targetPlan.name,
+        planCode: targetPlan.planCode,
+        planVersion: targetPlan.version,
+        isFreePlan: targetPlan.isFreePlan,
         
         // Snapshot pricing
-        basePrice: plan.basePrice,
-        discountAmount: plan.discountAmount,
-        finalPrice: plan.finalPrice,
-        currency: plan.currency,
-        billingCycle: plan.billingCycle,
-        durationDays: plan.durationDays,
+        basePrice: targetPlan.basePrice,
+        discountAmount: targetPlan.discountAmount,
+        finalPrice: targetPlan.finalPrice,
+        currency: targetPlan.currency,
+        billingCycle: targetPlan.billingCycle,
+        durationDays: targetPlan.durationDays,
         
         // Snapshot quotas
-        maxTotalListings: plan.maxTotalListings,
-        maxActiveListings: plan.maxActiveListings,
-        listingQuotaLimit: plan.listingQuotaLimit,
-        listingQuotaRollingDays: plan.listingQuotaRollingDays,
+        maxTotalListings: targetPlan.maxTotalListings,
+        maxActiveListings: targetPlan.maxActiveListings,
+        listingQuotaLimit: targetPlan.listingQuotaLimit,
+        listingQuotaRollingDays: targetPlan.listingQuotaRollingDays,
         
         // Snapshot featured & promotional
-        maxFeaturedListings: plan.maxFeaturedListings,
-        maxBoostedListings: plan.maxBoostedListings,
-        maxSpotlightListings: plan.maxSpotlightListings,
-        maxHomepageListings: plan.maxHomepageListings,
-        featuredDays: plan.featuredDays,
-        boostedDays: plan.boostedDays,
-        spotlightDays: plan.spotlightDays,
+        maxFeaturedListings: targetPlan.maxFeaturedListings,
+        maxBoostedListings: targetPlan.maxBoostedListings,
+        maxSpotlightListings: targetPlan.maxSpotlightListings,
+        maxHomepageListings: targetPlan.maxHomepageListings,
+        featuredDays: targetPlan.featuredDays,
+        boostedDays: targetPlan.boostedDays,
+        spotlightDays: targetPlan.spotlightDays,
         
         // Snapshot visibility & priority
-        priorityScore: plan.priorityScore,
-        searchBoostMultiplier: plan.searchBoostMultiplier,
-        recommendationBoostMultiplier: plan.recommendationBoostMultiplier,
-        crossCityVisibility: plan.crossCityVisibility,
-        nationalVisibility: plan.nationalVisibility,
+        priorityScore: targetPlan.priorityScore,
+        searchBoostMultiplier: targetPlan.searchBoostMultiplier,
+        recommendationBoostMultiplier: targetPlan.recommendationBoostMultiplier,
+        crossCityVisibility: targetPlan.crossCityVisibility,
+        nationalVisibility: targetPlan.nationalVisibility,
         
         // Snapshot listing management
-        autoRenewalEnabled: plan.autoRenewal,
-        maxRenewals: plan.maxRenewals,
-        listingDurationDays: plan.listingDurationDays,
-        autoRefreshEnabled: plan.autoRefreshEnabled,
-        refreshFrequencyDays: plan.refreshFrequencyDays,
-        manualRefreshPerCycle: plan.manualRefreshPerCycle,
+        autoRenewalEnabled: targetPlan.autoRenewal,
+        maxRenewals: targetPlan.maxRenewals,
+        listingDurationDays: targetPlan.listingDurationDays,
+        autoRefreshEnabled: targetPlan.autoRefreshEnabled,
+        refreshFrequencyDays: targetPlan.refreshFrequencyDays,
+        manualRefreshPerCycle: targetPlan.manualRefreshPerCycle,
         
         // Snapshot support & features
-        supportLevel: plan.supportLevel,
-        features: plan.features,
+        supportLevel: targetPlan.supportLevel,
+        features: targetPlan.features,
         
         // Payment info - Manual
         paymentMethod: 'manual',
@@ -196,14 +161,14 @@ class ManualPaymentService {
         userId
       );
 
-      // Expire previous subscription if exists
-      if (existingSubscription) {
+      // Expire CURRENT subscription if exists
+      if (currentSubscription) {
         await subscriptionRepository.updateSubscription(
-          existingSubscription.id,
+          currentSubscription.id,
           {
             status: 'expired',
             endsAt: new Date(),
-            notes: `${existingSubscription.notes || ''}\nExpired due to upgrade to new plan on ${new Date().toISOString()}`
+            notes: `${currentSubscription.notes || ''}\nExpired due to upgrade to new plan on ${new Date().toISOString()}`
           },
           userId
         );
@@ -221,20 +186,20 @@ class ManualPaymentService {
         invoiceDate: new Date(),
         customerName: paymentData.customerName || 'Customer',
         customerMobile: paymentData.customerMobile || '',
-        planName: plan.name,
-        planCode: plan.planCode,
-        planVersion: plan.version,
-        isFreePlan: plan.isFreePlan,
-        planSnapshot: plan.toJSON(),
-        subtotal: plan.finalPrice,
+        planName: targetPlan.name,
+        planCode: targetPlan.planCode,
+        planVersion: targetPlan.version,
+        isFreePlan: targetPlan.isFreePlan,
+        planSnapshot: targetPlan.toJSON(),
+        subtotal: targetPlan.finalPrice,
         discountAmount: 0,
-        adjustedSubtotal: plan.finalPrice,
+        adjustedSubtotal: targetPlan.finalPrice,
         taxAmount: 0,
         taxPercentage: 0,
-        totalAmount: plan.finalPrice,
+        totalAmount: targetPlan.finalPrice,
         amountPaid: 0,
-        amountDue: plan.finalPrice,
-        currency: plan.currency,
+        amountDue: targetPlan.finalPrice,
+        currency: targetPlan.currency,
         status: 'pending',
         paymentMethod: 'manual',
         notes: 'Manual payment - Pending verification',
@@ -269,12 +234,12 @@ class ManualPaymentService {
         invoiceId: invoice.id,
         subscriptionId: subscription.id,
         userId,
-        subscriptionPlanId: plan.id,
+        subscriptionPlanId: targetPlan.id,
         transactionType: 'payment',
         transactionContext: 'new_subscription',
         transactionMethod: 'manual',
-        amount: plan.finalPrice,
-        currency: plan.currency,
+        amount: targetPlan.finalPrice,
+        currency: targetPlan.currency,
         paymentGateway: 'manual',
         gatewayPaymentId: paymentData.transactionId,
         manualPaymentMetadata: manualPaymentMetadata,
