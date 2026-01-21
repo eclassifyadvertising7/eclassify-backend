@@ -33,7 +33,7 @@ OtpVerification.init(
         field: 'otp'
       },
       type: {
-        type: DataTypes.ENUM('signup', 'login', 'verification'),
+        type: DataTypes.ENUM('signup', 'login', 'password_reset', 'verification'),
         allowNull: false,
         field: 'type'
       },

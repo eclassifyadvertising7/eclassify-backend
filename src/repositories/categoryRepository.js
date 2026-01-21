@@ -166,6 +166,16 @@ class CategoryRepository {
     const count = await Category.count({ where });
     return count > 0;
   }
+  /**
+   * Get category by ID with basic info
+   * @param {number} categoryId 
+   * @returns {Promise<Object|null>} Category info
+   */
+  async getBasicInfo(categoryId) {
+    return await Category.findByPk(categoryId, {
+      attributes: ['id', 'name', 'slug']
+    });
+  }
 }
 
 // Export singleton instance

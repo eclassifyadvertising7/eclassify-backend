@@ -154,6 +154,32 @@ class EmailService {
     }
   }
 
+  async sendPasswordResetEmail(email, fullName, resetUrl, resetToken) {
+    try {
+      if (!this.transporter) {
+        throw new Error('Email transporter not initialized');
+      }
+
+      const customerName = fullName || 'Customer';
+      const subject = `Reset Your ${config.app.name} Password`;
+      const html = this.getPasswordResetTemplate(customerName, resetUrl, resetToken);
+
+      const mailOptions = {
+        from: `"${config.app.name}" <${config.email.from}>`,
+        to: email,
+        subject,
+        html
+      };
+
+      const result = await this.transporter.sendMail(mailOptions);
+      console.log(`Password reset email sent successfully to ${email}:`, result.messageId);
+      return true;
+    } catch (error) {
+      console.error(`Failed to send password reset email to ${email}:`, error);
+      return false;
+    }
+  }
+
   async sendWelcomeEmail(email, fullName) {
     try {
       if (!this.transporter) {
@@ -307,6 +333,55 @@ class EmailService {
               <a href="${config.app.frontendUrl || 'http://localhost:3000'}" style="background: #3498db; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">
                 Login to Your Account
               </a>
+            </div>
+          </div>
+          
+          <p style="font-size: 12px; color: #95a5a6; margin-top: 30px; text-align: center;">
+            This is an automated message, please do not reply to this email.
+          </p>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
+  getPasswordResetTemplate(fullName, resetUrl, resetToken) {
+    const customerName = fullName || 'Customer';
+    
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Reset Your Password</title>
+      </head>
+      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background: #f8f9fa; padding: 30px; border-radius: 10px;">
+          <h1 style="color: #2c3e50; margin-bottom: 30px; text-align: center;">${config.app.name}</h1>
+          
+          <div style="background: white; padding: 30px; border-radius: 8px;">
+            <p style="font-size: 16px; margin-bottom: 20px;">Dear ${customerName},</p>
+            
+            <p style="font-size: 16px; line-height: 1.8; margin-bottom: 20px;">
+              We received a request to reset your password. Click the button below to create a new password:
+            </p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${resetUrl}" style="background: #e74c3c; color: white; padding: 15px 40px; text-decoration: none; border-radius: 5px; display: inline-block; font-size: 16px; font-weight: bold;">
+                Reset Password
+              </a>
+            </div>
+            
+            <p style="font-size: 14px; color: #7f8c8d; margin-top: 30px; line-height: 1.8;">
+              Or copy and paste this link into your browser:<br>
+              <a href="${resetUrl}" style="color: #3498db; word-break: break-all;">${resetUrl}</a>
+            </p>
+            
+            <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0;">
+              <p style="font-size: 14px; color: #856404; margin: 0;">
+                <strong>Security Note:</strong> This link will expire in 1 hour. If you didn't request a password reset, please ignore this email or contact support if you have concerns.
+              </p>
             </div>
           </div>
           

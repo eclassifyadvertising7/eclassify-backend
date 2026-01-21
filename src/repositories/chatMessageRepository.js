@@ -29,7 +29,7 @@ class ChatMessageRepository {
       {
         model: User,
         as: 'sender',
-        attributes: ['id', 'fullName'],
+        attributes: ['id', 'fullName', 'isVerified', ['created_at', 'createdAt']],
         include: [
           {
             model: UserProfile,
@@ -62,7 +62,7 @@ class ChatMessageRepository {
         {
           model: User,
           as: 'sender',
-          attributes: ['id', 'fullName'],
+          attributes: ['id', 'fullName', 'isVerified', ['created_at', 'createdAt']],
           include: [
             {
               model: UserProfile,

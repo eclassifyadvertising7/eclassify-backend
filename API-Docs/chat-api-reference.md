@@ -16,6 +16,13 @@ Complete API documentation for frontend integration.
 }
 ```
 
+## Recent Updates
+
+**Category Information Added (v1.1):**
+- All chat room endpoints now include category information in the listing object
+- Category data includes: id, name, slug
+- This provides context about what type of item is being discussed in the chat
+
 ---
 
 ## End-User Chat Endpoints
@@ -62,6 +69,11 @@ Get all chat rooms for the authenticated user with filters.
         "title": "2020 Honda City",
         "price": 500000,
         "status": "active",
+        "category": {
+          "id": 1,
+          "name": "Cars",
+          "slug": "cars"
+        },
         "media": [
           {
             "mediaUrl": "http://localhost:5000/uploads/listings/user-101/images/car-photo.jpg",
@@ -158,7 +170,12 @@ Get specific room details without messages.
       "id": 456,
       "title": "2020 Honda City",
       "price": 500000,
-      "status": "active"
+      "status": "active",
+      "category": {
+        "id": 1,
+        "name": "Cars",
+        "slug": "cars"
+      }
     },
     "buyer": {
       "id": 789,

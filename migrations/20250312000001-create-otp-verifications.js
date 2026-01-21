@@ -30,7 +30,7 @@ export async function up(queryInterface, Sequelize) {
         field: 'otp'
       },
       type: {
-        type: Sequelize.ENUM('signup', 'login', 'verification'),
+        type: Sequelize.ENUM('signup', 'login', 'password_reset', 'verification'),
         allowNull: false,
         field: 'type'
       },

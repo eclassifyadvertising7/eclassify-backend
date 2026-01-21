@@ -75,7 +75,7 @@ class UserManagementRepository {
           model: UserProfile,
           as: 'profile',
           attributes: ['id', 'dob', 'gender', 'about', 'businessName', 'gstin', 'aadharNumber', 'panNumber', 
-                      'addressLine1', 'addressLine2', 'city', 'stateId', 'stateName', 'country', 'pincode',
+                      'addressLine1', 'addressLine2', 'cityId', 'cityName', 'stateId', 'stateName', 'country', 'pincode',
                       'profilePhoto', 'profilePhotoStorageType', 'profilePhotoMimeType']
         }
       ]
@@ -122,6 +122,12 @@ class UserManagementRepository {
     if (!user) return null;
     
     user.kycStatus = kycStatus;
+    
+    // Auto-verify user when KYC is approved
+    if (kycStatus === 'approved') {
+      user.isVerified = true;
+    }
+    
     await user.save();
     
     return user;
@@ -149,9 +155,21 @@ class UserManagementRepository {
     return user;
   }
 
-  // Get user's active subscription
+  // Get user's active subscription (returns first one found - legacy method)
   async getUserActiveSubscription(userId) {
     return await UserSubscription.findOne({
+      where: {
+        userId,
+        status: 'active',
+        endsAt: { [Op.gt]: new Date() }
+      },
+      order: [['endsAt', 'DESC']]
+    });
+  }
+
+  // Get user's active subscriptions (can have multiple, one per category)
+  async getUserActiveSubscriptions(userId) {
+    return await UserSubscription.findAll({
       where: {
         userId,
         status: 'active',

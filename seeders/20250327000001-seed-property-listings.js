@@ -83,7 +83,7 @@ export async function up(queryInterface, Sequelize) {
 
     // Step 1: Get all users who have properties-premium plan
     const premiumUsers = await queryInterface.sequelize.query(
-      `SELECT DISTINCT u.id, u.email, u.full_name, us.id as subscription_id
+      `SELECT DISTINCT u.id, u.email, u.full_name, us.id as subscription_id, sp.category_id
        FROM users u
        INNER JOIN user_subscriptions us ON u.id = us.user_id
        INNER JOIN subscription_plans sp ON us.plan_id = sp.id
@@ -99,7 +99,7 @@ export async function up(queryInterface, Sequelize) {
 
     console.log(`✓ Found ${premiumUsers.length} users with properties-premium plan:`);
     premiumUsers.forEach(user => {
-      console.log(`  - ${user.full_name} (${user.email}) - User ID: ${user.id}, Subscription ID: ${user.subscription_id}`);
+      console.log(`  - ${user.full_name} (${user.email}) - User ID: ${user.id}, Subscription ID: ${user.subscription_id}, Category ID: ${user.category_id}`);
     });
 
     // Step 2: Get properties category
@@ -275,6 +275,10 @@ export async function up(queryInterface, Sequelize) {
       // Build essential_data JSONB
       const essentialData = JSON.stringify(listingData.essential_data);
 
+      // Get user's subscription ID for properties category (match by user_id AND category_id)
+      const userSubscription = premiumUsers.find(u => u.id === listingData.user_id && u.category_id === listingData.category_id);
+      const subscriptionId = userSubscription ? userSubscription.subscription_id : null;
+
       // Insert into listings table
       const [listingResult] = await queryInterface.sequelize.query(
         `INSERT INTO listings 
@@ -282,12 +286,14 @@ export async function up(queryInterface, Sequelize) {
           state_id, state_name, city_id, city_name, locality, pincode, latitude, longitude,
           cover_image, cover_image_storage_type, cover_image_mime_type,
           status, is_featured, featured_until, published_at, approved_at, approved_by, expires_at,
+          user_subscription_id, is_paid_listing, republish_count, last_republished_at,
           essential_data, created_by, created_at, updated_at)
          VALUES 
          (:userId, :categoryId, :categorySlug, :title, :slug, :shareCode, :description, :keywords, :price, true,
           :stateId, :stateName, :cityId, :cityName, :locality, :pincode, :latitude, :longitude,
           :coverImage, :coverImageStorageType, :coverImageMimeType,
           'active', :isFeatured, :featuredUntil, :now, :now, :userId, :expiresAt,
+          :subscriptionId, true, 0, :now,
           :essentialData::jsonb, :userId, :now, :now)
          RETURNING id`,
         {
@@ -314,6 +320,7 @@ export async function up(queryInterface, Sequelize) {
             coverImageMimeType: mediaConfig.mimeType,
             isFeatured: listingData.is_featured,
             featuredUntil: listingData.featured_until,
+            subscriptionId: subscriptionId,
             essentialData: essentialData,
             now: createdAt,
             expiresAt: new Date(createdAt.getTime() + 60 * 24 * 60 * 60 * 1000) // 60 days from createdAt

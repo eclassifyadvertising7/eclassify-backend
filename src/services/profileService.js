@@ -99,6 +99,7 @@ class ProfileService {
       if (profileData.stateId) {
         userProfileData.stateId = parseInt(profileData.stateId);
       }
+      if (profileData.stateName) userProfileData.stateName = profileData.stateName;
       if (profileData.pincode) userProfileData.pincode = profileData.pincode;
       if (profileData.latitude) userProfileData.latitude = parseFloat(profileData.latitude);
       if (profileData.longitude) userProfileData.longitude = parseFloat(profileData.longitude);

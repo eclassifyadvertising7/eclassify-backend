@@ -19,6 +19,8 @@ Complete API documentation for listing management endpoints.
 | GET | `/api/end-user/listings/stats` | ✅ | Get my statistics |
 | POST | `/api/end-user/listings/submit/:id` | ✅ | Submit for approval |
 | PATCH | `/api/end-user/listings/sold/:id` | ✅ | Mark as sold |
+| PATCH | `/api/end-user/listings/featured/:id` | ✅ | Make listing featured |
+| DELETE | `/api/end-user/listings/featured/:id` | ✅ | Remove from featured |
 | POST | `/api/end-user/listings/media/:id` | ✅ | Upload media |
 | DELETE | `/api/end-user/listings/delete-media/:id/media/:mediaId` | ✅ | Delete media |
 | GET | `/api/end-user/listings/:id` | ✅ | Get my listing |
@@ -60,9 +62,15 @@ Base URL: `/api/end-user/listings`
 
 ### 1. Create Listing
 
-Create a new listing in draft status.
+Create a new listing in draft status. Listing is always saved as draft regardless of quota or subscription status.
 
 **Endpoint:** `POST /api/end-user/listings`
+
+**Important Notes:**
+- Listing is always created with `status: "draft"`
+- No quota check or consumption happens at this stage
+- Media upload is separate (see Upload Media endpoint)
+- Use Submit endpoint to publish the listing
 
 **Request Body (Car Listing):**
 ```json
@@ -280,9 +288,31 @@ Get detailed information about a specific listing.
 
 ### 4. Update My Listing
 
-Update listing details (only allowed for draft or rejected listings).
+Update listing details. **Only draft or rejected listings can be updated.**
 
 **Endpoint:** `PUT /api/end-user/listings/:id`
+
+**Important Notes:**
+- Only listings with status `draft` or `rejected` can be updated
+- Cannot change `categoryId` (category is locked after creation)
+- Cannot change `shareCode` (system-generated, immutable)
+- Listing remains in same status after update (no auto-submission)
+- Keywords are automatically regenerated after update
+- Use separate "Submit" endpoint to publish the listing
+- Frontend must send correct and complete data (no cascading validation)
+- Description is optional (can be empty or omitted)
+
+**Restricted Fields (Cannot Update):**
+- `categoryId` - Category cannot be changed
+- `shareCode` - System-generated identifier
+- `status` - Use dedicated endpoints (submit, approve, reject, markAsSold)
+- `slug` - Auto-generated from title
+- `userId` - Owner cannot be changed
+
+**Validation Rules:**
+- `title` - Required, minimum 10 characters
+- `description` - Optional, no minimum length
+- `price` - Required if provided, must be greater than 0
 
 **Request Body (Update Base Fields):**
 ```json
@@ -294,7 +324,9 @@ Update listing details (only allowed for draft or rejected listings).
   "stateId": 1,
   "cityId": 5,
   "locality": "Updated Locality",
-  "address": "Updated Address"
+  "address": "Updated Address",
+  "latitude": 19.1234,
+  "longitude": 72.5678
 }
 ```
 
@@ -303,8 +335,15 @@ Update listing details (only allowed for draft or rejected listings).
 {
   "title": "Updated Title",
   "price": 1450000,
-  "categoryType": "car",
-  "carData": "{\"mileageKm\": 26000, \"color\": \"Silver\", \"ownersCount\": 2}"
+  "carData": {
+    "brandId": 10,
+    "modelId": 45,
+    "variantId": 120,
+    "mileageKm": 26000,
+    "color": "Silver",
+    "ownersCount": 2,
+    "features": ["ABS", "Airbags", "Sunroof"]
+  }
 }
 ```
 
@@ -313,8 +352,11 @@ Update listing details (only allowed for draft or rejected listings).
 {
   "title": "Updated Property Title",
   "price": 8000000,
-  "categoryType": "property",
-  "propertyData": "{\"furnished\": \"fully-furnished\", \"parkingSpaces\": 2}"
+  "propertyData": {
+    "furnished": "fully-furnished",
+    "parkingSpaces": 2,
+    "amenities": ["gym", "pool", "security"]
+  }
 }
 ```
 
@@ -323,7 +365,44 @@ Update listing details (only allowed for draft or rejected listings).
 {
   "success": true,
   "message": "Listing updated successfully",
-  "data": { /* updated listing */ }
+  "data": {
+    "id": 123,
+    "status": "draft",
+    "title": "Updated Toyota Camry 2020 - Excellent Condition",
+    "price": "1450000.00",
+    "stateId": 1,
+    "cityId": 5,
+    "carListing": {
+      "brandId": 10,
+      "modelId": 45,
+      "variantId": 120,
+      "mileageKm": 26000
+    }
+  }
+}
+```
+
+**Error (400 Bad Request) - Wrong Status:**
+```json
+{
+  "success": false,
+  "message": "Only draft or rejected listings can be updated"
+}
+```
+
+**Error (400 Bad Request) - Restricted Field:**
+```json
+{
+  "success": false,
+  "message": "Category cannot be changed after creation"
+}
+```
+
+**Error (400 Bad Request) - Share Code:**
+```json
+{
+  "success": false,
+  "message": "Share code cannot be modified"
 }
 ```
 
@@ -331,9 +410,16 @@ Update listing details (only allowed for draft or rejected listings).
 
 ### 5. Submit Listing for Approval
 
-Submit a draft or rejected listing for admin approval.
+Submit a draft or rejected listing for approval. This endpoint handles quota checking, auto-approval logic, and quota consumption.
 
 **Endpoint:** `POST /api/end-user/listings/submit/:id`
+
+**Important Notes:**
+- Requires at least 1 image to be uploaded
+- Checks user's quota eligibility for the listing's category
+- If quota exceeded: listing stays as draft, returns error with `quotaExceeded: true`
+- If user has auto-approve permission: listing becomes active immediately
+- Otherwise: listing status changes to pending for admin approval
 
 **Request Body:**
 ```json
@@ -344,7 +430,25 @@ Submit a draft or rejected listing for admin approval.
 
 **Note:** Status must be explicitly set to "pending" to submit for approval.
 
-**Response (200 OK):**
+**Response (200 OK) - Auto-Approved:**
+```json
+{
+  "success": true,
+  "message": "Listing submitted and auto-approved successfully",
+  "data": {
+    "id": 123,
+    "status": "active",
+    "isAutoApproved": true,
+    "approvedAt": "2024-11-23T12:00:00.000Z",
+    "approvedBy": 456,
+    "publishedAt": "2024-11-23T12:00:00.000Z",
+    "expiresAt": "2024-12-23T12:00:00.000Z"
+  },
+  "quotaExceeded": false
+}
+```
+
+**Response (200 OK) - Pending Approval:**
 ```json
 {
   "success": true,
@@ -352,15 +456,37 @@ Submit a draft or rejected listing for admin approval.
   "data": {
     "id": 123,
     "status": "pending"
-  }
+  },
+  "quotaExceeded": false
 }
 ```
 
-**Error (400 Bad Request):**
+**Response (200 OK) - Quota Exceeded:**
+```json
+{
+  "success": true,
+  "message": "You have reached your listing limit for this category. Please upgrade your plan. Your listing has been saved as draft.",
+  "data": {
+    "id": 123,
+    "status": "draft"
+  },
+  "quotaExceeded": true
+}
+```
+
+**Error (400 Bad Request) - No Images:**
 ```json
 {
   "success": false,
   "message": "At least one image is required to submit listing"
+}
+```
+
+**Error (400 Bad Request) - Invalid Status:**
+```json
+{
+  "success": false,
+  "message": "Only draft or rejected listings can be submitted"
 }
 ```
 
@@ -395,7 +521,126 @@ Mark an active listing as sold.
 
 ---
 
-### 7. Upload Media
+### 7. Make Listing Featured
+
+Make an active listing featured based on subscription plan quota.
+
+**Endpoint:** `PATCH /api/end-user/listings/featured/:id`
+
+**Validations:**
+- User must own the listing
+- Listing must be in `active` status
+- Listing must not already be featured
+- User must have an active subscription for the listing's category
+- Featured quota must not be exceeded for the category
+
+**Request Body:** None required
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Listing made featured successfully",
+  "data": {
+    "id": 123,
+    "status": "active",
+    "isFeatured": true,
+    "featuredUntil": "2025-02-15T10:30:00.000Z"
+  }
+}
+```
+
+**Error Response (400 Bad Request) - Quota Exceeded:**
+```json
+{
+  "success": false,
+  "message": "Featured listing quota exceeded for this category"
+}
+```
+
+**Error Response (400 Bad Request) - Already Featured:**
+```json
+{
+  "success": false,
+  "message": "Listing is already featured"
+}
+```
+
+**Error Response (400 Bad Request) - Not Active:**
+```json
+{
+  "success": false,
+  "message": "Only active listings can be featured"
+}
+```
+
+**Error Response (400 Bad Request) - No Subscription:**
+```json
+{
+  "success": false,
+  "message": "You need an active subscription to create listings"
+}
+```
+
+**Notes:**
+- Featured duration is determined by the subscription plan's `featuredDays` setting
+- Featured count is tracked per user per category
+- Only active subscriptions for the specific category are considered
+- Featured status automatically expires when `featuredUntil` date is reached
+
+---
+
+### 8. Remove Listing from Featured
+
+Remove featured status from a listing.
+
+**Endpoint:** `DELETE /api/end-user/listings/featured/:id`
+
+**Validations:**
+- User must own the listing
+- Listing must currently be featured
+
+**Request Body:** None required
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Listing removed from featured successfully",
+  "data": {
+    "id": 123,
+    "status": "active",
+    "isFeatured": false,
+    "featuredUntil": null
+  }
+}
+```
+
+**Error Response (400 Bad Request) - Not Featured:**
+```json
+{
+  "success": false,
+  "message": "Listing is not featured"
+}
+```
+
+**Error Response (400 Bad Request) - Not Owner:**
+```json
+{
+  "success": false,
+  "message": "Access forbidden"
+}
+```
+
+**Notes:**
+- Removes featured status immediately
+- Sets `isFeatured` to `false` and `featuredUntil` to `null`
+- Does not affect the user's featured quota (they can feature another listing)
+- Only the listing owner can remove featured status
+
+---
+
+### 9. Upload Media
 
 Upload images and/or videos for a listing (max 15 images + 3 videos).
 
@@ -463,7 +708,7 @@ Upload images and/or videos for a listing (max 15 images + 3 videos).
 
 ---
 
-### 8. Delete Media
+### 10. Delete Media
 
 Delete a specific media from listing.
 

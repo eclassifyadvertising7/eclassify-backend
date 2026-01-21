@@ -46,10 +46,6 @@ class ListingController {
 
       const result = await listingService.create(listingData, categoryData, userId);
       
-      if (result.quotaExceeded) {
-        return paymentRequiredResponse(res, result.message, result.data);
-      }
-      
       return createResponse(res, result.data, result.message);
     } catch (error) {
       return errorResponse(res, error.message, 400);
@@ -126,6 +122,14 @@ class ListingController {
       const { id } = req.params;
       const userId = req.user.userId;
 
+      if (req.body.categoryId !== undefined) {
+        return errorResponse(res, 'Category cannot be changed after creation', 400);
+      }
+
+      if (req.body.shareCode !== undefined) {
+        return errorResponse(res, 'Share code cannot be modified', 400);
+      }
+
       const updateData = {};
       const body = req.body;
 
@@ -198,6 +202,30 @@ class ListingController {
       }
 
       const result = await listingService.markAsSold(parseInt(id), userId);
+      return successResponse(res, result.data, result.message);
+    } catch (error) {
+      return errorResponse(res, error.message, 400);
+    }
+  }
+
+  static async makeFeatured(req, res) {
+    try {
+      const { id } = req.params;
+      const userId = req.user.userId;
+
+      const result = await listingService.makeFeatured(parseInt(id), userId);
+      return successResponse(res, result.data, result.message);
+    } catch (error) {
+      return errorResponse(res, error.message, 400);
+    }
+  }
+
+  static async removeFeatured(req, res) {
+    try {
+      const { id } = req.params;
+      const userId = req.user.userId;
+
+      const result = await listingService.removeFeatured(parseInt(id), userId);
       return successResponse(res, result.data, result.message);
     } catch (error) {
       return errorResponse(res, error.message, 400);

@@ -25,6 +25,12 @@ router.post('/submit/:id', ListingController.submit);
 // Mark listing as sold (action before ID to avoid conflicts)
 router.patch('/sold/:id', ListingController.markAsSold);
 
+// Make listing featured (action before ID to avoid conflicts)
+router.patch('/featured/:id', ListingController.makeFeatured);
+
+// Remove listing from featured (action before ID to avoid conflicts)
+router.delete('/featured/:id', ListingController.removeFeatured);
+
 // Upload media for listing (action before ID to avoid conflicts)
 router.post('/media/:id', uploadListingMedia, ListingController.uploadMedia);
 

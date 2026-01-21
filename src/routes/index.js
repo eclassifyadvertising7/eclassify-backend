@@ -37,10 +37,12 @@ import endUserNotificationRoutes from './end-user/userNotificationRoutes.js';
 import panelNotificationRoutes from './panel/userNotificationRoutes.js';
 import endUserReportRoutes from './end-user/reportRoutes.js';
 import endUserReferralRoutes from './end-user/referralRoutes.js';
+import endUserSubscriptionListingRoutes from './end-user/subscriptionListingRoutes.js';
 import panelReportRoutes from './panel/reportRoutes.js';
 import panelRoleRoutes from './panel/roleRoutes.js';
 import panelDashboardRoutes from './panel/dashboardRoutes.js';
 import publicReferralRoutes from './public/referralRoutes.js';
+import publicUserRoutes from './public/userRoutes.js';
 
 // Create main router
 const router = express.Router();
@@ -78,6 +80,7 @@ router.use('/end-user/activity', endUserActivityRoutes);
 router.use('/end-user/notifications', endUserNotificationRoutes);
 router.use('/end-user/reports', endUserReportRoutes);
 router.use('/end-user/referrals', endUserReferralRoutes);
+router.use('/end-user', endUserSubscriptionListingRoutes);
 router.use('/panel/subscription-plans', subscriptionPlanRoutes);
 router.use('/panel/subscriptions', panelSubscriptionRoutes);
 // TEMPORARY: Manual payment routes - Delete when payment gateway is implemented
@@ -106,6 +109,13 @@ router.use('/public', publicFavoriteRoutes);
 router.use('/public', publicSearchRoutes);
 router.use('/public', publicCarDataRoutes);
 router.use('/public/referrals', publicReferralRoutes);
+
+// Debug: Log before mounting public user routes
+console.log('Mounting public user routes at /public/users');
+router.use('/public/users', (req, res, next) => {
+  console.log('Request to /public/users - Method:', req.method, 'URL:', req.url, 'Path:', req.path);
+  next();
+}, publicUserRoutes);
 
 // Export router for use in app.js
 export default router;

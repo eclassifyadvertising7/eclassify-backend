@@ -153,6 +153,21 @@ Quick reference for all database tables, columns, relationships, and hooks.
 
 ---
 
+### otp_verifications
+**Columns:** id (BIGINT PK), mobile (VARCHAR(15)), email (VARCHAR(255)), country_code (VARCHAR(5)), otp (VARCHAR(6)), type (ENUM: 'signup', 'login', 'password_reset', 'verification'), channel (ENUM: 'sms', 'email', 'whatsapp', 'telegram', 'arattai', 'call'), is_verified (BOOLEAN), verified_at (TIMESTAMP), expires_at (TIMESTAMP), attempts (SMALLINT), resend_count (SMALLINT), ip_address (VARCHAR(45)), user_agent (TEXT), session_id (VARCHAR(100)), created_at (TIMESTAMP), updated_at (TIMESTAMP)
+
+**Relationships:** None
+
+**Hooks:** None
+
+**Config:** paranoid: false
+
+**Indexes:** (mobile, type, is_verified), (email, type, is_verified), expires_at, (ip_address, created_at)
+
+**Notes:** Used for signup, login, password reset, and general verification; OTP expires after 10 minutes; type='password_reset' used for forgot password flow; all user sessions invalidated after successful password reset
+
+---
+
 ### user_social_accounts
 **Columns:** id (BIGINT PK), user_id (BIGINT FK→users), provider (VARCHAR(30)), provider_id (VARCHAR(200)), email (VARCHAR(150)), profile_picture_url (TEXT), is_primary (BOOLEAN), access_token (TEXT), refresh_token (TEXT), created_at (TIMESTAMP), updated_at (TIMESTAMP)
 

@@ -80,7 +80,7 @@ class OtpController {
 
   static async completeLogin(req, res) {
     try {
-      const { mobile, email } = req.body;
+      const { username } = req.body;
 
       const deviceInfo = {
         deviceName: req.body.device_name,
@@ -89,7 +89,7 @@ class OtpController {
       };
 
       const result = await authService.loginWithOtp(
-        { mobile, email },
+        { username },
         deviceInfo
       );
 

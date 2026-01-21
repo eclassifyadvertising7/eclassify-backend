@@ -210,6 +210,13 @@ class AuthRepository {
       attributes: ['id', 'fullName', 'email', 'mobile', 'status']
     });
   }
+
+  async updatePassword(userId, passwordHash) {
+    return await db.User.update(
+      { passwordHash, isPasswordReset: true },
+      { where: { id: userId } }
+    );
+  }
 }
 
 // Export singleton instance

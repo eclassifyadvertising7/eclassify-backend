@@ -90,15 +90,15 @@ class UserManagementService {
         };
       }
 
-      // Get active subscription if exists
-      const activeSubscription = await userManagementRepository.getUserActiveSubscription(userId);
+      // Get all active subscriptions (user can have multiple, one per category)
+      const activeSubscriptions = await userManagementRepository.getUserActiveSubscriptions(userId);
 
       return {
         success: true,
         message: 'User details retrieved successfully',
         data: {
           user,
-          activeSubscription
+          activeSubscriptions
         }
       };
     } catch (error) {
@@ -297,7 +297,11 @@ class UserManagementService {
       return {
         success: true,
         message: 'KYC status updated successfully',
-        data: { userId: user.id, kycStatus: user.kycStatus }
+        data: { 
+          userId: user.id, 
+          kycStatus: user.kycStatus,
+          isVerified: user.isVerified
+        }
       };
     } catch (error) {
       console.error('Error updating KYC status:', error);
