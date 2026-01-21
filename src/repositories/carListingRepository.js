@@ -9,13 +9,31 @@ import { Op } from 'sequelize';
 const { CarListing, CarBrand, CarModel, CarVariant, State } = models;
 
 class CarListingRepository {
-  /**
-   * Create new car listing
-   * @param {Object} carData - Car listing data
-   * @returns {Promise<Object>}
-   */
   async create(carData) {
-    return await CarListing.create(carData);
+    const enrichedData = { ...carData };
+
+    if (carData.brandId) {
+      const brand = await CarBrand.findByPk(carData.brandId);
+      if (brand) {
+        enrichedData.brandName = brand.name;
+      }
+    }
+
+    if (carData.modelId) {
+      const model = await CarModel.findByPk(carData.modelId);
+      if (model) {
+        enrichedData.modelName = model.name;
+      }
+    }
+
+    if (carData.variantId) {
+      const variant = await CarVariant.findByPk(carData.variantId);
+      if (variant) {
+        enrichedData.variantName = variant.variantName;
+      }
+    }
+
+    return await CarListing.create(enrichedData);
   }
 
   /**
@@ -38,17 +56,36 @@ class CarListingRepository {
     });
   }
 
-  /**
-   * Update car listing
-   * @param {number} listingId - Listing ID
-   * @param {Object} updateData - Update data
-   * @returns {Promise<Object|null>}
-   */
   async update(listingId, updateData) {
     const carListing = await CarListing.findOne({ where: { listingId } });
     if (!carListing) return null;
 
-    await carListing.update(updateData);
+    const enrichedData = { ...updateData };
+
+    if (updateData.brandId) {
+      const brand = await CarBrand.findByPk(updateData.brandId);
+      if (brand) {
+        enrichedData.brandName = brand.name;
+      }
+    }
+
+    if (updateData.modelId) {
+      const model = await CarModel.findByPk(updateData.modelId);
+      if (model) {
+        enrichedData.modelName = model.name;
+      }
+    }
+
+    if (updateData.variantId) {
+      const variant = await CarVariant.findByPk(updateData.variantId);
+      if (variant) {
+        enrichedData.variantName = variant.variantName;
+      }
+    } else if (updateData.variantId === null) {
+      enrichedData.variantName = null;
+    }
+
+    await carListing.update(enrichedData);
     return carListing;
   }
 

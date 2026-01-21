@@ -85,6 +85,20 @@ export const forbiddenResponse = (res, message = 'Access forbidden') => {
 };
 
 /**
+ * Payment required response (402)
+ * @param {Object} res - Express response object
+ * @param {string} message - Payment required message
+ * @param {*} data - Optional data (e.g., saved draft listing)
+ */
+export const paymentRequiredResponse = (res, message = 'Payment required', data = null) => {
+  return res.status(402).json({
+    success: false,
+    message,
+    data
+  });
+};
+
+/**
  * Validation error response (422)
  * @param {Object} res - Express response object
  * @param {Array|Object} errors - Validation errors

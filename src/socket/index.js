@@ -6,6 +6,7 @@
 import { Server } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import ChatHandler from './chatHandler.js';
+import UnreadCountHandler from './unreadCountHandler.js';
 import logger from '#config/logger.js';
 
 /**
@@ -30,7 +31,7 @@ export const initializeSocket = (server) => {
       const token = socket.handshake.auth.token || socket.handshake.headers.authorization?.split(' ')[1];
 
       if (!token) {
-        return next(new Error('Authentication token required'));
+        return next(new Error('AUTH_TOKEN_MISSING'));
       }
 
       // Verify JWT token
@@ -45,21 +46,30 @@ export const initializeSocket = (server) => {
       next();
     } catch (error) {
       logger.error('Socket authentication error:', error);
-      next(new Error('Invalid authentication token'));
+      
+      if (error.name === 'TokenExpiredError') {
+        return next(new Error('AUTH_TOKEN_EXPIRED'));
+      }
+      if (error.name === 'JsonWebTokenError') {
+        return next(new Error('AUTH_TOKEN_INVALID'));
+      }
+      return next(new Error('AUTH_FAILED'));
     }
   });
 
-  // Initialize chat handler
+  // Initialize handlers
   const chatHandler = new ChatHandler(io);
+  const unreadCountHandler = new UnreadCountHandler(io);
 
   // Handle connections
   io.on('connection', (socket) => {
     chatHandler.handleConnection(socket);
+    unreadCountHandler.handleConnection(socket);
   });
 
   logger.info('Socket.io initialized successfully');
 
-  return { io, chatHandler };
+  return { io, chatHandler, unreadCountHandler };
 };
 
 export default initializeSocket;

@@ -37,7 +37,8 @@ class ProfileRepository {
             'about',
             'addressLine1',
             'addressLine2',
-            'city',
+            'cityId',
+            'cityName',
             'stateId',
             'stateName',
             'country',
@@ -47,13 +48,6 @@ class ProfileRepository {
             'profilePhoto',
             'profilePhotoStorageType',
             'profilePhotoMimeType'
-          ],
-          include: [
-            {
-              model: State,
-              as: 'state',
-              attributes: ['id', 'name', 'slug']
-            }
           ]
         },
         {
@@ -117,16 +111,31 @@ class ProfileRepository {
    * @param {Object} transaction
    * @returns {Promise<Object>}
    */
-  async updateOrCreateProfile(userId, data, transaction) {
-    const [profile] = await UserProfile.upsert(
-      {
-        userId,
-        ...data
-      },
-      { transaction }
-    );
+  async updateOrCreateProfile(userId, data, transaction = null) {
+    try {
+      const options = transaction ? { transaction } : {};
+      
+      const existingProfile = await UserProfile.findOne({
+        where: { userId },
+        ...options
+      });
 
-    return profile;
+      if (existingProfile) {
+        await existingProfile.update(data, options);
+        return existingProfile;
+      } else {
+        return await UserProfile.create(
+          {
+            userId,
+            ...data
+          },
+          options
+        );
+      }
+    } catch (error) {
+      console.error('Error in updateOrCreateProfile:', error);
+      throw error;
+    }
   }
 
   /**
@@ -136,16 +145,26 @@ class ProfileRepository {
    * @param {Object} transaction
    * @returns {Promise<Object>}
    */
-  async updateBusinessInfo(userId, data, transaction) {
-    const [profile] = await UserProfile.upsert(
-      {
-        userId,
-        ...data
-      },
-      { transaction }
-    );
+  async updateBusinessInfo(userId, data, transaction = null) {
+    const options = transaction ? { transaction } : {};
+    
+    const existingProfile = await UserProfile.findOne({
+      where: { userId },
+      ...options
+    });
 
-    return profile;
+    if (existingProfile) {
+      await existingProfile.update(data, options);
+      return existingProfile;
+    } else {
+      return await UserProfile.create(
+        {
+          userId,
+          ...data
+        },
+        options
+      );
+    }
   }
 
   /**
@@ -156,6 +175,32 @@ class ProfileRepository {
   async profileExists(userId) {
     const count = await UserProfile.count({ where: { userId } });
     return count > 0;
+  }
+
+  async getPreferredLocation(userId) {
+    const user = await User.findByPk(userId, {
+      attributes: ['id', 'fullName']
+    });
+
+    if (!user) return null;
+
+    const profile = await UserProfile.findOne({
+      where: { userId },
+      attributes: [
+        'id',
+        ['preferred_state_id', 'preferredStateId'],
+        ['preferred_state_name', 'preferredStateName'],
+        ['preferred_city_id', 'preferredCityId'],
+        ['preferred_city_name', 'preferredCityName'],
+        ['preferred_latitude', 'preferredLatitude'],
+        ['preferred_longitude', 'preferredLongitude']
+      ]
+    });
+
+    return {
+      user,
+      profile
+    };
   }
 }
 

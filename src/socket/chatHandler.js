@@ -177,6 +177,15 @@ class ChatHandler {
         }
       });
 
+      // Emit chat count update to recipient
+      if (result.data.recipientId) {
+        const unreadCount = await chatRoomRepository.getTotalUnreadCount(result.data.recipientId);
+        this.io.to(`user_${result.data.recipientId}`).emit('chat_count_update', {
+          count: unreadCount,
+          timestamp: new Date().toISOString()
+        });
+      }
+
       logger.info(`Message sent in room ${roomId} by user ${userId}`);
     } catch (error) {
       logger.error('Error in handleSendMessage:', error);
@@ -275,6 +284,13 @@ class ChatHandler {
         roomId,
         userId,
         readAt: new Date()
+      });
+
+      // Emit updated chat count to current user
+      const unreadCount = await chatRoomRepository.getTotalUnreadCount(userId);
+      this.io.to(`user_${userId}`).emit('chat_count_update', {
+        count: unreadCount,
+        timestamp: new Date().toISOString()
       });
 
       logger.info(`Messages marked as read in room ${roomId} by user ${userId}`);

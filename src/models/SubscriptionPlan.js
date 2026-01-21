@@ -265,6 +265,19 @@ export default (sequelize) => {
       defaultValue: false,
       field: 'is_auto_approve_enabled'
     },
+    // Republish Settings
+    maxRepublishCount: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+      field: 'max_republish_count'
+    },
+    republishCooldownDays: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 7,
+      field: 'republish_cooldown_days'
+    },
     // Support
     supportLevel: {
       type: DataTypes.ENUM('none', 'standard', 'priority', 'dedicated'),

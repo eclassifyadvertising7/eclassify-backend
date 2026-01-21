@@ -4,10 +4,6 @@ import { successResponse, errorResponse, validationErrorResponse } from '#utils/
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '#utils/constants/messages.js';
 
 class PanelUserSearchController {
-  /**
-   * Get search analytics
-   * GET /api/panel/searches/analytics
-   */
   static async getSearchAnalytics(req, res) {
     try {
       const {
@@ -37,10 +33,6 @@ class PanelUserSearchController {
     }
   }
 
-  /**
-   * Get failed searches
-   * GET /api/panel/searches/failed
-   */
   static async getFailedSearches(req, res) {
     try {
       const {
@@ -68,10 +60,6 @@ class PanelUserSearchController {
     }
   }
 
-  /**
-   * Get search conversion metrics
-   * GET /api/panel/searches/conversion
-   */
   static async getConversionMetrics(req, res) {
     try {
       const { startDate, endDate } = req.query;
@@ -90,16 +78,11 @@ class PanelUserSearchController {
     }
   }
 
-  /**
-   * Get user search patterns
-   * GET /api/panel/searches/user-patterns/:userId
-   */
   static async getUserSearchPatterns(req, res) {
     try {
       const { userId } = req.params;
       const { limit = 30 } = req.query;
 
-      // Validate user ID
       if (!userId || isNaN(userId)) {
         return validationErrorResponse(res, [{ field: 'userId', message: 'Valid user ID is required' }]);
       }
@@ -115,10 +98,6 @@ class PanelUserSearchController {
     }
   }
 
-  /**
-   * Get popular search queries
-   * GET /api/panel/searches/popular
-   */
   static async getPopularSearches(req, res) {
     try {
       const {
@@ -148,10 +127,6 @@ class PanelUserSearchController {
     }
   }
 
-  /**
-   * Get top searched categories
-   * GET /api/panel/searches/top-categories
-   */
   static async getTopCategories(req, res) {
     try {
       const {
@@ -177,10 +152,6 @@ class PanelUserSearchController {
     }
   }
 
-  /**
-   * Get search logs with filtering
-   * GET /api/panel/searches/logs
-   */
   static async getSearchLogs(req, res) {
     try {
       const {

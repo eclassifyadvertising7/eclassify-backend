@@ -6,14 +6,7 @@ import {
   notFoundResponse
 } from '#utils/responseFormatter.js';
 
-/**
- * SubscriptionPlanController - Handle subscription plan management (Super Admin)
- */
 class SubscriptionPlanController {
-  /**
-   * Create new subscription plan
-   * POST /api/panel/subscription-plans
-   */
   static async createPlan(req, res) {
     try {
       const userId = req.user.userId;
@@ -27,10 +20,6 @@ class SubscriptionPlanController {
     }
   }
 
-  /**
-   * Update subscription plan (auto-detects version need)
-   * PUT /api/panel/subscription-plans/:id
-   */
   static async updatePlan(req, res) {
     try {
       const planId = parseInt(req.params.id);
@@ -57,10 +46,6 @@ class SubscriptionPlanController {
     }
   }
 
-  /**
-   * Get all plans (admin view)
-   * GET /api/panel/subscription-plans
-   */
   static async getAllPlans(req, res) {
     try {
       const filters = {
@@ -78,10 +63,6 @@ class SubscriptionPlanController {
     }
   }
 
-  /**
-   * Get plan by ID
-   * GET /api/panel/subscription-plans/:id
-   */
   static async getPlanById(req, res) {
     try {
       const planId = parseInt(req.params.id);
@@ -101,10 +82,6 @@ class SubscriptionPlanController {
     }
   }
 
-  /**
-   * Delete plan (soft delete)
-   * DELETE /api/panel/subscription-plans/:id
-   */
   static async deletePlan(req, res) {
     try {
       const planId = parseInt(req.params.id);
@@ -125,10 +102,6 @@ class SubscriptionPlanController {
     }
   }
 
-  /**
-   * Update plan status
-   * PATCH /api/panel/subscription-plans/status/:id
-   */
   static async updateStatus(req, res) {
     try {
       const planId = parseInt(req.params.id);
@@ -160,10 +133,6 @@ class SubscriptionPlanController {
     }
   }
 
-  /**
-   * Update plan visibility
-   * PATCH /api/panel/subscription-plans/visibility/:id
-   */
   static async updateVisibility(req, res) {
     try {
       const planId = parseInt(req.params.id);

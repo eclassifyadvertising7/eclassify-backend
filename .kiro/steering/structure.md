@@ -455,6 +455,87 @@ hooks: {
 
 ## Critical Rules
 
+### 🚨 CRITICAL: Code Comments Policy
+
+**DO NOT write JSDoc comments or unnecessary lengthy comments. Keep code clean and self-explanatory.**
+
+**Rules:**
+- ❌ NO JSDoc comments (`/** */` style documentation)
+- ❌ NO function/method documentation blocks
+- ❌ NO parameter type annotations in comments
+- ❌ NO return type documentation
+- ❌ NO verbose explanatory comments for obvious code
+- ❌ NO business logic explanation
+- ✅ ONLY write comments for:
+  - Important warnings or gotchas for future developers
+  - Temporary workarounds or TODOs with context
+  - Critical security or performance considerations
+
+**Examples:**
+
+```javascript
+// ❌ WRONG - Unnecessary JSDoc
+/**
+ * Get user by ID
+ * @param {number} id - User ID
+ * @returns {Promise<Object>} User object
+ */
+async getUserById(id) {
+  return await User.findByPk(id);
+}
+
+// ✅ CORRECT - No comments needed (self-explanatory)
+async getUserById(id) {
+  return await User.findByPk(id);
+}
+
+// ❌ WRONG - Obvious comment
+// Create a new user
+async create(userData) {
+  return await User.create(userData);
+}
+
+// ✅ CORRECT - No comment needed
+async create(userData) {
+  return await User.create(userData);
+}
+
+// ✅ CORRECT - Important comment for complex logic
+async calculateRelevanceScore(listing, userLocation) {
+  // Price range scoring uses ±30% to balance precision with result count
+  // Tested with 100K+ listings - narrower ranges return too few results
+  const priceScore = this._calculatePriceScore(listing.price, userLocation.budget);
+  return priceScore + locationScore + freshnessScore;
+}
+
+// ✅ CORRECT - Warning for future developers
+async deleteUser(userId) {
+  // IMPORTANT: Must delete user's listings first to avoid orphaned records
+  // Cascade delete is disabled to prevent accidental data loss
+  await this.deleteUserListings(userId);
+  return await User.destroy({ where: { id: userId } });
+}
+
+// ✅ CORRECT - Temporary workaround with context
+async processPayment(orderId) {
+  // TODO: Replace with proper payment gateway once API keys are available
+  // Currently using mock payment for development
+  return await this.mockPaymentGateway(orderId);
+}
+```
+
+**Why this policy?**
+- Clean, readable code that speaks for itself
+- Reduces maintenance burden (no need to update comments when code changes)
+- Forces better naming conventions and code structure
+- Comments often become outdated and misleading
+- Modern IDEs provide type hints and intellisense without JSDoc
+
+**When in doubt, ask yourself:**
+- Would a competent developer understand this code without the comment?
+- If yes → delete the comment
+- If no → refactor the code to be clearer, THEN consider a brief comment
+
 ### 🚨 MANDATORY: ES6 Modules Only
 **This project uses ES6 modules (`"type": "module"` in package.json). This is NON-NEGOTIABLE.**
 

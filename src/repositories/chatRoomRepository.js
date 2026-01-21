@@ -73,6 +73,34 @@ class ChatRoomRepository {
   }
 
   /**
+   * Get total unread chat count for user
+   * @param {number} userId - User ID
+   * @returns {Promise<number>}
+   */
+  async getTotalUnreadCount(userId) {
+    const rooms = await ChatRoom.findAll({
+      where: {
+        [Op.or]: [
+          { buyerId: userId },
+          { sellerId: userId }
+        ]
+      },
+      attributes: ['buyerId', 'sellerId', 'unreadCountBuyer', 'unreadCountSeller']
+    });
+
+    let totalUnread = 0;
+    rooms.forEach(room => {
+      if (room.buyerId === userId) {
+        totalUnread += room.unreadCountBuyer || 0;
+      } else if (room.sellerId === userId) {
+        totalUnread += room.unreadCountSeller || 0;
+      }
+    });
+
+    return totalUnread;
+  }
+
+  /**
    * Get all rooms with filters and pagination
    * @param {Object} filters - Filter options
    * @param {Object} pagination - Pagination options
@@ -493,9 +521,10 @@ class ChatRoomRepository {
     const room = await ChatRoom.findByPk(roomId);
     if (!room) return null;
 
-    if (room.buyerId === userId) {
+    // Use loose equality to handle string/number type mismatch
+    if (room.buyerId == userId) {
       return { userType: 'buyer', room };
-    } else if (room.sellerId === userId) {
+    } else if (room.sellerId == userId) {
       return { userType: 'seller', room };
     }
     return null;

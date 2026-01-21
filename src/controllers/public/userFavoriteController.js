@@ -3,15 +3,10 @@ import { successResponse, errorResponse, validationErrorResponse } from '#utils/
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '#utils/constants/messages.js';
 
 class PublicUserFavoriteController {
-  /**
-   * Get listing favorite count
-   * GET /api/public/listings/:listingId/favorite-count
-   */
   static async getListingFavoriteCount(req, res) {
     try {
       const { listingId } = req.params;
 
-      // Validate listing ID
       if (!listingId || isNaN(listingId)) {
         return validationErrorResponse(res, [{ field: 'listingId', message: 'Valid listing ID is required' }]);
       }

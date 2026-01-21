@@ -3,12 +3,31 @@ import { ERROR_MESSAGES, SUCCESS_MESSAGES } from '#utils/constants/messages.js';
 
 class UserNotificationService {
   static instance = null;
+  io = null;
 
   static getInstance() {
     if (!UserNotificationService.instance) {
       UserNotificationService.instance = new UserNotificationService();
     }
     return UserNotificationService.instance;
+  }
+
+  setSocketIO(io) {
+    this.io = io;
+  }
+
+  async _emitNotificationCountUpdate(userId) {
+    if (!this.io) return;
+
+    try {
+      const unreadCount = await userNotificationRepository.getUnreadCount(userId);
+      this.io.to(`user_${userId}`).emit('notification_count_update', {
+        count: unreadCount,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Failed to emit notification count update:', error);
+    }
   }
 
   // Create a single notification
@@ -46,6 +65,8 @@ class UserNotificationService {
       if (!notification.scheduledFor) {
         await this.processNotificationDelivery(createdNotification);
       }
+
+      await this._emitNotificationCountUpdate(notificationData.userId);
 
       return {
         success: true,
@@ -168,7 +189,7 @@ class UserNotificationService {
       return {
         success: true,
         message: SUCCESS_MESSAGES.NOTIFICATION_MARKED_READ,
-        data: { notificationId, readAt: new Date() }
+        data: { notificationId, readAt: new Date(), userId }
       };
     } catch (error) {
       return {
@@ -191,7 +212,7 @@ class UserNotificationService {
       return {
         success: true,
         message: SUCCESS_MESSAGES.NOTIFICATIONS_MARKED_READ,
-        data: { count: affectedRows, readAt: new Date() }
+        data: { count: affectedRows, readAt: new Date(), userId }
       };
     } catch (error) {
       return {
@@ -214,7 +235,7 @@ class UserNotificationService {
       return {
         success: true,
         message: SUCCESS_MESSAGES.ALL_NOTIFICATIONS_MARKED_READ,
-        data: { count: affectedRows, readAt: new Date() }
+        data: { count: affectedRows, readAt: new Date(), userId }
       };
     } catch (error) {
       return {

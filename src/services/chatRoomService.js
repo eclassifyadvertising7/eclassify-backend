@@ -5,6 +5,7 @@
 
 import chatRoomRepository from '#repositories/chatRoomRepository.js';
 import listingRepository from '#repositories/listingRepository.js';
+import userReportRepository from '#repositories/userReportRepository.js';
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '#utils/constants/messages.js';
 
 class ChatRoomService {
@@ -237,7 +238,28 @@ class ChatRoomService {
       ? participation.room.sellerId 
       : participation.room.buyerId;
 
-    const success = await chatRoomRepository.reportUser(
+    // Validate not reporting yourself
+    if (String(reportedUserId) === String(userId)) {
+      throw new Error('Cannot report yourself');
+    }
+
+    // Create report in user_reports table
+    const report = await userReportRepository.create({
+      reportedUserId,
+      reportedBy: userId,
+      reportType,
+      reason,
+      relatedChatRoomId: roomId,
+      relatedListingId: participation.room.listingId,
+      status: 'pending'
+    });
+
+    if (!report) {
+      throw new Error('Failed to submit report');
+    }
+
+    // Update chat room metadata
+    await chatRoomRepository.reportUser(
       roomId,
       participation.userType,
       {
@@ -247,14 +269,12 @@ class ChatRoomService {
       }
     );
 
-    if (!success) {
-      throw new Error('Failed to submit report');
-    }
-
     return {
       success: true,
       message: 'Report submitted successfully',
-      data: null
+      data: {
+        reportId: report.id
+      }
     };
   }
 

@@ -1,17 +1,8 @@
-/**
- * End-User ChatOffer Controller
- * Handles user's offer operations in chat
- */
-
 import listingOfferService from '#services/listingOfferService.js';
 import chatRoomService from '#services/chatRoomService.js';
 import { successResponse, errorResponse, createResponse } from '#utils/responseFormatter.js';
 
 class ChatOfferController {
-  /**
-   * Create offer (buyer)
-   * POST /api/end-user/chats/offers/create/:roomId
-   */
   static async createOffer(req, res) {
     try {
       const userId = req.user.userId;
@@ -39,10 +30,6 @@ class ChatOfferController {
     }
   }
 
-  /**
-   * Get offers for room
-   * GET /api/end-user/chats/offers/list/:roomId
-   */
   static async getOffers(req, res) {
     try {
       const userId = req.user.userId;
@@ -58,10 +45,6 @@ class ChatOfferController {
     }
   }
 
-  /**
-   * Accept offer (seller)
-   * PATCH /api/end-user/chats/offers/accept/:offerId
-   */
   static async acceptOffer(req, res) {
     try {
       const userId = req.user.userId;
@@ -77,10 +60,6 @@ class ChatOfferController {
     }
   }
 
-  /**
-   * Reject offer (seller)
-   * PATCH /api/end-user/chats/offers/reject/:offerId
-   */
   static async rejectOffer(req, res) {
     try {
       const userId = req.user.userId;
@@ -98,10 +77,6 @@ class ChatOfferController {
     }
   }
 
-  /**
-   * Withdraw offer (buyer)
-   * PATCH /api/end-user/chats/offers/withdraw/:offerId
-   */
   static async withdrawOffer(req, res) {
     try {
       const userId = req.user.userId;
@@ -117,10 +92,6 @@ class ChatOfferController {
     }
   }
 
-  /**
-   * Counter offer (seller)
-   * POST /api/end-user/chats/offers/counter/:offerId
-   */
   static async counterOffer(req, res) {
     try {
       const userId = req.user.userId;
@@ -148,10 +119,6 @@ class ChatOfferController {
     }
   }
 
-  /**
-   * Request contact information (buyer)
-   * POST /api/end-user/chats/contact/request/:roomId
-   */
   static async requestContact(req, res) {
     try {
       const userId = req.user.userId;
@@ -167,10 +134,6 @@ class ChatOfferController {
     }
   }
 
-  /**
-   * Share contact information (seller)
-   * POST /api/end-user/chats/contact/share/:roomId
-   */
   static async shareContact(req, res) {
     try {
       const userId = req.user.userId;

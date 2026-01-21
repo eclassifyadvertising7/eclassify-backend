@@ -144,6 +144,23 @@ export default (sequelize) => {
         defaultValue: 0,
         field: "new_favorite_count",
       },
+      referralCode: {
+        type: DataTypes.STRING(20),
+        allowNull: true,
+        unique: true,
+        field: "referral_code",
+      },
+      referredBy: {
+        type: DataTypes.BIGINT,
+        allowNull: true,
+        field: "referred_by",
+      },
+      referralCount: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0,
+        field: "referral_count",
+      },
       createdBy: {
         type: DataTypes.BIGINT,
         allowNull: true,
@@ -239,6 +256,16 @@ export default (sequelize) => {
     User.belongsTo(models.User, {
       foreignKey: "deletedBy",
       as: "deleter",
+    });
+
+    User.belongsTo(models.User, {
+      foreignKey: "referredBy",
+      as: "referrer",
+    });
+
+    User.hasMany(models.User, {
+      foreignKey: "referredBy",
+      as: "referrals",
     });
   };
 

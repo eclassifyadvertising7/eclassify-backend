@@ -7,34 +7,46 @@ class EmailService {
     this.initializeTransporter();
   }
 
-  /**
-   * Initialize Gmail SMTP transporter
-   */
   initializeTransporter() {
     try {
+      // Validate email configuration
+      if (!config.email.host || !config.email.user || !config.email.password) {
+        console.error('Email configuration incomplete:', {
+          host: config.email.host ? 'SET' : 'MISSING',
+          user: config.email.user ? 'SET' : 'MISSING',
+          password: config.email.password ? 'SET' : 'MISSING',
+          port: config.email.port
+        });
+        throw new Error('Email configuration is incomplete');
+      }
+
       this.transporter = nodemailer.createTransport({
         host: config.email.host,
         port: config.email.port,
-        secure: false, // true for 465, false for other ports
+        secure: config.email.port === 465, // true for 465, false for other ports
         auth: {
           user: config.email.user,
           pass: config.email.password
         },
         tls: {
-          rejectUnauthorized: false // Allow self-signed certificates
-        }
+          rejectUnauthorized: false
+        },
+        debug: config.app.env === 'development', // Enable debug in development
+        logger: config.app.env === 'development' // Enable logging in development
       });
 
-      console.log('Email transporter initialized successfully');
+      console.log('Email transporter initialized successfully', {
+        host: config.email.host,
+        port: config.email.port,
+        user: config.email.user,
+        secure: config.email.port === 465
+      });
     } catch (error) {
-      console.error('Failed to initialize email transporter:', error);
+      console.error('Failed to initialize email transporter:', error.message);
+      this.transporter = null;
     }
   }
 
-  /**
-   * Verify SMTP connection
-   * @returns {Promise<boolean>}
-   */
   async verifyConnection() {
     try {
       if (!this.transporter) {
@@ -50,18 +62,11 @@ class EmailService {
     }
   }
 
-  /**
-   * Send OTP email
-   * @param {string} email - Recipient email
-   * @param {string} otp - OTP code
-   * @param {string} type - OTP type (signup/login/verification)
-   * @param {string} fullName - User's full name (optional)
-   * @returns {Promise<boolean>}
-   */
   async sendOtp(email, otp, type = 'verification', fullName = null) {
     try {
       if (!this.transporter) {
-        throw new Error('Email transporter not initialized');
+        console.error('Email transporter not initialized - cannot send OTP');
+        throw new Error('Email service not available');
       }
 
       const subject = this.getOtpSubject(type);
@@ -74,23 +79,22 @@ class EmailService {
         html
       };
 
+      console.log(`Attempting to send OTP email to ${email}...`);
       const result = await this.transporter.sendMail(mailOptions);
       console.log(`OTP email sent successfully to ${email}:`, result.messageId);
       return true;
     } catch (error) {
-      console.error(`Failed to send OTP email to ${email}:`, error);
-      return false;
+      console.error(`Failed to send OTP email to ${email}:`, {
+        error: error.message,
+        code: error.code,
+        command: error.command,
+        response: error.response,
+        responseCode: error.responseCode
+      });
+      throw error; // Re-throw to let caller handle it
     }
   }
 
-  /**
-   * Send notification email
-   * @param {string} email - Recipient email
-   * @param {string} subject - Email subject
-   * @param {string} message - Email message
-   * @param {Object} data - Additional data for template
-   * @returns {Promise<boolean>}
-   */
   async sendNotification(email, subject, message, data = {}) {
     try {
       if (!this.transporter) {
@@ -115,11 +119,6 @@ class EmailService {
     }
   }
 
-  /**
-   * Generate 8-digit alphanumeric password
-   * @private
-   * @returns {string} Random password
-   */
   _generatePassword() {
     const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
     let password = '';
@@ -129,13 +128,6 @@ class EmailService {
     return password;
   }
 
-  /**
-   * Send password email after successful registration
-   * @param {string} email - Recipient email
-   * @param {string} fullName - User's full name
-   * @param {string} password - Generated password
-   * @returns {Promise<boolean>}
-   */
   async sendPasswordEmail(email, fullName, password) {
     try {
       if (!this.transporter) {
@@ -162,12 +154,6 @@ class EmailService {
     }
   }
 
-  /**
-   * Send welcome email
-   * @param {string} email - Recipient email
-   * @param {string} fullName - User's full name
-   * @returns {Promise<boolean>}
-   */
   async sendWelcomeEmail(email, fullName) {
     try {
       if (!this.transporter) {
@@ -193,11 +179,6 @@ class EmailService {
     }
   }
 
-  /**
-   * Get OTP email subject based on type
-   * @param {string} type - OTP type
-   * @returns {string}
-   */
   getOtpSubject(type) {
     const subjects = {
       signup: `Verify your ${config.app.name} account`,
@@ -209,13 +190,6 @@ class EmailService {
     return subjects[type] || subjects.verification;
   }
 
-  /**
-   * Get OTP email template
-   * @param {string} otp - OTP code
-   * @param {string} type - OTP type
-   * @param {string} fullName - User's full name (optional)
-   * @returns {string}
-   */
   getOtpTemplate(otp, type, fullName = null) {
     const customerName = fullName || 'Customer';
     
@@ -262,12 +236,6 @@ class EmailService {
     `;
   }
 
-  /**
-   * Get notification email template
-   * @param {string} message - Notification message
-   * @param {Object} data - Additional data
-   * @returns {string}
-   */
   getNotificationTemplate(message, data = {}) {
     return `
       <!DOCTYPE html>
@@ -304,12 +272,6 @@ class EmailService {
     `;
   }
 
-  /**
-   * Get password email template
-   * @param {string} fullName - User's full name
-   * @param {string} password - Generated password
-   * @returns {string}
-   */
   getPasswordTemplate(fullName, password) {
     const customerName = fullName || 'Customer';
     
@@ -357,11 +319,6 @@ class EmailService {
     `;
   }
 
-  /**
-   * Get welcome email template
-   * @param {string} fullName - User's full name
-   * @returns {string}
-   */
   getWelcomeTemplate(fullName) {
     return `
       <!DOCTYPE html>
@@ -411,5 +368,4 @@ class EmailService {
   }
 }
 
-// Export singleton instance
 export default new EmailService();

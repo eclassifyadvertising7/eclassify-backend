@@ -1,16 +1,7 @@
 import locationService from '#services/locationService.js';
 import { successResponse, errorResponse } from '#utils/responseFormatter.js';
 
-/**
- * Location Controller
- * Handles common location endpoints (states, cities)
- */
 class LocationController {
-  /**
-   * Get all states
-   * @route GET /api/common/states
-   * @access Public
-   */
   static async getStates(req, res) {
     try {
       const result = await locationService.getAllStates();
@@ -20,11 +11,6 @@ class LocationController {
     }
   }
 
-  /**
-   * Get cities by state ID
-   * @route GET /api/common/cities/:stateId
-   * @access Public
-   */
   static async getCitiesByState(req, res) {
     try {
       const { stateId } = req.params;
@@ -35,17 +21,35 @@ class LocationController {
     }
   }
 
-  /**
-   * Get all cities irrespective of state
-   * @route GET /api/common/all-cities
-   * @access Public
-   */
   static async getAllCities(req, res) {
     try {
       const result = await locationService.getAllCities();
       return successResponse(res, result.data, result.message);
     } catch (error) {
       return errorResponse(res, error.message, 500);
+    }
+  }
+
+  static async getPopularCities(req, res) {
+    try {
+      const result = await locationService.getPopularCities();
+      return successResponse(res, result.data, result.message);
+    } catch (error) {
+      return errorResponse(res, error.message, 500);
+    }
+  }
+
+  static async searchCities(req, res) {
+    try {
+      const { query, stateId, limit } = req.query;
+      const result = await locationService.searchCities({
+        query,
+        stateId: stateId ? parseInt(stateId) : null,
+        limit: limit ? parseInt(limit) : 10
+      });
+      return successResponse(res, result.data, result.message);
+    } catch (error) {
+      return errorResponse(res, error.message, 400);
     }
   }
 }

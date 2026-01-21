@@ -126,6 +126,29 @@ export async function up(queryInterface, Sequelize) {
       allowNull: false,
       defaultValue: 0
     },
+    referral_code: {
+      type: Sequelize.STRING(20),
+      allowNull: true,
+      unique: true,
+      comment: 'Unique referral code for this user to share'
+    },
+    referred_by: {
+      type: Sequelize.BIGINT,
+      allowNull: true,
+      references: {
+        model: 'users',
+        key: 'id'
+      },
+      onUpdate: 'CASCADE',
+      onDelete: 'SET NULL',
+      comment: 'ID of user who referred this user'
+    },
+    referral_count: {
+      type: Sequelize.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+      comment: 'Count of users referred by this user'
+    },
     created_by: {
       type: Sequelize.BIGINT,
       allowNull: true,
@@ -188,6 +211,14 @@ export async function up(queryInterface, Sequelize) {
     where: {
       is_auto_approve_enabled: true
     }
+  });
+
+  await queryInterface.addIndex('users', ['referral_code'], {
+    name: 'idx_users_referral_code'
+  });
+
+  await queryInterface.addIndex('users', ['referred_by'], {
+    name: 'idx_users_referred_by'
   });
 }
 

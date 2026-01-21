@@ -7,14 +7,7 @@ import {
   paginatedResponse
 } from '#utils/responseFormatter.js';
 
-/**
- * SubscriptionController (Panel) - Admin manages user subscriptions
- */
 class SubscriptionController {
-  /**
-   * Get all user subscriptions
-   * GET /api/panel/subscriptions
-   */
   static async getAllSubscriptions(req, res) {
     try {
       const filters = {
@@ -38,10 +31,6 @@ class SubscriptionController {
     }
   }
 
-  /**
-   * Get subscription by ID
-   * GET /api/panel/subscriptions/:id
-   */
   static async getSubscriptionById(req, res) {
     try {
       const subscriptionId = parseInt(req.params.id);
@@ -61,10 +50,6 @@ class SubscriptionController {
     }
   }
 
-  /**
-   * Create subscription manually
-   * POST /api/panel/subscriptions
-   */
   static async createSubscription(req, res) {
     try {
       const adminUserId = req.user.userId;
@@ -84,10 +69,6 @@ class SubscriptionController {
     }
   }
 
-  /**
-   * Update subscription
-   * PUT /api/panel/subscriptions/:id
-   */
   static async updateSubscription(req, res) {
     try {
       const subscriptionId = parseInt(req.params.id);
@@ -112,10 +93,6 @@ class SubscriptionController {
     }
   }
 
-  /**
-   * Delete subscription
-   * DELETE /api/panel/subscriptions/:id
-   */
   static async deleteSubscription(req, res) {
     try {
       const subscriptionId = parseInt(req.params.id);
@@ -139,10 +116,6 @@ class SubscriptionController {
     }
   }
 
-  /**
-   * Update subscription status
-   * PATCH /api/panel/subscriptions/status/:id
-   */
   static async updateSubscriptionStatus(req, res) {
     try {
       const subscriptionId = parseInt(req.params.id);
@@ -172,10 +145,6 @@ class SubscriptionController {
     }
   }
 
-  /**
-   * Extend subscription
-   * POST /api/panel/subscriptions/:id/extend
-   */
   static async extendSubscription(req, res) {
     try {
       const subscriptionId = parseInt(req.params.id);
@@ -205,10 +174,6 @@ class SubscriptionController {
     }
   }
 
-  /**
-   * Get user subscriptions by category (Admin)
-   * GET /api/panel/subscriptions/category/:categoryId
-   */
   static async getSubscriptionsByCategory(req, res) {
     try {
       const categoryId = parseInt(req.params.categoryId);
@@ -227,7 +192,6 @@ class SubscriptionController {
         limit: parseInt(req.query.limit) || 10
       };
 
-      // We'll need to add this method to the service
       const result = await subscriptionService.getSubscriptionsByCategory(filters, pagination);
 
       return paginatedResponse(res, result.data, result.pagination, result.message);

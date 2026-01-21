@@ -40,6 +40,12 @@ State.init(
       defaultValue: 0,
       field: 'display_order'
     },
+    isPopular: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+      field: 'is_popular'
+    },
     createdBy: {
       type: DataTypes.INTEGER,
       allowNull: true,
@@ -77,6 +83,10 @@ State.init(
       {
         name: 'idx_states_slug',
         fields: ['slug']
+      },
+      {
+        name: 'idx_states_popular_active',
+        fields: ['is_popular', 'is_active']
       }
     ]
   },

@@ -3,12 +3,12 @@ import { successResponse, errorResponse, validationErrorResponse } from '#utils/
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '#utils/constants/messages.js';
 
 class UserSearchController {
-  /**
-   * Log search activity
-   * POST /api/end-user/searches/log
-   */
   static async logSearch(req, res) {
     try {
+      if (!req.user || !req.user.userId) {
+        return errorResponse(res, 'User authentication required', 401);
+      }
+
       const {
         searchQuery,
         filtersApplied = {},
@@ -18,11 +18,12 @@ class UserSearchController {
         priceRange = {}
       } = req.body;
 
-      // Get user data from middleware (supports anonymous users)
+      const trimmedQuery = searchQuery?.trim() || null;
+
       const searchData = {
-        userId: req.activityData?.userId || null,
+        userId: req.user.userId,
         sessionId: req.activityData?.sessionId,
-        searchQuery: searchQuery?.trim() || null,
+        searchQuery: trimmedQuery,
         filtersApplied,
         resultsCount: parseInt(resultsCount) || 0,
         categoryId: categoryId ? parseInt(categoryId) : null,
@@ -45,13 +46,13 @@ class UserSearchController {
     }
   }
 
-  /**
-   * Get user search history
-   * GET /api/end-user/searches/history
-   */
   static async getSearchHistory(req, res) {
     try {
-      const userId = req.user.id;
+      if (!req.user || !req.user.userId) {
+        return errorResponse(res, 'User not authenticated', 401);
+      }
+
+      const userId = req.user.userId;
       const {
         page = 1,
         limit = 20,
@@ -59,9 +60,8 @@ class UserSearchController {
         endDate
       } = req.query;
 
-      // Validate pagination
       const pageNum = parseInt(page);
-      const limitNum = Math.min(parseInt(limit), 50); // Max 50 items per page
+      const limitNum = Math.min(parseInt(limit), 50);
 
       if (pageNum < 1 || limitNum < 1) {
         return validationErrorResponse(res, [{ field: 'pagination', message: 'Invalid pagination parameters' }]);
@@ -87,16 +87,16 @@ class UserSearchController {
     }
   }
 
-  /**
-   * Get search recommendations
-   * GET /api/end-user/searches/recommendations
-   */
   static async getSearchRecommendations(req, res) {
     try {
-      const userId = req.user.id;
+      if (!req.user || !req.user.userId) {
+        return errorResponse(res, 'User not authenticated', 401);
+      }
+
+      const userId = req.user.userId;
       const { limit = 5 } = req.query;
 
-      const limitNum = Math.min(parseInt(limit), 10); // Max 10 recommendations
+      const limitNum = Math.min(parseInt(limit), 10);
 
       const result = await userSearchService.getUserSearchRecommendations(userId, { limit: limitNum });
 

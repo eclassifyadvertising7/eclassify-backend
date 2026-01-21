@@ -19,13 +19,21 @@ class QuotaService {
       throw new Error('User ID and Category ID are required');
     }
 
+    console.log(`[QUOTA] ========== checkQuotaAvailability START ==========`);
+    console.log(`[QUOTA] Input: userId=${userId}, categoryId=${categoryId}`);
+    
     const quotaUsage = await quotaRepository.getUserQuotaUsage(userId, categoryId);
+    console.log(`[QUOTA] quotaUsage from repository:`, JSON.stringify(quotaUsage, null, 2));
 
     if (!quotaUsage) {
+      console.log(`[QUOTA] ERROR: No subscription plan found`);
       throw new Error('No subscription plan found for this category');
     }
 
     const hasQuota = quotaUsage.quotaRemaining > 0;
+    console.log(`[QUOTA] Calculation: quotaRemaining=${quotaUsage.quotaRemaining}, hasQuota=${hasQuota}`);
+    console.log(`[QUOTA] quotaLimit=${quotaUsage.quotaLimit}, quotaUsed=${quotaUsage.quotaUsed}`);
+    console.log(`[QUOTA] ========== checkQuotaAvailability END ==========`);
 
     return {
       success: true,
@@ -99,10 +107,15 @@ class QuotaService {
       throw new Error('User ID, Category ID, and Listing ID are required');
     }
 
+    console.log(`[QUOTA] ========== consumeQuota START ==========`);
+    console.log(`[QUOTA] Input: userId=${userId}, categoryId=${categoryId}, listingId=${listingId}`);
+
     // Check current quota status
     const quotaCheck = await this.checkQuotaAvailability(userId, categoryId);
+    console.log(`[QUOTA] quotaCheck result:`, JSON.stringify(quotaCheck, null, 2));
     
     if (!quotaCheck.data.hasQuota) {
+      console.log(`[QUOTA] ERROR: No quota available to consume`);
       throw new Error('No quota available to consume');
     }
 
@@ -110,27 +123,38 @@ class QuotaService {
     let subscriptionId = null;
     let isPaidListing = false;
 
+    console.log(`[QUOTA] planType=${quotaUsage.planType}`);
+
     if (quotaUsage.planType === 'paid' && quotaUsage.subscription) {
       subscriptionId = quotaUsage.subscription.id;
       isPaidListing = true;
+      console.log(`[QUOTA] Paid plan: subscriptionId=${subscriptionId}`);
     } else if (quotaUsage.planType === 'free' && quotaUsage.freePlan) {
       // For free plans, we don't track subscription ID but still track the listing
       subscriptionId = null;
       isPaidListing = false;
+      console.log(`[QUOTA] Free plan: no subscriptionId`);
     }
 
     // Update listing with subscription tracking
+    console.log(`[QUOTA] Updating listing quota tracking...`);
     await quotaRepository.updateListingQuotaTracking(
       listingId, 
       subscriptionId, 
       isPaidListing
     );
+    console.log(`[QUOTA] Listing quota tracking updated`);
 
     // Check if paid plan quota is now exhausted
     if (quotaUsage.planType === 'paid' && quotaUsage.quotaRemaining === 1) {
+      console.log(`[QUOTA] Last quota consumed, converting to free plan...`);
       // This was the last quota, convert to free plan
       await this.convertToFreePlan(userId, categoryId, quotaUsage.subscription.id);
     }
+
+    const newQuotaRemaining = quotaUsage.quotaRemaining - 1;
+    console.log(`[QUOTA] Quota consumed: quotaRemaining=${quotaUsage.quotaRemaining} -> ${newQuotaRemaining}`);
+    console.log(`[QUOTA] ========== consumeQuota END ==========`);
 
     return {
       success: true,
@@ -139,7 +163,7 @@ class QuotaService {
         listingId,
         subscriptionId,
         isPaidListing,
-        quotaRemaining: quotaUsage.quotaRemaining - 1
+        quotaRemaining: newQuotaRemaining
       }
     };
   }
@@ -286,10 +310,16 @@ class QuotaService {
       throw new Error('User ID and Category ID are required');
     }
 
+    console.log(`[QUOTA] ========== checkListingEligibility START ==========`);
+    console.log(`[QUOTA] Input: userId=${userId}, categoryId=${categoryId}`);
+
     // Check quota availability
     const quotaCheck = await this.checkQuotaAvailability(userId, categoryId);
+    console.log(`[QUOTA] quotaCheck result:`, JSON.stringify(quotaCheck, null, 2));
     
     if (!quotaCheck.data.hasQuota) {
+      console.log(`[QUOTA] ELIGIBILITY DENIED: No quota available`);
+      console.log(`[QUOTA] ========== checkListingEligibility END (DENIED) ==========`);
       return {
         success: false,
         message: 'Cannot create listing: quota exhausted',
@@ -304,6 +334,10 @@ class QuotaService {
 
     // Check user's auto-approve status
     const hasAutoApprove = await quotaRepository.getUserAutoApproveStatus(userId);
+    console.log(`[QUOTA] hasAutoApprove=${hasAutoApprove}`);
+
+    console.log(`[QUOTA] ELIGIBILITY GRANTED: canCreate=true, hasQuota=true`);
+    console.log(`[QUOTA] ========== checkListingEligibility END (GRANTED) ==========`);
 
     return {
       success: true,

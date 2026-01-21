@@ -1,7 +1,7 @@
 import db from '#models/index.js';
 import { Op } from 'sequelize';
 
-const { SubscriptionPlan, UserSubscription, User } = db;
+const { SubscriptionPlan, UserSubscription, User, Category } = db;
 
 /**
  * SubscriptionRepository - Database operations for subscription plans and user subscriptions
@@ -169,14 +169,7 @@ class SubscriptionRepository {
         isFreePlan: true,
         isActive: true
       },
-      include: [
-        {
-          model: Category,
-          as: 'category',
-          attributes: ['id', 'name', 'slug']
-        }
-      ],
-      order: [['categoryId', 'ASC']]
+      order: [['category_id', 'ASC']]
     });
   }
 
@@ -333,7 +326,28 @@ class SubscriptionRepository {
     });
   }
 
-
+  /**
+   * Get user's pending subscription for specific category
+   * @param {number} userId - User ID
+   * @param {number} categoryId - Category ID
+   * @returns {Promise<Object|null>} Pending subscription for category or null
+   */
+  async getUserPendingSubscriptionByCategory(userId, categoryId) {
+    return await UserSubscription.findOne({
+      where: {
+        userId,
+        status: 'pending'
+      },
+      include: [
+        {
+          model: SubscriptionPlan,
+          as: 'plan',
+          where: { categoryId },
+          attributes: ['id', 'name', 'slug', 'planCode', 'version', 'categoryId', 'isFreePlan', 'isQuotaBased']
+        }
+      ]
+    });
+  }
 
   /**
    * Get all user's active subscriptions (all categories)

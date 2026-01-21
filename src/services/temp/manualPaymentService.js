@@ -5,7 +5,7 @@ import otherMediaRepository from '#repositories/otherMediaRepository.js';
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '#utils/constants/messages.js';
 import { transformPaymentProofMetadata } from '#utils/temp/manualPaymentHelper.js';
 import { generateInvoiceNumber, generateTransactionNumber } from '#utils/invoiceNumberGenerator.js';
-import { customSlugify, generateFileName } from '#utils/customSlugify.js';
+import { customSlugify } from '#utils/customSlugify.js';
 import { deleteFile } from '#config/storageConfig.js';
 import { sequelize } from '#models/index.js';
 
@@ -36,32 +36,57 @@ class ManualPaymentService {
         throw new Error('UPI ID and Transaction ID are required');
       }
 
-      // Check if user already has active subscription
-      const hasActive = await subscriptionRepository.hasActiveSubscription(userId);
-      if (hasActive) {
-        throw new Error('User already has an active subscription');
-      }
+      // Get TARGET plan details
+      const targetPlan = await subscriptionRepository.findPlanById(planId);
 
-      // Get plan details
-      const plan = await subscriptionRepository.findPlanById(planId);
-
-      if (!plan) {
+      if (!targetPlan) {
         throw new Error(ERROR_MESSAGES.SUBSCRIPTION_PLAN_NOT_FOUND);
       }
 
-      if (!plan.isActive || !plan.isPublic) {
+      if (!targetPlan.isActive || !targetPlan.isPublic) {
         throw new Error('Plan is not available for subscription');
       }
+
+      // Block free plans from manual payment flow (early check)
+      if (targetPlan.isFreePlan) {
+        throw new Error('Free plans cannot be purchased through manual payment. Please use the regular subscription flow.');
+      }
+
+      // Check if user has pending subscription for this category
+      const pendingSubscription = await subscriptionRepository.getUserPendingSubscriptionByCategory(
+        userId,
+        targetPlan.categoryId
+      );
+
+      if (pendingSubscription) {
+        throw new Error(
+          'You already have a pending subscription for this category. Please wait for admin verification or cancel the pending subscription before creating a new one.'
+        );
+      }
+
+      // Check eligibility using subscriptionService (reuses existing logic)
+      const { default: subscriptionService } = await import('#services/subscriptionService.js');
+      const eligibilityCheck = await subscriptionService.checkSubscriptionEligibility(userId, planId);
+
+      if (!eligibilityCheck.data.eligible) {
+        throw new Error(eligibilityCheck.data.message);
+      }
+
+      // Get CURRENT subscription for expiration (if exists)
+      const currentSubscription = await subscriptionRepository.getUserActiveSubscriptionByCategory(
+        userId,
+        targetPlan.categoryId
+      );
 
       // Calculate temporary dates (will be recalculated on verification)
       const tempActivatedAt = new Date();
       const tempEndsAt = new Date(tempActivatedAt);
-      tempEndsAt.setDate(tempEndsAt.getDate() + plan.durationDays);
+      tempEndsAt.setDate(tempEndsAt.getDate() + targetPlan.durationDays);
 
       // Create subscription with PENDING status
       const subscriptionData = {
         userId,
-        planId: plan.id,
+        planId: targetPlan.id,
         endsAt: tempEndsAt, // Temporary - will be recalculated when admin verifies
         activatedAt: null, // Will be set when admin verifies
         status: 'pending', // PENDING until admin verifies
@@ -70,51 +95,52 @@ class ManualPaymentService {
         autoRenew: false,
         
         // Snapshot plan identification
-        planName: plan.name,
-        planCode: plan.planCode,
-        planVersion: plan.version,
+        planName: targetPlan.name,
+        planCode: targetPlan.planCode,
+        planVersion: targetPlan.version,
+        isFreePlan: targetPlan.isFreePlan,
         
         // Snapshot pricing
-        basePrice: plan.basePrice,
-        discountAmount: plan.discountAmount,
-        finalPrice: plan.finalPrice,
-        currency: plan.currency,
-        billingCycle: plan.billingCycle,
-        durationDays: plan.durationDays,
+        basePrice: targetPlan.basePrice,
+        discountAmount: targetPlan.discountAmount,
+        finalPrice: targetPlan.finalPrice,
+        currency: targetPlan.currency,
+        billingCycle: targetPlan.billingCycle,
+        durationDays: targetPlan.durationDays,
         
         // Snapshot quotas
-        maxTotalListings: plan.maxTotalListings,
-        maxActiveListings: plan.maxActiveListings,
-        listingQuotaLimit: plan.listingQuotaLimit,
-        listingQuotaRollingDays: plan.listingQuotaRollingDays,
+        maxTotalListings: targetPlan.maxTotalListings,
+        maxActiveListings: targetPlan.maxActiveListings,
+        listingQuotaLimit: targetPlan.listingQuotaLimit,
+        listingQuotaRollingDays: targetPlan.listingQuotaRollingDays,
         
         // Snapshot featured & promotional
-        maxFeaturedListings: plan.maxFeaturedListings,
-        maxBoostedListings: plan.maxBoostedListings,
-        maxSpotlightListings: plan.maxSpotlightListings,
-        maxHomepageListings: plan.maxHomepageListings,
-        featuredDays: plan.featuredDays,
-        boostedDays: plan.boostedDays,
-        spotlightDays: plan.spotlightDays,
+        maxFeaturedListings: targetPlan.maxFeaturedListings,
+        maxBoostedListings: targetPlan.maxBoostedListings,
+        maxSpotlightListings: targetPlan.maxSpotlightListings,
+        maxHomepageListings: targetPlan.maxHomepageListings,
+        featuredDays: targetPlan.featuredDays,
+        boostedDays: targetPlan.boostedDays,
+        spotlightDays: targetPlan.spotlightDays,
         
         // Snapshot visibility & priority
-        priorityScore: plan.priorityScore,
-        searchBoostMultiplier: plan.searchBoostMultiplier,
-        recommendationBoostMultiplier: plan.recommendationBoostMultiplier,
-        crossCityVisibility: plan.crossCityVisibility,
-        nationalVisibility: plan.nationalVisibility,
+        priorityScore: targetPlan.priorityScore,
+        searchBoostMultiplier: targetPlan.searchBoostMultiplier,
+        recommendationBoostMultiplier: targetPlan.recommendationBoostMultiplier,
+        crossCityVisibility: targetPlan.crossCityVisibility,
+        nationalVisibility: targetPlan.nationalVisibility,
         
         // Snapshot listing management
-        autoRenewalEnabled: plan.autoRenewal,
-        maxRenewals: plan.maxRenewals,
-        listingDurationDays: plan.listingDurationDays,
-        autoRefreshEnabled: plan.autoRefreshEnabled,
-        refreshFrequencyDays: plan.refreshFrequencyDays,
-        manualRefreshPerCycle: plan.manualRefreshPerCycle,
+        autoRenewalEnabled: targetPlan.autoRenewal,
+        maxRenewals: targetPlan.maxRenewals,
+        listingDurationDays: targetPlan.listingDurationDays,
+        autoRefreshEnabled: targetPlan.autoRefreshEnabled,
+        refreshFrequencyDays: targetPlan.refreshFrequencyDays,
+        manualRefreshPerCycle: targetPlan.manualRefreshPerCycle,
         
         // Snapshot support & features
-        supportLevel: plan.supportLevel,
-        features: plan.features,
+        supportLevel: targetPlan.supportLevel,
+        features: targetPlan.features,
         
         // Payment info - Manual
         paymentMethod: 'manual',
@@ -135,6 +161,19 @@ class ManualPaymentService {
         userId
       );
 
+      // Expire CURRENT subscription if exists
+      if (currentSubscription) {
+        await subscriptionRepository.updateSubscription(
+          currentSubscription.id,
+          {
+            status: 'expired',
+            endsAt: new Date(),
+            notes: `${currentSubscription.notes || ''}\nExpired due to upgrade to new plan on ${new Date().toISOString()}`
+          },
+          userId
+        );
+      }
+
       // Generate invoice number
       const invoiceNumber = await generateInvoiceNumber(transaction);
 
@@ -147,19 +186,20 @@ class ManualPaymentService {
         invoiceDate: new Date(),
         customerName: paymentData.customerName || 'Customer',
         customerMobile: paymentData.customerMobile || '',
-        planName: plan.name,
-        planCode: plan.planCode,
-        planVersion: plan.version,
-        planSnapshot: plan.toJSON(),
-        subtotal: plan.finalPrice,
+        planName: targetPlan.name,
+        planCode: targetPlan.planCode,
+        planVersion: targetPlan.version,
+        isFreePlan: targetPlan.isFreePlan,
+        planSnapshot: targetPlan.toJSON(),
+        subtotal: targetPlan.finalPrice,
         discountAmount: 0,
-        adjustedSubtotal: plan.finalPrice,
+        adjustedSubtotal: targetPlan.finalPrice,
         taxAmount: 0,
         taxPercentage: 0,
-        totalAmount: plan.finalPrice,
+        totalAmount: targetPlan.finalPrice,
         amountPaid: 0,
-        amountDue: plan.finalPrice,
-        currency: plan.currency,
+        amountDue: targetPlan.finalPrice,
+        currency: targetPlan.currency,
         status: 'pending',
         paymentMethod: 'manual',
         notes: 'Manual payment - Pending verification',
@@ -194,12 +234,12 @@ class ManualPaymentService {
         invoiceId: invoice.id,
         subscriptionId: subscription.id,
         userId,
-        subscriptionPlanId: plan.id,
+        subscriptionPlanId: targetPlan.id,
         transactionType: 'payment',
         transactionContext: 'new_subscription',
         transactionMethod: 'manual',
-        amount: plan.finalPrice,
-        currency: plan.currency,
+        amount: targetPlan.finalPrice,
+        currency: targetPlan.currency,
         paymentGateway: 'manual',
         gatewayPaymentId: paymentData.transactionId,
         manualPaymentMetadata: manualPaymentMetadata,

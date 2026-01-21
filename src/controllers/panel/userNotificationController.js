@@ -1,4 +1,5 @@
 import userNotificationService from '#services/userNotificationService.js';
+import adminNotificationService from '#services/adminNotificationService.js';
 import { 
   successResponse, 
   errorResponse, 
@@ -7,10 +8,10 @@ import {
 } from '#utils/responseFormatter.js';
 
 class PanelUserNotificationController {
-  // Send broadcast notification to multiple users
   static async sendBroadcastNotification(req, res) {
     try {
       const {
+        targetType = 'specific',
         userIds,
         notificationType,
         category,
@@ -18,52 +19,67 @@ class PanelUserNotificationController {
         message,
         data,
         priority = 'normal',
+        deliveryMethods = ['in_app'],
         scheduledFor,
-        expiresAt
+        expiresAt,
+        actionUrl
       } = req.body;
 
-      // Validate required fields
-      if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
-        return validationErrorResponse(res, 'Valid user IDs array is required');
+      if (!['all', 'specific'].includes(targetType)) {
+        return validationErrorResponse(res, 'Invalid target type. Must be: all or specific');
       }
 
-      if (!notificationType || !category || !title || !message) {
-        return validationErrorResponse(res, 'notificationType, category, title, and message are required');
+      if (targetType === 'specific' && (!userIds || !Array.isArray(userIds) || userIds.length === 0)) {
+        return validationErrorResponse(res, 'Valid user IDs array is required for specific targeting');
       }
 
-      // Validate category
+      if (!title || !message) {
+        return validationErrorResponse(res, 'Title and message are required');
+      }
+
+      if (!Array.isArray(deliveryMethods) || deliveryMethods.length === 0) {
+        return validationErrorResponse(res, 'At least one delivery method is required');
+      }
+
+      const validMethods = ['in_app', 'email', 'push'];
+      const invalidMethods = deliveryMethods.filter(m => !validMethods.includes(m));
+      if (invalidMethods.length > 0) {
+        return validationErrorResponse(res, `Invalid delivery methods: ${invalidMethods.join(', ')}`);
+      }
+
       const validCategories = ['listing', 'chat', 'subscription', 'system', 'security', 'marketing'];
-      if (!validCategories.includes(category)) {
+      if (category && !validCategories.includes(category)) {
         return validationErrorResponse(res, 'Invalid notification category');
       }
 
-      // Validate priority
       const validPriorities = ['low', 'normal', 'high', 'urgent'];
       if (!validPriorities.includes(priority)) {
         return validationErrorResponse(res, 'Invalid notification priority');
       }
 
-      // Validate user IDs are numbers
-      const validIds = userIds.every(id => !isNaN(id));
-      if (!validIds) {
-        return validationErrorResponse(res, 'All user IDs must be valid numbers');
+      if (targetType === 'specific') {
+        const validIds = userIds.every(id => !isNaN(id));
+        if (!validIds) {
+          return validationErrorResponse(res, 'All user IDs must be valid numbers');
+        }
       }
 
-      // Create notifications for all users
-      const notifications = userIds.map(userId => ({
-        userId: parseInt(userId),
-        notificationType,
-        category,
+      const notificationData = {
+        targetType,
+        targetUserIds: targetType === 'specific' ? userIds.map(id => parseInt(id)) : [],
         title,
         message,
-        data,
+        category: category || 'system',
         priority,
-        scheduledFor: scheduledFor ? new Date(scheduledFor) : null,
-        expiresAt: expiresAt ? new Date(expiresAt) : null,
+        deliveryMethods,
+        scheduledFor: scheduledFor || null,
+        expiresAt: expiresAt || null,
+        actionUrl: actionUrl || null,
+        data: data || {},
         createdBy: req.user.userId
-      }));
+      };
 
-      const result = await userNotificationService.createBulkNotifications(notifications);
+      const result = await adminNotificationService.sendNotification(notificationData);
 
       if (!result.success) {
         return errorResponse(res, result.message, 400);
@@ -71,11 +87,11 @@ class PanelUserNotificationController {
 
       return successResponse(res, result.data, result.message);
     } catch (error) {
+      console.error('Broadcast notification error:', error);
       return errorResponse(res, 'Failed to send broadcast notification', 500);
     }
   }
 
-  // Send notification to single user (admin action)
   static async sendNotificationToUser(req, res) {
     try {
       const { userId } = req.params;
@@ -95,17 +111,14 @@ class PanelUserNotificationController {
         transactionId
       } = req.body;
 
-      // Validate user ID
       if (!userId || isNaN(userId)) {
         return validationErrorResponse(res, 'Valid user ID is required');
       }
 
-      // Validate required fields
       if (!notificationType || !category || !title || !message) {
         return validationErrorResponse(res, 'notificationType, category, title, and message are required');
       }
 
-      // Validate category
       const validCategories = ['listing', 'chat', 'subscription', 'system', 'security', 'marketing'];
       if (!validCategories.includes(category)) {
         return validationErrorResponse(res, 'Invalid notification category');
@@ -141,7 +154,6 @@ class PanelUserNotificationController {
     }
   }
 
-  // Get user's notifications (admin view)
   static async getUserNotifications(req, res) {
     try {
       const { userId } = req.params;
@@ -154,15 +166,13 @@ class PanelUserNotificationController {
         isRead,
         startDate,
         endDate,
-        includeExpired = true // Admin can see expired notifications
+        includeExpired = true
       } = req.query;
 
-      // Validate user ID
       if (!userId || isNaN(userId)) {
         return validationErrorResponse(res, 'Valid user ID is required');
       }
 
-      // Validate pagination parameters
       const pageNum = parseInt(page);
       const limitNum = parseInt(limit);
 
@@ -170,7 +180,6 @@ class PanelUserNotificationController {
         return validationErrorResponse(res, 'Invalid pagination parameters');
       }
 
-      // Validate boolean parameters
       let isReadBool = undefined;
       if (isRead !== undefined) {
         if (isRead === 'true') isReadBool = true;
@@ -207,7 +216,6 @@ class PanelUserNotificationController {
     }
   }
 
-  // Get notification statistics for admin dashboard
   static async getNotificationStats(req, res) {
     try {
       const { days = 30, category, notificationType } = req.query;
@@ -217,9 +225,6 @@ class PanelUserNotificationController {
         return validationErrorResponse(res, 'Days must be between 1 and 365');
       }
 
-      // TODO: Implement admin-level notification statistics
-      // This would require additional repository methods to get system-wide stats
-      
       const mockStats = {
         totalNotifications: 0,
         notificationsByCategory: {},
@@ -238,7 +243,6 @@ class PanelUserNotificationController {
     }
   }
 
-  // Get user's notification preferences (admin view)
   static async getUserPreferences(req, res) {
     try {
       const { userId } = req.params;
@@ -259,7 +263,6 @@ class PanelUserNotificationController {
     }
   }
 
-  // Update user's notification preferences (admin action)
   static async updateUserPreferences(req, res) {
     try {
       const { userId } = req.params;
@@ -269,7 +272,6 @@ class PanelUserNotificationController {
         return validationErrorResponse(res, 'Valid user ID is required');
       }
 
-      // Validate required fields if provided
       const booleanFields = [
         'notificationsEnabled', 'emailNotifications', 'pushNotifications', 
         'smsNotifications', 'quietHoursEnabled'
@@ -293,7 +295,6 @@ class PanelUserNotificationController {
     }
   }
 
-  // Process scheduled notifications manually (admin action)
   static async processScheduledNotifications(req, res) {
     try {
       const result = await userNotificationService.processScheduledNotifications();
@@ -308,7 +309,6 @@ class PanelUserNotificationController {
     }
   }
 
-  // Cleanup expired notifications manually (admin action)
   static async cleanupExpiredNotifications(req, res) {
     try {
       const { olderThanDays = 180 } = req.body;

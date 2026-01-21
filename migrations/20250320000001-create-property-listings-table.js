@@ -1,8 +1,3 @@
-/**
- * Migration: Create property_listings table
- * High-volume table storing property-specific attributes
- */
-
 export async function up(queryInterface, Sequelize) {
   await queryInterface.createTable('property_listings', {
     id: {
@@ -23,17 +18,25 @@ export async function up(queryInterface, Sequelize) {
       onDelete: 'CASCADE'
     },
     property_type: {
-      type: Sequelize.ENUM('apartment', 'house', 'villa', 'plot', 'commercial', 'office', 'shop', 'warehouse'),
+      type: Sequelize.ENUM('apartment', 'house', 'villa', 'plot', 'commercial', 'office', 'shop', 'warehouse', 'pg', 'hostel'),
       allowNull: false
     },
     listing_type: {
-      type: Sequelize.ENUM('sale', 'rent', 'pg', 'hostel'),
-      allowNull: false
+      type: Sequelize.ENUM('sale', 'rent', 'other'),
+      allowNull: false,
+      defaultValue: 'other'
     },
     bedrooms: {
       type: Sequelize.INTEGER,
-      allowNull: true,
-      comment: 'NULL for plots/commercial'
+      allowNull: true
+    },
+    unit_type: {
+      type: Sequelize.ENUM('1rk', '1bhk', '2bhk', '3bhk', '4bhk', 'studio', 'penthouse', '1bed', '1room', 'custom'),
+      allowNull: true
+    },
+    custom_unit_type: {
+      type: Sequelize.STRING(50),
+      allowNull: true
     },
     bathrooms: {
       type: Sequelize.INTEGER,
@@ -41,18 +44,15 @@ export async function up(queryInterface, Sequelize) {
     },
     balconies: {
       type: Sequelize.INTEGER,
-      allowNull: false,
-      defaultValue: 0
+      allowNull: true
     },
     area_sqft: {
       type: Sequelize.INTEGER,
-      allowNull: false,
-      comment: 'Total area in square feet'
+      allowNull: false
     },
     plot_area_sqft: {
       type: Sequelize.INTEGER,
-      allowNull: true,
-      comment: 'For houses/villas'
+      allowNull: true
     },
     carpet_area_sqft: {
       type: Sequelize.INTEGER,
@@ -68,8 +68,7 @@ export async function up(queryInterface, Sequelize) {
     },
     age_years: {
       type: Sequelize.INTEGER,
-      allowNull: true,
-      comment: 'Property age in years'
+      allowNull: true
     },
     facing: {
       type: Sequelize.ENUM('north', 'south', 'east', 'west', 'north-east', 'north-west', 'south-east', 'south-west'),
@@ -77,23 +76,59 @@ export async function up(queryInterface, Sequelize) {
     },
     furnished: {
       type: Sequelize.ENUM('unfurnished', 'semi-furnished', 'fully-furnished'),
-      allowNull: false,
-      defaultValue: 'unfurnished'
+      allowNull: true
     },
     parking_spaces: {
       type: Sequelize.INTEGER,
-      allowNull: false,
-      defaultValue: 0
+      allowNull: true
+    },
+    washrooms: { // For commercial
+      type: Sequelize.INTEGER,
+      allowNull: true
     },
     amenities: {
       type: Sequelize.JSON,
-      allowNull: true,
-      comment: 'Array of amenities: ["gym", "pool", "security", etc.]'
+      allowNull: true
+    },
+    food_included: { // For PG/Hostel
+      type: Sequelize.ENUM('yes', 'no', 'optional'),
+      allowNull: true
+    },
+    gender_preference: { // For PG/Hostel
+      type: Sequelize.ENUM('male', 'female', 'any'),
+      allowNull: true
+    },
+    boundary_wall: { // For plot
+      type: Sequelize.BOOLEAN,
+      allowNull: true
+    },
+    corner_plot: { // For plot
+      type: Sequelize.BOOLEAN,
+      allowNull: true
+    },
+    gated_community: { // For plot
+      type: Sequelize.BOOLEAN,
+      allowNull: true
+    },
+    covered_area_sqft: { // For warehouse
+      type: Sequelize.INTEGER,
+      allowNull: true
+    },
+    open_area_sqft: { // For warehouse
+      type: Sequelize.INTEGER,
+      allowNull: true
+    },
+    ceiling_height_ft: { // For warehouse
+      type: Sequelize.DECIMAL(5, 2),
+      allowNull: true
+    },
+    loading_docks: { // For warehouse
+      type: Sequelize.INTEGER,
+      allowNull: true
     },
     available_from: {
       type: Sequelize.DATE,
-      allowNull: true,
-      comment: 'Move-in date for rent/pg/hostel'
+      allowNull: true
     },
     ownership_type: {
       type: Sequelize.ENUM('freehold', 'leasehold', 'co-operative'),
@@ -107,6 +142,22 @@ export async function up(queryInterface, Sequelize) {
     rera_id: {
       type: Sequelize.STRING(50),
       allowNull: true
+    },
+    plot_length_ft: {
+      type: Sequelize.DECIMAL(10, 2),
+      allowNull: true,
+    },
+    plot_width_ft: {
+      type: Sequelize.DECIMAL(10, 2),
+      allowNull: true,
+    },
+    plot_elevation_ft: {
+      type: Sequelize.DECIMAL(10, 2),
+      allowNull: true,
+    },
+    other_details: {
+      type: Sequelize.JSONB,
+      allowNull: true,
     },
     created_at: {
       type: Sequelize.DATE,

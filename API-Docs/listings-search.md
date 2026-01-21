@@ -8,7 +8,7 @@ Public search endpoints require no authentication. End-user and panel endpoints 
 
 ## Important Notes
 
-- **Favorite Counts**: All search results automatically include a `favoriteCount` field for each listing.
+- **Favorite Counts**: All search results automatically include a `totalFavorites` field for each listing.
 - **Location Ranking**: Results are ranked based on user location proximity when location data is available.
 
 ---

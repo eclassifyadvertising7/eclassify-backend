@@ -282,8 +282,15 @@ class UserFavoriteRepository {
     });
   }
 
-
+  async getFavoriteListingIds(userId) {
+    const favorites = await UserFavorite.findAll({
+      where: { userId },
+      attributes: ['listingId'],
+      raw: true
+    });
+    
+    return favorites.map(fav => fav.listingId);
+  }
 }
 
-// Export singleton instance
 export default new UserFavoriteRepository();

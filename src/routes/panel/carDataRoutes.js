@@ -26,6 +26,9 @@ router.post('/car-brands', CarDataController.createBrand);
 // Update brand
 router.put('/car-brands/:id', CarDataController.updateBrand);
 
+// Update brand popular status
+router.patch('/car-brands/popular/:id', CarDataController.updateBrandPopularStatus);
+
 // Delete brand
 router.delete('/car-brands/:id', CarDataController.deleteBrand);
 

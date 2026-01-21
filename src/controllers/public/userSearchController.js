@@ -3,10 +3,6 @@ import { successResponse, errorResponse } from '#utils/responseFormatter.js';
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '#utils/constants/messages.js';
 
 class PublicUserSearchController {
-  /**
-   * Get popular searches (public endpoint)
-   * GET /api/public/searches/popular
-   */
   static async getPopularSearches(req, res) {
     try {
       const {
@@ -16,7 +12,7 @@ class PublicUserSearchController {
         endDate
       } = req.query;
 
-      const limitNum = Math.min(parseInt(limit), 20); // Max 20 for public endpoint
+      const limitNum = Math.min(parseInt(limit), 20);
 
       const options = {
         limit: limitNum,

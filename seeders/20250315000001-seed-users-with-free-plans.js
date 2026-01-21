@@ -143,7 +143,7 @@ export async function up(queryInterface, Sequelize) {
     },
     {
       country_code: "+91",
-      mobile: "8002445566",
+      mobile: "8002444555",
       full_name: "Amit",
       email: "amit.eclassify@yopmail.com",
       password_hash: userHashedPassword,
@@ -192,7 +192,7 @@ export async function up(queryInterface, Sequelize) {
       cross_city_visibility, national_visibility,
       auto_renewal, max_renewals, listing_duration_days, auto_refresh_enabled,
       refresh_frequency_days, manual_refresh_per_cycle, is_auto_approve_enabled,
-      support_level, features
+      support_level, features, is_free_plan
     FROM subscription_plans 
     WHERE id IN (${carsFreePlan.id}, ${propertiesFreePlan.id})
   `);
@@ -217,6 +217,7 @@ export async function up(queryInterface, Sequelize) {
       plan_name: carsFreePlanDetails.name,
       plan_code: carsFreePlanDetails.plan_code,
       plan_version: carsFreePlanDetails.version,
+      is_free_plan: carsFreePlanDetails.is_free_plan,
       // Pricing snapshot
       base_price: carsFreePlanDetails.base_price,
       discount_amount: carsFreePlanDetails.discount_amount,
@@ -283,6 +284,7 @@ export async function up(queryInterface, Sequelize) {
       plan_name: propertiesFreePlanDetails.name,
       plan_code: propertiesFreePlanDetails.plan_code,
       plan_version: propertiesFreePlanDetails.version,
+      is_free_plan: propertiesFreePlanDetails.is_free_plan,
       // Pricing snapshot
       base_price: propertiesFreePlanDetails.base_price,
       discount_amount: propertiesFreePlanDetails.discount_amount,
@@ -367,7 +369,7 @@ export async function down(queryInterface, Sequelize) {
   // Then delete all users (including super admins)
   await queryInterface.bulkDelete("users", {
     mobile: {
-      [Sequelize.Op.in]: ["9175113022", "9123456789", "8002111222", "8002333444", "8002445566"],
+      [Sequelize.Op.in]: ["9175113022", "9123456789", "8002111222", "8002333444", "8002444555"],
     },
   });
 

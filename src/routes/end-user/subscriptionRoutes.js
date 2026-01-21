@@ -29,6 +29,13 @@ router.get('/plans/category/:categoryId', SubscriptionController.getPlansByCateg
 router.get('/plans/:id', SubscriptionController.getPlanDetails);
 
 /**
+ * @route   GET /api/end-user/subscriptions/check-eligibility/:planId
+ * @desc    Check subscription eligibility before purchase
+ * @access  Authenticated Users
+ */
+router.get('/check-eligibility/:planId', SubscriptionController.checkEligibility);
+
+/**
  * @route   GET /api/end-user/subscriptions/active/all
  * @desc    Get all user's active subscriptions
  * @access  Authenticated Users

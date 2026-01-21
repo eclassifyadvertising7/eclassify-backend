@@ -1,27 +1,20 @@
-/**
- * Listing Service
- * Business logic for listing management
- */
-
 import listingRepository from '#repositories/listingRepository.js';
 import carListingRepository from '#repositories/carListingRepository.js';
 import propertyListingRepository from '#repositories/propertyListingRepository.js';
 import listingMediaRepository from '#repositories/listingMediaRepository.js';
+import categoryRepository from '#repositories/categoryRepository.js';
 import quotaService from '#services/quotaService.js';
 import userSearchService from '#services/userSearchService.js';
+import notificationHelperService from '#services/notificationHelperService.js';
 import models from '#models/index.js';
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '#utils/constants/messages.js';
 import SearchHelper from '#utils/searchHelper.js';
 import LocationHelper from '#utils/locationHelper.js';
+import { generateShareCode } from '#utils/customSlugify.js';
 
 const { User } = models;
 
 class ListingService {
-  /**
-   * Validate required fields for listing
-   * @param {Object} listingData - Listing data
-   * @private
-   */
   _validateRequiredFields(listingData) {
     if (!listingData.title || listingData.title.length < 10) {
       throw new Error('Title must be at least 10 characters');
@@ -46,22 +39,23 @@ class ListingService {
     }
   }
 
-  /**
-   * Create new listing
-   * @param {Object} listingData - Listing data
-   * @param {Object} categoryData - Category-specific data (car or property)
-   * @param {number} userId - User ID creating the listing
-   * @returns {Promise<Object>}
-   */
   async create(listingData, categoryData, userId) {
-    // Validate required fields
+    console.log(`[LISTING CREATE] ========== START ==========`);
+    console.log(`[LISTING CREATE] userId=${userId}, categoryId=${listingData.categoryId}`);
+    
     this._validateRequiredFields(listingData);
 
-    // Check listing eligibility (quota + auto-approve)
-    const eligibility = await quotaService.checkListingEligibility(userId, listingData.categoryId);
+    const category = await categoryRepository.getById(listingData.categoryId);
+    if (!category) {
+      throw new Error('Invalid category');
+    }
 
-    // Set audit fields
+    console.log(`[LISTING CREATE] Checking eligibility...`);
+    const eligibility = await quotaService.checkListingEligibility(userId, listingData.categoryId);
+    console.log(`[LISTING CREATE] Eligibility result:`, JSON.stringify(eligibility, null, 2));
+
     listingData.userId = userId;
+    listingData.categorySlug = category.slug;
     listingData.createdBy = userId;
     listingData.status = 'draft';
     listingData.isAutoApproved = false;
@@ -70,27 +64,30 @@ class ListingService {
     let quotaMessage = null;
 
     if (!eligibility.data.canCreate) {
-      // No quota available - create as draft
       quotaExceeded = true;
       quotaMessage = `${eligibility.message}. Your listing has been saved as draft.`;
+      console.log(`[LISTING CREATE] QUOTA EXCEEDED - Saving as draft`);
     } else if (eligibility.data.hasAutoApprove) {
-      // Quota available and auto-approve enabled - set to active immediately
       listingData.status = 'active';
       listingData.isAutoApproved = true;
       listingData.approvedAt = new Date();
       listingData.approvedBy = userId;
       listingData.publishedAt = new Date();
       
-      // Set expiry to 30 days from now
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + 30);
       listingData.expiresAt = expiresAt;
+      console.log(`[LISTING CREATE] AUTO-APPROVE - Setting status to active`);
+    } else {
+      console.log(`[LISTING CREATE] NO AUTO-APPROVE - Keeping as draft`);
     }
 
-    // Create base listing
+    console.log(`[LISTING CREATE] Creating listing with status=${listingData.status}`);
     const listing = await listingRepository.create(listingData);
+    console.log(`[LISTING CREATE] Listing created with ID=${listing.id}`);
 
-    // Create category-specific data
+    this._generateAndSetShareCode(listing.id);
+
     let categorySpecificData = null;
     if (categoryData.type === 'car') {
       await carListingRepository.create({
@@ -106,20 +103,20 @@ class ListingService {
       categorySpecificData = categoryData.data;
     }
 
-    // Generate and update keywords
     await this.updateListingKeywords(listing.id, listingData, categorySpecificData);
 
-    // Consume quota if listing was auto-approved
     if (listingData.status === 'active') {
+      console.log(`[LISTING CREATE] Status is active, consuming quota...`);
       try {
         await quotaService.consumeQuota(userId, listingData.categoryId, listing.id);
+        console.log(`[LISTING CREATE] Quota consumed successfully`);
       } catch (error) {
-        console.error('Error consuming quota:', error);
-        // Don't fail the listing creation if quota consumption fails
+        console.error(`[LISTING CREATE] ERROR consuming quota:`, error.message);
       }
+    } else {
+      console.log(`[LISTING CREATE] Status is ${listingData.status}, NOT consuming quota`);
     }
 
-    // Fetch complete listing with associations
     const completeListing = await listingRepository.getById(listing.id, { includeAll: true });
 
     let message;
@@ -131,20 +128,16 @@ class ListingService {
       message = SUCCESS_MESSAGES.LISTING_CREATED;
     }
 
+    console.log(`[LISTING CREATE] ========== END (${message}) ==========`);
+
     return {
       success: true,
       message,
-      data: completeListing
+      data: completeListing,
+      quotaExceeded
     };
   }
 
-  /**
-   * Get listing by ID
-   * @param {number} id - Listing ID
-   * @param {number} userId - User ID (for ownership check)
-   * @param {boolean} isAdmin - Is admin user
-   * @returns {Promise<Object>}
-   */
   async getById(id, userId = null, isAdmin = false) {
     const listing = await listingRepository.getById(id, { includeAll: true }, userId);
 
@@ -152,7 +145,6 @@ class ListingService {
       throw new Error(ERROR_MESSAGES.LISTING_NOT_FOUND);
     }
 
-    // Check ownership for non-admin users
     if (!isAdmin && userId && listing.userId !== userId) {
       throw new Error(ERROR_MESSAGES.FORBIDDEN);
     }
@@ -164,11 +156,6 @@ class ListingService {
     };
   }
 
-  /**
-   * Get listing by slug (public)
-   * @param {string} slug - Listing slug
-   * @returns {Promise<Object>}
-   */
   async getBySlug(slug, userId = null) {
     const listing = await listingRepository.getBySlug(slug, { includeAll: true }, userId);
 
@@ -176,7 +163,6 @@ class ListingService {
       throw new Error(ERROR_MESSAGES.LISTING_NOT_FOUND);
     }
 
-    // Only show active listings publicly
     if (listing.status !== 'active') {
       throw new Error(ERROR_MESSAGES.LISTING_NOT_APPROVED);
     }
@@ -188,15 +174,32 @@ class ListingService {
     };
   }
 
-  /**
-   * Get all listings with filters
-   * @param {Object} filters - Filter options
-   * @param {Object} pagination - Pagination options
-   * @param {number|null} userId - User ID to check favorites for
-   * @returns {Promise<Object>}
-   */
-  async getAll(filters = {}, pagination = {}, userId = null) {
-    const result = await listingRepository.getAll(filters, pagination, userId);
+  async getByShareCode(shareCode, userId = null) {
+    if (!shareCode || shareCode.trim().length === 0) {
+      throw new Error('Share code is required');
+    }
+
+    const listing = await listingRepository.findByShareCode(shareCode.trim());
+
+    if (!listing) {
+      throw new Error(ERROR_MESSAGES.LISTING_NOT_FOUND);
+    }
+
+    if (listing.status !== 'active') {
+      throw new Error(ERROR_MESSAGES.LISTING_NOT_APPROVED);
+    }
+
+    const completeListing = await listingRepository.getById(listing.id, { includeAll: true }, userId);
+
+    return {
+      success: true,
+      message: SUCCESS_MESSAGES.LISTING_FETCHED,
+      data: completeListing
+    };
+  }
+
+  async getAllForAdmin(filters = {}, pagination = {}) {
+    const result = await listingRepository.getAllForAdmin(filters, pagination);
 
     return {
       success: true,
@@ -206,15 +209,17 @@ class ListingService {
     };
   }
 
-  /**
-   * Update listing
-   * @param {number} id - Listing ID
-   * @param {Object} updateData - Update data
-   * @param {Object} categoryData - Category-specific data
-   * @param {number} userId - User ID updating
-   * @param {boolean} isAdmin - Is admin user
-   * @returns {Promise<Object>}
-   */
+  async getAll(filters = {}, pagination = {}, userId = null, userLocation = null) {
+    const result = await listingRepository.getAll(filters, pagination, userId, userLocation);
+
+    return {
+      success: true,
+      message: SUCCESS_MESSAGES.LISTINGS_FETCHED,
+      data: result.listings,
+      pagination: result.pagination
+    };
+  }
+
   async update(id, updateData, categoryData, userId, isAdmin = false) {
     const listing = await listingRepository.getById(id);
 
@@ -222,17 +227,14 @@ class ListingService {
       throw new Error(ERROR_MESSAGES.LISTING_NOT_FOUND);
     }
 
-    // Check ownership
     if (!isAdmin && listing.userId !== userId) {
       throw new Error(ERROR_MESSAGES.FORBIDDEN);
     }
 
-    // Check if listing can be edited
     if (!isAdmin && !['draft', 'rejected'].includes(listing.status)) {
       throw new Error(ERROR_MESSAGES.LISTING_CANNOT_EDIT);
     }
 
-    // Validate if title or description is being updated
     if (updateData.title && updateData.title.length < 10) {
       throw new Error('Title must be at least 10 characters');
     }
@@ -241,10 +243,16 @@ class ListingService {
       throw new Error('Description must be at least 50 characters');
     }
 
-    // Update base listing
+    if (updateData.categoryId && updateData.categoryId !== listing.categoryId) {
+      const category = await categoryRepository.getById(updateData.categoryId);
+      if (!category) {
+        throw new Error('Invalid category');
+      }
+      updateData.categorySlug = category.slug;
+    }
+
     await listingRepository.update(id, updateData, { userId });
 
-    // Update category-specific data
     if (categoryData) {
       if (categoryData.type === 'car') {
         await carListingRepository.update(id, categoryData.data);
@@ -253,7 +261,6 @@ class ListingService {
       }
     }
 
-    // Fetch updated listing
     const updatedListing = await listingRepository.getById(id, { includeAll: true });
 
     return {
@@ -263,53 +270,53 @@ class ListingService {
     };
   }
 
-  /**
-   * Submit listing for approval
-   * @param {number} id - Listing ID
-   * @param {number} userId - User ID
-   * @returns {Promise<Object>}
-   */
   async submit(id, userId) {
+    console.log(`[LISTING SUBMIT] ========== START ==========`);
+    console.log(`[LISTING SUBMIT] listingId=${id}, userId=${userId}`);
+    
     const listing = await listingRepository.getById(id);
 
     if (!listing) {
       throw new Error(ERROR_MESSAGES.LISTING_NOT_FOUND);
     }
 
-    // Check ownership
+    console.log(`[LISTING SUBMIT] Listing found: categoryId=${listing.categoryId}, status=${listing.status}`);
+
     if (listing.userId !== userId) {
       throw new Error(ERROR_MESSAGES.FORBIDDEN);
     }
 
-    // Check if listing is in draft or rejected status
     if (!['draft', 'rejected'].includes(listing.status)) {
       throw new Error(ERROR_MESSAGES.INVALID_LISTING_STATUS);
     }
 
-    // Check if listing has at least one media
     const media = await listingMediaRepository.getByListingId(id);
     if (media.length === 0) {
       throw new Error('At least one image is required to submit listing');
     }
 
-    // Check listing eligibility (quota + auto-approve)
+    console.log(`[LISTING SUBMIT] Checking eligibility...`);
     const eligibility = await quotaService.checkListingEligibility(userId, listing.categoryId);
+    console.log(`[LISTING SUBMIT] Eligibility result:`, JSON.stringify(eligibility, null, 2));
 
     if (!eligibility.data.canCreate) {
-      // No quota - submit for manual approval
-      await listingRepository.updateStatus(id, 'pending', { userId });
+      console.log(`[LISTING SUBMIT] QUOTA EXCEEDED - Keeping as draft`);
+      // Keep as draft when quota is exhausted
+      await listingRepository.updateStatus(id, 'draft', { userId });
 
       const updatedListing = await listingRepository.getById(id, { includeAll: true });
 
+      console.log(`[LISTING SUBMIT] ========== END (QUOTA EXCEEDED) ==========`);
       return {
         success: true,
-        message: `${eligibility.message}. Your listing has been submitted for manual approval.`,
-        data: updatedListing
+        message: `${eligibility.message}. Your listing has been saved as draft.`,
+        data: updatedListing,
+        quotaExceeded: true
       };
     }
 
     if (eligibility.data.hasAutoApprove) {
-      // Quota available and auto-approve enabled - auto-approve the listing
+      console.log(`[LISTING SUBMIT] AUTO-APPROVE - Setting status to active`);
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + 30);
 
@@ -322,79 +329,81 @@ class ListingService {
         expiresAt
       }, { userId });
 
-      // Consume quota
+      console.log(`[LISTING SUBMIT] Consuming quota...`);
       try {
         await quotaService.consumeQuota(userId, listing.categoryId, id);
+        console.log(`[LISTING SUBMIT] Quota consumed successfully`);
       } catch (error) {
-        console.error('Error consuming quota:', error);
-        // Don't fail the submission if quota consumption fails
+        console.error(`[LISTING SUBMIT] ERROR consuming quota:`, error.message);
       }
 
       const updatedListing = await listingRepository.getById(id, { includeAll: true });
 
+      console.log(`[LISTING SUBMIT] ========== END (AUTO-APPROVED) ==========`);
       return {
         success: true,
         message: 'Listing submitted and auto-approved successfully',
-        data: updatedListing
+        data: updatedListing,
+        quotaExceeded: false
       };
     }
 
-    // Quota available but no auto-approve - submit for manual approval
+    console.log(`[LISTING SUBMIT] NO AUTO-APPROVE - Setting status to pending`);
     await listingRepository.updateStatus(id, 'pending', { userId });
 
     const updatedListing = await listingRepository.getById(id, { includeAll: true });
 
+    console.log(`[LISTING SUBMIT] ========== END (PENDING) ==========`);
     return {
       success: true,
       message: SUCCESS_MESSAGES.LISTING_SUBMITTED,
-      data: updatedListing
+      data: updatedListing,
+      quotaExceeded: false
     };
   }
 
-  /**
-   * Approve listing (admin only)
-   * @param {number} id - Listing ID
-   * @param {number} approvedBy - User ID who approved
-   * @returns {Promise<Object>}
-   */
   async approve(id, approvedBy) {
+    console.log(`[APPROVE] Starting approval for listing ID=${id}, approvedBy=${approvedBy}`);
+    
     const listing = await listingRepository.getById(id);
 
     if (!listing) {
       throw new Error(ERROR_MESSAGES.LISTING_NOT_FOUND);
     }
 
+    console.log(`[APPROVE] Listing found: userId=${listing.userId}, categoryId=${listing.categoryId}, status=${listing.status}`);
+
     if (listing.status !== 'pending') {
       throw new Error('Only pending listings can be approved');
     }
 
-    // Check user's quota availability before approving
-    const quotaCheck = await quotaService.checkQuotaAvailability(listing.userId, listing.categoryId);
-
-    if (!quotaCheck.data.hasQuota) {
-      return {
-        success: false,
-        message: `Cannot approve listing: ${quotaCheck.message}`,
-        data: {
-          listing,
-          quotaUsage: quotaCheck.data.quotaUsage
-        }
-      };
-    }
-
-    // Approve the listing
+    console.log(`[APPROVE] Approving listing (pending listings reserve quota, so no additional check needed)`);
     await listingRepository.approve(id, approvedBy);
 
-    // Consume quota after approval
     try {
       await quotaService.consumeQuota(listing.userId, listing.categoryId, id);
     } catch (error) {
-      console.error('Error consuming quota after approval:', error);
-      // Don't fail the approval if quota consumption fails
+      console.error(`[APPROVE] Error consuming quota (non-blocking):`, error.message);
     }
 
     const updatedListing = await listingRepository.getById(id, { includeAll: true });
 
+    try {
+      await notificationHelperService.notifyListingApproved(
+        listing.userId,
+        {
+          id: updatedListing.id,
+          title: updatedListing.title,
+          slug: updatedListing.slug,
+          expiresAt: updatedListing.expiresAt
+        },
+        approvedBy
+      );
+    } catch (error) {
+      console.error('Failed to send listing approval notification:', error);
+    }
+
+    console.log(`[APPROVE] Approval completed successfully`);
     return {
       success: true,
       message: SUCCESS_MESSAGES.LISTING_APPROVED,
@@ -402,13 +411,6 @@ class ListingService {
     };
   }
 
-  /**
-   * Reject listing (admin only)
-   * @param {number} id - Listing ID
-   * @param {number} rejectedBy - User ID who rejected
-   * @param {string} reason - Rejection reason
-   * @returns {Promise<Object>}
-   */
   async reject(id, rejectedBy, reason) {
     const listing = await listingRepository.getById(id);
 
@@ -428,6 +430,21 @@ class ListingService {
 
     const updatedListing = await listingRepository.getById(id, { includeAll: true });
 
+    try {
+      await notificationHelperService.notifyListingRejected(
+        listing.userId,
+        {
+          id: updatedListing.id,
+          title: updatedListing.title,
+          slug: updatedListing.slug
+        },
+        rejectedBy,
+        reason
+      );
+    } catch (error) {
+      console.error('Failed to send listing rejection notification:', error);
+    }
+
     return {
       success: true,
       message: SUCCESS_MESSAGES.LISTING_REJECTED,
@@ -435,12 +452,6 @@ class ListingService {
     };
   }
 
-  /**
-   * Mark listing as sold
-   * @param {number} id - Listing ID
-   * @param {number} userId - User ID
-   * @returns {Promise<Object>}
-   */
   async markAsSold(id, userId) {
     const listing = await listingRepository.getById(id);
 
@@ -448,7 +459,6 @@ class ListingService {
       throw new Error(ERROR_MESSAGES.LISTING_NOT_FOUND);
     }
 
-    // Check ownership
     if (listing.userId !== userId) {
       throw new Error(ERROR_MESSAGES.FORBIDDEN);
     }
@@ -468,13 +478,6 @@ class ListingService {
     };
   }
 
-  /**
-   * Update featured status (admin only)
-   * @param {number} id - Listing ID
-   * @param {boolean} isFeatured - Featured status
-   * @param {number} days - Number of days to feature
-   * @returns {Promise<Object>}
-   */
   async updateFeaturedStatus(id, isFeatured, days = 7) {
     const listing = await listingRepository.getById(id);
 
@@ -497,13 +500,6 @@ class ListingService {
     };
   }
 
-  /**
-   * Delete listing
-   * @param {number} id - Listing ID
-   * @param {number} userId - User ID
-   * @param {boolean} isAdmin - Is admin user
-   * @returns {Promise<Object>}
-   */
   async delete(id, userId, isAdmin = false) {
     const listing = await listingRepository.getById(id, { includeAll: true });
 
@@ -511,33 +507,22 @@ class ListingService {
       throw new Error(ERROR_MESSAGES.LISTING_NOT_FOUND);
     }
 
-    // Check ownership
     if (!isAdmin && listing.userId !== userId) {
       throw new Error(ERROR_MESSAGES.FORBIDDEN);
     }
 
-    // CRITICAL: Delete physical files BEFORE database records
-    // This prevents orphaned files in storage
-
-    // 1. Delete all listing media files (images/videos)
     try {
       const listingMediaService = (await import('#services/listingMediaService.js')).default;
       await listingMediaService.deleteAllByListingId(id);
     } catch (error) {
-      console.error(`Failed to delete listing media files: ${error.message}`);
-      // Continue with deletion even if media cleanup fails
     }
 
-    // 2. Delete all chat media files (images in conversations)
     try {
       const chatMediaService = (await import('#services/chatMediaService.js')).default;
       await chatMediaService.deleteAllByListingId(id);
     } catch (error) {
-      console.error(`Failed to delete chat media files: ${error.message}`);
-      // Continue with deletion even if chat media cleanup fails
     }
 
-    // 3. Soft delete listing (CASCADE will handle related database records)
     await listingRepository.delete(id, userId);
 
     return {
@@ -547,25 +532,13 @@ class ListingService {
     };
   }
 
-  /**
-   * Increment view count
-   * Does not increment for listing owner or super_admin
-   * @param {number} id - Listing ID
-   * @param {number|null} userId - User ID (if authenticated)
-   * @param {string|null} userRoleSlug - User role slug (if authenticated)
-   * @returns {Promise<Object>}
-   */
   async incrementViewCount(id, userId = null, userRoleSlug = null) {
-    // Get listing to check ownership
     const listing = await listingRepository.getById(id);
 
     if (!listing) {
       throw new Error(ERROR_MESSAGES.LISTING_NOT_FOUND);
     }
 
-    // Don't increment if:
-    // 1. User is the listing owner
-    // 2. User is super_admin (monitoring/moderation)
     const isOwner = userId && listing.userId === userId;
     const isSuperAdmin = userRoleSlug === 'super_admin';
 
@@ -577,7 +550,6 @@ class ListingService {
       };
     }
 
-    // Increment view count for genuine views
     const success = await listingRepository.incrementViewCount(id);
 
     if (!success) {
@@ -591,12 +563,6 @@ class ListingService {
     };
   }
 
-  /**
-   * Get quota status for user in category
-   * @param {number} userId - User ID
-   * @param {number} categoryId - Category ID
-   * @returns {Promise<Object>}
-   */
   async getQuotaStatus(userId, categoryId) {
     if (!userId || !categoryId) {
       throw new Error('User ID and Category ID are required');
@@ -607,11 +573,6 @@ class ListingService {
     return quotaStatus;
   }
 
-  /**
-   * Get all quota statuses for user (all categories)
-   * @param {number} userId - User ID
-   * @returns {Promise<Object>}
-   */
   async getAllQuotaStatus(userId) {
     if (!userId) {
       throw new Error('User ID is required');
@@ -622,12 +583,6 @@ class ListingService {
     return allQuotaStatus;
   }
 
-  /**
-   * Check if user can create listing in category
-   * @param {number} userId - User ID
-   * @param {number} categoryId - Category ID
-   * @returns {Promise<Object>}
-   */
   async checkCreationEligibility(userId, categoryId) {
     if (!userId || !categoryId) {
       throw new Error('User ID and Category ID are required');
@@ -638,15 +593,10 @@ class ListingService {
     return eligibility;
   }
 
-  /**
-   * Search listings with advanced filtering and ranking
-   * @param {Object} searchParams - Search parameters
-   * @param {Object} userContext - User context (location, authentication)
-   * @param {Object} pagination - Pagination options
-   * @returns {Promise<Object>}
-   */
   async searchListings(searchParams, userContext = {}, pagination = {}) {
     try {
+      console.log('[searchListings SERVICE] Starting...');
+      
       const {
         query,
         categoryId,
@@ -663,13 +613,16 @@ class ListingService {
 
       const { userId, sessionId, userLocation, ipAddress, userAgent } = userContext;
 
-      // Parse user location if not provided
+      console.log('[searchListings SERVICE] userLocation:', userLocation);
+
       const effectiveUserLocation = userLocation || LocationHelper.parseUserLocation({ 
         query: { stateId, cityId },
         user: userContext.user 
       });
 
-      // Perform search
+      console.log('[searchListings SERVICE] effectiveUserLocation:', effectiveUserLocation);
+      console.log('[searchListings SERVICE] Calling repository...');
+
       const searchResult = await listingRepository.searchListings(
         searchParams,
         effectiveUserLocation,
@@ -677,9 +630,12 @@ class ListingService {
         userId
       );
 
-      // Log search activity (integrate with search logging system)
+      console.log('[searchListings SERVICE] Repository returned successfully');
+      console.log('[searchListings SERVICE] Results count:', searchResult.listings?.length);
+
       if (query || Object.keys(filters).length > 0) {
         try {
+          console.log('[searchListings SERVICE] Logging search activity...');
           await userSearchService.logSearch({
             userId: userId || null,
             sessionId: sessionId || 'anonymous',
@@ -705,9 +661,9 @@ class ListingService {
             ipAddress,
             userAgent
           });
+          console.log('[searchListings SERVICE] Search activity logged');
         } catch (error) {
-          console.error('Error logging search activity:', error);
-          // Don't fail search if logging fails
+          console.error('[searchListings SERVICE] Error logging search activity:', error);
         }
       }
 
@@ -719,7 +675,7 @@ class ListingService {
           pagination: searchResult.pagination,
           searchMeta: {
             ...searchResult.searchMeta,
-            searchTime: Date.now(), // Could be calculated properly
+            searchTime: Date.now(),
             appliedFilters: {
               query,
               categoryId,
@@ -733,7 +689,8 @@ class ListingService {
         }
       };
     } catch (error) {
-      console.error('Error in searchListings:', error);
+      console.error('[searchListings SERVICE] ERROR:', error.message);
+      console.error('[searchListings SERVICE] ERROR STACK:', error.stack);
       return {
         success: false,
         message: 'Failed to search listings',
@@ -742,13 +699,6 @@ class ListingService {
     }
   }
 
-  /**
-   * Get search suggestions
-   * @param {string} query - Search query
-   * @param {Object} userLocation - User location
-   * @param {number} limit - Number of suggestions
-   * @returns {Promise<Object>}
-   */
   async getSearchSuggestions(query, userLocation = null, limit = 5) {
     try {
       const suggestions = await listingRepository.getSearchSuggestions(query, userLocation, limit);
@@ -762,7 +712,6 @@ class ListingService {
         }
       };
     } catch (error) {
-      console.error('Error in getSearchSuggestions:', error);
       return {
         success: false,
         message: 'Failed to get search suggestions',
@@ -771,12 +720,6 @@ class ListingService {
     }
   }
 
-  /**
-   * Get available search filters for category
-   * @param {number} categoryId - Category ID
-   * @param {Object} userLocation - User location
-   * @returns {Promise<Object>}
-   */
   async getSearchFilters(categoryId, userLocation = null) {
     try {
       const filters = await listingRepository.getSearchFilters(categoryId, userLocation);
@@ -787,7 +730,6 @@ class ListingService {
         data: filters
       };
     } catch (error) {
-      console.error('Error in getSearchFilters:', error);
       return {
         success: false,
         message: 'Failed to get search filters',
@@ -796,20 +738,29 @@ class ListingService {
     }
   }
 
-  /**
-   * Get featured listings
-   * @param {Object} filters - Filter options
-   * @param {Object} userLocation - User location
-   * @param {Object} pagination - Pagination options
-   * @param {number|null} userId - User ID to check favorites for
-   * @returns {Promise<Object>}
-   */
+  async getHomepageListings(filters = {}) {
+    try {
+      const result = await listingRepository.getHomepageListings(filters);
+
+      return {
+        success: true,
+        message: SUCCESS_MESSAGES.LISTINGS_RETRIEVED,
+        data: result
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: ERROR_MESSAGES.LISTINGS_FETCH_FAILED,
+        error: error.message
+      };
+    }
+  }
+
   async getFeaturedListings(filters = {}, userLocation = null, pagination = {}, userId = null) {
     try {
       const searchParams = {
         ...filters,
-        featuredOnly: true,
-        sortBy: 'relevance'
+        featuredOnly: true
       };
 
       const result = await listingRepository.searchListings(
@@ -828,7 +779,6 @@ class ListingService {
         }
       };
     } catch (error) {
-      console.error('Error in getFeaturedListings:', error);
       return {
         success: false,
         message: 'Failed to get featured listings',
@@ -837,35 +787,16 @@ class ListingService {
     }
   }
 
-  /**
-   * Update listing keywords (called when listing is created/updated)
-   * @param {number} listingId - Listing ID
-   * @param {Object} listingData - Listing data
-   * @param {Object} categoryData - Category-specific data
-   * @returns {Promise<boolean>}
-   */
   async updateListingKeywords(listingId, listingData, categoryData = null) {
     try {
-      // Generate keywords using SearchHelper
       const keywords = SearchHelper.generateKeywords(listingData, categoryData);
-      
-      // Update keywords in database
       await listingRepository.updateKeywords(listingId, keywords);
-      
       return true;
     } catch (error) {
-      console.error('Error updating listing keywords:', error);
       return false;
     }
   }
 
-  /**
-   * Get similar listings based on current listing
-   * @param {number} listingId - Current listing ID
-   * @param {number} limit - Number of similar listings
-   * @param {number|null} userId - User ID to check favorites for
-   * @returns {Promise<Object>}
-   */
   async getSimilarListings(listingId, limit = 5, userId = null) {
     try {
       const listing = await listingRepository.getById(listingId, { includeAll: true });
@@ -874,11 +805,10 @@ class ListingService {
         throw new Error('Listing not found');
       }
 
-      // Search for similar listings
       const searchParams = {
         categoryId: listing.categoryId,
-        priceMin: listing.price * 0.7, // 30% lower
-        priceMax: listing.price * 1.3, // 30% higher
+        priceMin: listing.price * 0.7,
+        priceMax: listing.price * 1.3,
         stateId: listing.stateId,
         sortBy: 'relevance'
       };
@@ -891,11 +821,10 @@ class ListingService {
       const result = await listingRepository.searchListings(
         searchParams,
         userLocation,
-        { page: 1, limit: limit + 1 }, // Get one extra to exclude current listing
+        { page: 1, limit: limit + 1 },
         userId
       );
 
-      // Filter out the current listing
       const similarListings = result.listings.filter(l => l.id !== listingId).slice(0, limit);
 
       return {
@@ -912,7 +841,6 @@ class ListingService {
         }
       };
     } catch (error) {
-      console.error('Error in getSimilarListings:', error);
       return {
         success: false,
         message: 'Failed to get similar listings',
@@ -921,11 +849,6 @@ class ListingService {
     }
   }
 
-  /**
-   * Get statistics
-   * @param {number} userId - User ID (optional, for user-specific stats)
-   * @returns {Promise<Object>}
-   */
   async getStats(userId = null) {
     const filters = userId ? { userId } : {};
     const stats = await listingRepository.getStats(filters);
@@ -936,7 +859,81 @@ class ListingService {
       data: stats
     };
   }
+
+  async getRelatedListings(listingId, limit = 6) {
+    try {
+      if (!listingId || isNaN(listingId)) {
+        throw new Error('Valid listing ID is required');
+      }
+
+      const validLimit = Math.min(Math.max(parseInt(limit), 1), 12);
+
+      const listing = await listingRepository.getById(listingId);
+      if (!listing) {
+        throw new Error(ERROR_MESSAGES.LISTING_NOT_FOUND);
+      }
+
+      const relatedListings = await listingRepository.findRelatedListings(listingId, validLimit);
+
+      return {
+        success: true,
+        message: 'Related listings retrieved successfully',
+        data: {
+          listings: relatedListings,
+          count: relatedListings.length
+        }
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.message || 'Failed to get related listings',
+        data: {
+          listings: [],
+          count: 0
+        }
+      };
+    }
+  }
+
+  _generateAndSetShareCode(listingId) {
+    setImmediate(async () => {
+      try {
+        let shareCode;
+        let exists = true;
+        let attempts = 0;
+        const maxAttempts = 10;
+
+        while (exists && attempts < maxAttempts) {
+          shareCode = generateShareCode(7);
+          const existingListing = await listingRepository.findByShareCode(shareCode);
+          exists = !!existingListing;
+          attempts++;
+        }
+
+        if (attempts >= maxAttempts) {
+          console.error(`Failed to generate unique share code for listing ${listingId} after ${maxAttempts} attempts`);
+          return;
+        }
+
+        await listingRepository.updateShareCode(listingId, shareCode);
+        console.log(`Share code ${shareCode} generated for listing ${listingId}`);
+      } catch (error) {
+        console.error(`Failed to generate share code for listing ${listingId}:`, error.message);
+      }
+    });
+  }
+
+  _getCategoryTypeFromSlug(slug) {
+    if (!slug) return null;
+    
+    const normalizedSlug = slug.toLowerCase().trim();
+    
+    if (normalizedSlug === 'cars' || normalizedSlug === 'car') return 'car';
+    if (normalizedSlug === 'properties' || normalizedSlug === 'property') return 'property';
+    
+    return null;
+  }
 }
 
-// Export singleton instance
+
 export default new ListingService();

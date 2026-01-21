@@ -4,16 +4,8 @@ import subscriptionRepository from '#repositories/subscriptionRepository.js';
 import { generateTokens } from '#utils/jwtHelper.js';
 import { SUCCESS_MESSAGES } from '#utils/constants/messages.js';
 
-/**
- * GoogleAuthController - Handle Google OAuth authentication
- */
 class GoogleAuthController {
-  /**
-   * Initiate Google OAuth login
-   * @route GET /api/auth/google
-   */
   static googleAuth(req, res, next) {
-    // Check if Google OAuth is configured
     if (!process.env.GOOGLE_CLIENT_ID || 
         !process.env.GOOGLE_CLIENT_SECRET || 
         process.env.GOOGLE_CLIENT_ID === 'your-google-client-id' ||
@@ -26,7 +18,6 @@ class GoogleAuthController {
       });
     }
 
-    // Store device info in session for later use
     req.session = req.session || {};
     req.session.deviceInfo = {
       deviceName: req.query.device_name || null,
@@ -39,12 +30,7 @@ class GoogleAuthController {
     })(req, res, next);
   }
 
-  /**
-   * Handle Google OAuth callback
-   * @route GET /api/auth/google/callback
-   */
   static googleCallback(req, res, next) {
-    // Check if Google OAuth is configured
     if (!process.env.GOOGLE_CLIENT_ID || 
         !process.env.GOOGLE_CLIENT_SECRET || 
         process.env.GOOGLE_CLIENT_ID === 'your-google-client-id' ||
@@ -65,12 +51,9 @@ class GoogleAuthController {
 
         const { user, isNewUser, socialAccount, linkedExisting } = authData;
 
-        // Get device info from session
         const deviceInfo = req.session?.deviceInfo || {};
 
-        // If new user, assign free subscription
         if (isNewUser) {
-          // Assign free subscription asynchronously (non-blocking)
           setImmediate(async () => {
             try {
               const freePlan = await subscriptionRepository.findPlanBySlug('free');
@@ -87,6 +70,7 @@ class GoogleAuthController {
                   planName: freePlan.name,
                   planCode: freePlan.planCode,
                   planVersion: freePlan.version,
+                  isFreePlan: freePlan.isFreePlan,
                   status: 'active',
                   activatedAt,
                   endsAt,
@@ -128,7 +112,6 @@ class GoogleAuthController {
           });
         }
 
-        // Generate JWT tokens
         const tokens = generateTokens({
           userId: user.id,
           roleId: user.roleId,
@@ -137,7 +120,6 @@ class GoogleAuthController {
           email: user.email
         });
 
-        // Create session record
         await authService.createSession({
           userId: user.id,
           refreshToken: tokens.refresh_token,
@@ -147,12 +129,10 @@ class GoogleAuthController {
           isActive: true
         });
 
-        // Update last login
         if (!isNewUser) {
           await authService.updateLastLogin(user.id);
         }
 
-        // Prepare response data
         const responseData = {
           user: {
             id: user.id,
@@ -172,19 +152,16 @@ class GoogleAuthController {
           linkedExisting: linkedExisting || false
         };
 
-        // Clear session device info
         if (req.session) {
           delete req.session.deviceInfo;
         }
 
-        // Encode response data for URL
         const encodedData = encodeURIComponent(JSON.stringify({
           success: true,
           message: isNewUser ? SUCCESS_MESSAGES.REGISTRATION_SUCCESS : SUCCESS_MESSAGES.LOGIN_SUCCESS,
           data: responseData
         }));
 
-        // Redirect to frontend with success data
         return res.redirect(`${process.env.FRONTEND_URL}/auth/callback?data=${encodedData}`);
 
       } catch (error) {
@@ -194,16 +171,11 @@ class GoogleAuthController {
     })(req, res, next);
   }
 
-  /**
-   * Handle mobile number collection for Google users
-   * @route POST /api/auth/google/complete-profile
-   */
   static async completeProfile(req, res) {
     try {
       const { mobile, countryCode = '+91' } = req.body;
       const userId = req.user.userId;
 
-      // Validate mobile number
       if (!mobile || !/^\d{10}$/.test(mobile)) {
         return res.status(400).json({
           success: false,
@@ -213,7 +185,6 @@ class GoogleAuthController {
         });
       }
 
-      // Check if mobile already exists
       const existingUser = await authService.findByMobile(mobile);
       if (existingUser && existingUser.id !== userId) {
         return res.status(400).json({
@@ -224,10 +195,8 @@ class GoogleAuthController {
         });
       }
 
-      // Update user with mobile number
       await authService.updateUserMobile(userId, mobile, countryCode);
 
-      // Get updated user data
       const updatedUser = await authService.getProfile(userId);
 
       return res.status(200).json({

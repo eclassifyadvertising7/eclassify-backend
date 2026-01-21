@@ -1,18 +1,9 @@
 import otpService from '#services/otpService.js';
 import authService from '#services/authService.js';
 
-/**
- * OtpController - Handle OTP-based authentication HTTP requests
- * All methods are static as per project architecture
- */
 class OtpController {
-  /**
-   * Send OTP to mobile number
-   * @route POST /api/auth/otp/send
-   */
   static async sendOtp(req, res) {
     try {
-      // Optional: Capture request info if frontend sends it
       const requestInfo = {
         ipAddress: req.body.ip_address || req.ip || req.connection.remoteAddress,
         userAgent: req.body.user_agent || req.headers['user-agent'],
@@ -31,15 +22,10 @@ class OtpController {
     }
   }
 
-  /**
-   * Verify OTP - only verification, no user creation
-   * @route POST /api/auth/otp/verify
-   */
   static async verifyOtp(req, res) {
     try {
       const { type, mobile, email, otp } = req.body;
 
-      // Verify OTP
       await otpService.verifyOtp({ mobile, email, otp, type });
 
       const identifier = mobile || email;
@@ -66,24 +52,18 @@ class OtpController {
     }
   }
 
-  /**
-   * Complete signup after OTP verification
-   * @route POST /api/auth/otp/signup
-   */
   static async completeSignup(req, res) {
     try {
-      const { mobile, email, fullName, countryCode } = req.body;
+      const { mobile, email, fullName, password, countryCode, referralCode } = req.body;
 
-      // Device info for session tracking
       const deviceInfo = {
         deviceName: req.body.device_name,
         userAgent: req.headers['user-agent'],
         ipAddressV4: req.ip || req.connection.remoteAddress
       };
 
-      // Call auth service to create user (it will verify OTP status)
       const result = await authService.signupWithOtp(
-        { mobile, email, fullName, countryCode },
+        { mobile, email, fullName, password, countryCode, referralCode },
         deviceInfo
       );
 
@@ -98,22 +78,16 @@ class OtpController {
     }
   }
 
-  /**
-   * Complete login after OTP verification
-   * @route POST /api/auth/otp/login
-   */
   static async completeLogin(req, res) {
     try {
       const { mobile, email } = req.body;
 
-      // Device info for session tracking
       const deviceInfo = {
         deviceName: req.body.device_name,
         userAgent: req.headers['user-agent'],
         ipAddressV4: req.ip || req.connection.remoteAddress
       };
 
-      // Call auth service to login user (it will verify OTP status)
       const result = await authService.loginWithOtp(
         { mobile, email },
         deviceInfo

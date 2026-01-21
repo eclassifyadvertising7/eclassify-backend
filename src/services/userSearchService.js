@@ -1,6 +1,8 @@
-import UserSearch from '#models/UserSearch.js';
+import models from '#models/index.js';
 import { Op } from 'sequelize';
 import sequelize from '#config/database.js';
+
+const { UserSearch } = models;
 
 class UserSearchService {
   /**
@@ -33,16 +35,40 @@ class UserSearchService {
         userAgent
       } = searchData;
 
-      // Validate required fields
+      if (!userId) {
+        return {
+          success: false,
+          message: 'User authentication required for search logging'
+        };
+      }
+
       if (!sessionId) {
         throw new Error('Session ID is required for search logging');
       }
 
-      // Create search log entry
+      const trimmedQuery = searchQuery?.trim() || null;
+
+      if (trimmedQuery) {
+        const existingSearch = await UserSearch.findOne({
+          where: {
+            userId,
+            searchQuery: trimmedQuery
+          }
+        });
+
+        if (existingSearch) {
+          return {
+            success: true,
+            message: 'Search already logged',
+            data: { searchLogId: existingSearch.id }
+          };
+        }
+      }
+
       const searchLog = await UserSearch.create({
         userId,
         sessionId,
-        searchQuery: searchQuery?.trim() || null,
+        searchQuery: trimmedQuery,
         filtersApplied,
         resultsCount,
         categoryId,

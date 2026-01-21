@@ -4,10 +4,6 @@ import { successResponse, errorResponse, validationErrorResponse } from '#utils/
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '#utils/constants/messages.js';
 
 class PanelUserActivityController {
-  /**
-   * Get activity analytics
-   * GET /api/panel/activity/analytics
-   */
   static async getActivityAnalytics(req, res) {
     try {
       const {
@@ -37,10 +33,6 @@ class PanelUserActivityController {
     }
   }
 
-  /**
-   * Get activity logs with filtering
-   * GET /api/panel/activity/logs
-   */
   static async getActivityLogs(req, res) {
     try {
       const {
@@ -98,10 +90,6 @@ class PanelUserActivityController {
     }
   }
 
-  /**
-   * Get activity count by type
-   * GET /api/panel/activity/count-by-type
-   */
   static async getActivityCountByType(req, res) {
     try {
       const {
@@ -127,10 +115,6 @@ class PanelUserActivityController {
     }
   }
 
-  /**
-   * Get most viewed listings
-   * GET /api/panel/activity/most-viewed
-   */
   static async getMostViewedListings(req, res) {
     try {
       const {
@@ -156,10 +140,6 @@ class PanelUserActivityController {
     }
   }
 
-  /**
-   * Get conversion rate analytics
-   * GET /api/panel/activity/conversion-rate
-   */
   static async getConversionRate(req, res) {
     try {
       const {
@@ -183,16 +163,11 @@ class PanelUserActivityController {
     }
   }
 
-  /**
-   * Get user activity details
-   * GET /api/panel/activity/user/:userId
-   */
   static async getUserActivityDetails(req, res) {
     try {
       const { userId } = req.params;
       const { startDate, endDate } = req.query;
 
-      // Validate user ID
       if (!userId || isNaN(userId)) {
         return validationErrorResponse(res, [{ field: 'userId', message: 'Valid user ID is required' }]);
       }
@@ -211,10 +186,6 @@ class PanelUserActivityController {
     }
   }
 
-  /**
-   * Get activity trends over time
-   * GET /api/panel/activity/trends
-   */
   static async getActivityTrends(req, res) {
     try {
       const {
@@ -231,8 +202,6 @@ class PanelUserActivityController {
         groupBy
       };
 
-      // This would need implementation in repository
-      // For now, return empty array
       const trends = [];
 
       return successResponse(res, { trends }, 'Activity trends retrieved successfully');

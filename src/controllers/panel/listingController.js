@@ -1,17 +1,8 @@
-/**
- * Panel Listing Controller
- * Handles admin/staff listing management operations
- */
-
 import listingService from '#services/listingService.js';
 import { successResponse, errorResponse, validationErrorResponse } from '#utils/responseFormatter.js';
 import LocationHelper from '#utils/locationHelper.js';
 
 class ListingController {
-  /**
-   * Get all listings (admin view)
-   * GET /api/panel/listings
-   */
   static async getAll(req, res) {
     try {
       const filters = {
@@ -32,18 +23,13 @@ class ListingController {
         limit: req.query.limit ? parseInt(req.query.limit) : 20
       };
 
-      // Admin users don't need isFavorited field, pass null
-      const result = await listingService.getAll(filters, pagination, null);
+      const result = await listingService.getAllForAdmin(filters, pagination);
       return successResponse(res, result.data, result.message, result.pagination);
     } catch (error) {
       return errorResponse(res, error.message, 400);
     }
   }
 
-  /**
-   * Get listing statistics
-   * GET /api/panel/listings/stats
-   */
   static async getStats(req, res) {
     try {
       const result = await listingService.getStats();
@@ -53,10 +39,6 @@ class ListingController {
     }
   }
 
-  /**
-   * Get listing by ID (admin view)
-   * GET /api/panel/listings/:id
-   */
   static async getById(req, res) {
     try {
       const { id } = req.params;
@@ -68,10 +50,6 @@ class ListingController {
     }
   }
 
-  /**
-   * Approve listing
-   * PATCH /api/panel/listings/approve/:id
-   */
   static async approve(req, res) {
     try {
       const { id } = req.params;
@@ -89,10 +67,6 @@ class ListingController {
     }
   }
 
-  /**
-   * Reject listing
-   * PATCH /api/panel/listings/reject/:id
-   */
   static async reject(req, res) {
     try {
       const { id } = req.params;
@@ -110,10 +84,6 @@ class ListingController {
     }
   }
 
-  /**
-   * Update featured status
-   * PATCH /api/panel/listings/featured/:id
-   */
   static async updateFeaturedStatus(req, res) {
     try {
       const { id } = req.params;
@@ -134,10 +104,6 @@ class ListingController {
     }
   }
 
-  /**
-   * Advanced search for admin panel
-   * GET /api/panel/listings/search
-   */
   static async searchListings(req, res) {
     try {
       const {
@@ -175,13 +141,12 @@ class ListingController {
 
       // Validate pagination
       const pageNum = parseInt(page);
-      const limitNum = Math.min(parseInt(limit), 100); // Higher limit for admin
+      const limitNum = Math.min(parseInt(limit), 100);
 
       if (pageNum < 1 || limitNum < 1) {
         return validationErrorResponse(res, [{ field: 'pagination', message: 'Invalid pagination parameters' }]);
       }
 
-      // Build search parameters (admin can search all statuses)
       const searchParams = {
         query: query?.trim() || null,
         categoryId: categoryId ? parseInt(categoryId) : null,
@@ -192,11 +157,10 @@ class ListingController {
         locality: locality?.trim() || null,
         postedByType,
         featuredOnly: featuredOnly === 'true',
-        status: status || null, // Admin can filter by any status
-        userId: userId ? parseInt(userId) : null, // Admin can filter by user
+        status: status || null,
+        userId: userId ? parseInt(userId) : null,
         sortBy,
         filters: {
-          // Car filters
           brandId: brandId ? parseInt(brandId) : null,
           modelId: modelId ? parseInt(modelId) : null,
           variantId: variantId ? parseInt(variantId) : null,
@@ -206,7 +170,6 @@ class ListingController {
           condition,
           minMileage: minMileage ? parseInt(minMileage) : null,
           maxMileage: maxMileage ? parseInt(maxMileage) : null,
-          // Property filters
           propertyType,
           bedrooms: bedrooms ? parseInt(bedrooms) : null,
           bathrooms: bathrooms ? parseInt(bathrooms) : null,
@@ -215,11 +178,10 @@ class ListingController {
         }
       };
 
-      // Build admin user context
       const userContext = {
         userId: req.user.id,
         sessionId: `admin_${req.user.id}`,
-        userLocation: LocationHelper.parseUserLocation(req),
+        userLocation: await LocationHelper.parseUserLocation(req),
         ipAddress: req.activityData?.ipAddress,
         userAgent: req.activityData?.userAgent,
         user: req.user,
@@ -228,17 +190,14 @@ class ListingController {
 
       const pagination = { page: pageNum, limit: limitNum };
 
-      // Use the existing getAll method for admin searches (more appropriate for admin panel)
       const filters = {
         ...searchParams,
         search: searchParams.query,
-        // Remove null values
         ...Object.fromEntries(
           Object.entries(searchParams).filter(([_, v]) => v !== null && v !== undefined)
         )
       };
 
-      // Admin users don't need isFavorited field, pass null
       const result = await listingService.getAll(filters, pagination, null);
 
       return successResponse(res, result.data, 'Admin search results retrieved successfully', result.pagination);
@@ -248,10 +207,6 @@ class ListingController {
     }
   }
 
-  /**
-   * Get search analytics for admin
-   * GET /api/panel/listings/search/analytics
-   */
   static async getSearchAnalytics(req, res) {
     try {
       const {
@@ -260,11 +215,7 @@ class ListingController {
         categoryId
       } = req.query;
 
-      // This would integrate with the search analytics from user search logs
-      // For now, return basic listing statistics
       const result = await listingService.getStats();
-
-      // Add search-specific analytics here
       const analytics = {
         ...result.data,
         searchPeriod: {
@@ -281,16 +232,10 @@ class ListingController {
     }
   }
 
-  /**
-   * Get popular search keywords from listings
-   * GET /api/panel/listings/search/keywords
-   */
   static async getPopularKeywords(req, res) {
     try {
       const { limit = 20 } = req.query;
 
-      // This would analyze keywords from listings and search logs
-      // For now, return a placeholder response
       const keywords = [
         { keyword: 'honda city', count: 245, category: 'Cars' },
         { keyword: 'maruti swift', count: 189, category: 'Cars' },
@@ -309,10 +254,6 @@ class ListingController {
     }
   }
 
-  /**
-   * Delete listing (admin)
-   * DELETE /api/panel/listings/:id
-   */
   static async delete(req, res) {
     try {
       const { id } = req.params;

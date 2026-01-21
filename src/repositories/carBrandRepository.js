@@ -56,14 +56,14 @@ class CarBrandRepository {
         'isActive',
         'isFeatured',
         'totalModels',
-        'createdAt',
-        'updatedAt'
+        ['created_at', 'createdAt'],
+        ['updated_at', 'updatedAt']
       ]
     });
   }
 
   /**
-   * Get brands grouped by featured and all (for public use)
+   * Get brands grouped by popular and all (for public use)
    * @param {Object} filters - Filter options
    * @returns {Promise<Object>}
    */
@@ -78,9 +78,9 @@ class CarBrandRepository {
       where.name = { [Op.iLike]: `%${filters.search}%` };
     }
 
-    // Get featured brands
-    const featured = await CarBrand.findAll({
-      where: { ...where, isFeatured: true },
+    // Get popular brands (is_popular = true)
+    const popular = await CarBrand.findAll({
+      where: { ...where, isPopular: true },
       order: [
         ['displayOrder', 'ASC'],
         ['name', 'ASC']
@@ -96,7 +96,7 @@ class CarBrandRepository {
     });
 
     return {
-      featured,
+      popular,
       all
     };
   }

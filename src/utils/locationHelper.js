@@ -1,12 +1,5 @@
 class LocationHelper {
-  /**
-   * Calculate distance between two coordinates (Haversine formula)
-   * @param {number} lat1 - Latitude 1
-   * @param {number} lon1 - Longitude 1
-   * @param {number} lat2 - Latitude 2
-   * @param {number} lon2 - Longitude 2
-   * @returns {number} Distance in kilometers
-   */
+
   static calculateDistance(lat1, lon1, lat2, lon2) {
     if (!lat1 || !lon1 || !lat2 || !lon2) return null;
 
@@ -22,21 +15,11 @@ class LocationHelper {
     return R * c;
   }
 
-  /**
-   * Convert degrees to radians
-   * @param {number} degrees - Degrees
-   * @returns {number} Radians
-   */
   static toRadians(degrees) {
     return degrees * (Math.PI / 180);
   }
 
-  /**
-   * Get location hierarchy score
-   * @param {Object} userLocation - User location
-   * @param {Object} listingLocation - Listing location
-   * @returns {Object} Location match info
-   */
+
   static getLocationMatch(userLocation, listingLocation) {
     if (!userLocation || !listingLocation) {
       return { type: 'unknown', score: 0 };
@@ -56,11 +39,7 @@ class LocationHelper {
     return { type: 'different_state', score: 0 };
   }
 
-  /**
-   * Get distance-based score
-   * @param {number} distance - Distance in kilometers
-   * @returns {number} Distance score (0-30)
-   */
+
   static getDistanceScore(distance) {
     if (!distance) return 0;
 
@@ -72,12 +51,8 @@ class LocationHelper {
     return 5;                          // Beyond 100km
   }
 
-  /**
-   * Parse user location from request with proper priority fallback
-   * @param {Object} req - Express request object
-   * @returns {Object|null} User location data with source info
-   */
-  static parseUserLocation(req) {
+
+  static async parseUserLocation(req) {
     // Priority 1: User preferred location (manually set in query/body)
     // This is when user explicitly selects a location for search
     if (req.query.preferredStateId && req.query.preferredCityId) {
@@ -91,8 +66,8 @@ class LocationHelper {
       };
     }
 
-    // Also check in request body for preferred location
-    if (req.body.preferredLocation && req.body.preferredLocation.stateId && req.body.preferredLocation.cityId) {
+    // Also check in request body for preferred location (for POST requests)
+    if (req.body && req.body.preferredLocation && req.body.preferredLocation.stateId && req.body.preferredLocation.cityId) {
       return {
         stateId: parseInt(req.body.preferredLocation.stateId),
         cityId: parseInt(req.body.preferredLocation.cityId),
@@ -103,73 +78,59 @@ class LocationHelper {
       };
     }
 
-    // Priority 2: Browser provided location (GPS/geolocation)
-    // This comes from navigator.geolocation API
-    if (req.query.browserLatitude && req.query.browserLongitude) {
-      return {
-        stateId: null, // Would need reverse geocoding to get state/city
-        cityId: null,
-        latitude: parseFloat(req.query.browserLatitude),
-        longitude: parseFloat(req.query.browserLongitude),
-        source: 'browser_geolocation',
-        priority: 2,
-        needsReverseGeocoding: true
-      };
+    // Priority 2: User's profile location (fallback when frontend doesn't send location)
+    // Fetch from database ONLY if frontend didn't send location data
+    if (req.user && req.user.userId) {
+      try {
+        const { default: models } = await import('#models/index.js');
+        const { UserProfile } = models;
+        
+        const userProfile = await UserProfile.findOne({
+          where: { userId: req.user.userId },
+          attributes: [
+            'preferredStateId',
+            'preferredCityId',
+            'preferredLatitude',
+            'preferredLongitude',
+            'stateId',
+            'cityId',
+            'latitude',
+            'longitude'
+          ],
+          raw: true
+        });
+
+        if (userProfile) {
+          // Prefer preferred location if set
+          if (userProfile.preferredStateId && userProfile.preferredCityId) {
+            return {
+              stateId: userProfile.preferredStateId,
+              cityId: userProfile.preferredCityId,
+              latitude: userProfile.preferredLatitude || null,
+              longitude: userProfile.preferredLongitude || null,
+              source: 'user_profile',
+              priority: 2
+            };
+          }
+          
+          // Fallback to actual profile location
+          if (userProfile.stateId && userProfile.cityId) {
+            return {
+              stateId: userProfile.stateId,
+              cityId: userProfile.cityId,
+              latitude: userProfile.latitude || null,
+              longitude: userProfile.longitude || null,
+              source: 'user_profile',
+              priority: 2
+            };
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching user profile for location:', error);
+      }
     }
 
-    // Also check in request body for browser location
-    if (req.body.browserLocation && req.body.browserLocation.latitude && req.body.browserLocation.longitude) {
-      return {
-        stateId: null,
-        cityId: null,
-        latitude: parseFloat(req.body.browserLocation.latitude),
-        longitude: parseFloat(req.body.browserLocation.longitude),
-        source: 'browser_geolocation',
-        priority: 2,
-        needsReverseGeocoding: true
-      };
-    }
-
-    // Priority 3: User's profile city coordinates
-    // From authenticated user's profile
-    if (req.user && req.user.stateId && req.user.cityId) {
-      return {
-        stateId: req.user.stateId,
-        cityId: req.user.cityId,
-        latitude: req.user.latitude || null,
-        longitude: req.user.longitude || null,
-        source: 'user_profile',
-        priority: 3
-      };
-    }
-
-    // Priority 4: IP-based location detection (from request headers)
-    const ipLocation = this.getLocationFromIP(req);
-    if (ipLocation) {
-      return {
-        stateId: ipLocation.stateId,
-        cityId: ipLocation.cityId,
-        latitude: ipLocation.latitude,
-        longitude: ipLocation.longitude,
-        source: 'ip_geolocation',
-        priority: 4,
-        accuracy: ipLocation.accuracy || 'city' // city, region, country
-      };
-    }
-
-    // Priority 5: Fallback to query parameters (for backward compatibility)
-    if (req.query.stateId && req.query.cityId) {
-      return {
-        stateId: parseInt(req.query.stateId),
-        cityId: parseInt(req.query.cityId),
-        latitude: req.query.latitude ? parseFloat(req.query.latitude) : null,
-        longitude: req.query.longitude ? parseFloat(req.query.longitude) : null,
-        source: 'query_params',
-        priority: 5
-      };
-    }
-
-    // Priority 6: No location available - return null for generalized listings
+    // No location available - return null for generalized listings
     return null;
   }
 
@@ -324,10 +285,10 @@ class LocationHelper {
    * Get location with fallback chain
    * @param {Object} req - Express request object
    * @param {Object} options - Options for location parsing
-   * @returns {Object} Location result with fallback info
+   * @returns {Promise<Object>} Location result with fallback info
    */
-  static getLocationWithFallback(req, options = {}) {
-    const location = this.parseUserLocation(req);
+  static async getLocationWithFallback(req, options = {}) {
+    const location = await this.parseUserLocation(req);
     
     if (!location) {
       return {
@@ -389,10 +350,10 @@ class LocationHelper {
   /**
    * Get search location strategy based on available data
    * @param {Object} req - Express request object
-   * @returns {Object} Search strategy with location info
+   * @returns {Promise<Object>} Search strategy with location info
    */
-  static getSearchLocationStrategy(req) {
-    const locationResult = this.getLocationWithFallback(req);
+  static async getSearchLocationStrategy(req) {
+    const locationResult = await this.getLocationWithFallback(req);
     
     const strategy = {
       hasLocation: !!locationResult.location,

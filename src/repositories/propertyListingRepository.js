@@ -75,6 +75,10 @@ class PropertyListingRepository {
       if (filters.maxBedrooms) where.bedrooms[Op.lte] = filters.maxBedrooms;
     }
 
+    if (filters.unitType) {
+      where.unitType = filters.unitType;
+    }
+
     if (filters.minArea || filters.maxArea) {
       where.areaSqft = {};
       if (filters.minArea) where.areaSqft[Op.gte] = filters.minArea;

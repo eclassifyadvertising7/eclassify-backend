@@ -93,6 +93,12 @@ export default (sequelize) => {
       allowNull: false,
       field: 'plan_version'
     },
+    isFreePlan: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+      field: 'is_free_plan'
+    },
     // Pricing Snapshot
     basePrice: {
       type: DataTypes.DECIMAL(10, 2),
@@ -264,6 +270,19 @@ export default (sequelize) => {
       allowNull: false,
       defaultValue: false,
       field: 'is_auto_approve_enabled'
+    },
+    // Republish Settings Snapshot
+    maxRepublishCount: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+      field: 'max_republish_count'
+    },
+    republishCooldownDays: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 7,
+      field: 'republish_cooldown_days'
     },
     // Support Snapshot
     supportLevel: {

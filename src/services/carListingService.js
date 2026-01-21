@@ -12,9 +12,6 @@ class CarListingService {
    * @private
    */
   _validateCarData(carData) {
-    const currentYear = new Date().getFullYear();
-
-    // Validate required fields
     if (!carData.brandId) {
       throw new Error('Car brand is required');
     }
@@ -23,45 +20,26 @@ class CarListingService {
       throw new Error('Car model is required');
     }
 
-    if (!carData.year) {
-      throw new Error('Manufacturing year is required');
-    }
-
-    // Validate year range
-    if (carData.year < 1900 || carData.year > currentYear + 1) {
-      throw new Error(`Year must be between 1900 and ${currentYear + 1}`);
-    }
-
-    // Validate registration year
-    if (carData.registrationYear && carData.registrationYear > carData.year) {
-      throw new Error('Registration year cannot be greater than manufacturing year');
-    }
-
-    // Validate mileage for used cars
-    if (carData.condition === 'used' && !carData.mileageKm) {
-      throw new Error('Mileage is required for used cars');
+    if (!carData.registrationYear) {
+      throw new Error('Registration year is required');
     }
 
     if (carData.mileageKm && carData.mileageKm < 0) {
       throw new Error('Mileage cannot be negative');
     }
 
-    // Validate fuel type
     if (!carData.fuelType) {
       throw new Error('Fuel type is required');
     }
 
-    // Validate transmission
     if (!carData.transmission) {
       throw new Error('Transmission type is required');
     }
 
-    // Validate owners count
     if (carData.ownersCount && carData.ownersCount < 1) {
       throw new Error('Owners count must be at least 1');
     }
 
-    // Validate seats
     if (carData.seats && (carData.seats < 2 || carData.seats > 20)) {
       throw new Error('Seats must be between 2 and 20');
     }

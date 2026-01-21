@@ -9,7 +9,7 @@ Complete API documentation for car brands, models, variants, and specifications 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
 | **Public Endpoints** |
-| GET | `/api/public/car-brands` | ❌ | Get active brands (grouped: featured/all) |
+| GET | `/api/public/car-brands` | ❌ | Get active brands (grouped: popular/all) |
 | GET | `/api/public/car-models?brandId=10` | ❌ | Get models by brand |
 | GET | `/api/public/car-variants?modelId=45` | ❌ | Get variants by model |
 | GET | `/api/public/car-specifications/:variantId` | ❌ | Get specification by variant |
@@ -18,6 +18,7 @@ Complete API documentation for car brands, models, variants, and specifications 
 | POST | `/api/panel/car-brands` | ✅ Admin | Create brand |
 | GET | `/api/panel/car-brands/:id` | ✅ Admin | Get brand by ID |
 | PUT | `/api/panel/car-brands/:id` | ✅ Admin | Update brand |
+| PATCH | `/api/panel/car-brands/popular/:id` | ✅ Admin | Update brand popular status |
 | DELETE | `/api/panel/car-brands/:id` | ✅ Admin | Delete brand |
 | GET | `/api/panel/car-models?brandId=10` | ✅ Admin | Get models (admin) |
 | POST | `/api/panel/car-models` | ✅ Admin | Create model |
@@ -36,7 +37,7 @@ Complete API documentation for car brands, models, variants, and specifications 
 
 ### 1. Get All Car Brands
 
-Get list of all active car brands grouped into featured and all sections.
+Get list of all active car brands grouped into popular and all sections.
 
 **Endpoint:** `GET /api/public/car-brands`
 
@@ -51,7 +52,7 @@ Get list of all active car brands grouped into featured and all sections.
   "success": true,
   "message": "Car brands retrieved successfully",
   "data": {
-    "featured": [
+    "popular": [
       {
         "id": 1,
         "name": "Toyota",
@@ -67,7 +68,7 @@ Get list of all active car brands grouped into featured and all sections.
         "slug": "honda",
         "logoUrl": "http://localhost:5000/uploads/brands/honda-logo.png",
         "isPopular": true,
-        "isFeatured": true,
+        "isFeatured": false,
         "totalModels": 18
       },
       {
@@ -76,7 +77,7 @@ Get list of all active car brands grouped into featured and all sections.
         "slug": "maruti-suzuki",
         "logoUrl": "http://localhost:5000/uploads/brands/maruti-logo.png",
         "isPopular": true,
-        "isFeatured": true,
+        "isFeatured": false,
         "totalModels": 32
       }
     ],
@@ -105,7 +106,7 @@ Get list of all active car brands grouped into featured and all sections.
         "slug": "honda",
         "logoUrl": "http://localhost:5000/uploads/brands/honda-logo.png",
         "isPopular": true,
-        "isFeatured": true,
+        "isFeatured": false,
         "totalModels": 18
       },
       {
@@ -114,7 +115,7 @@ Get list of all active car brands grouped into featured and all sections.
         "slug": "maruti-suzuki",
         "logoUrl": "http://localhost:5000/uploads/brands/maruti-logo.png",
         "isPopular": true,
-        "isFeatured": true,
+        "isFeatured": false,
         "totalModels": 32
       },
       {
@@ -132,7 +133,7 @@ Get list of all active car brands grouped into featured and all sections.
 ```
 
 **Note:** 
-- `featured` array contains only brands with `isFeatured: true`, sorted by `displayOrder` then name
+- `popular` array contains only brands with `isPopular: true`, sorted by `displayOrder` then name
 - `all` array contains all brands in alphabetical order by name
 
 ---
@@ -452,7 +453,44 @@ Update an existing car brand.
 
 ---
 
-### 3. Delete Car Brand
+### 3. Update Brand Popular Status
+
+Update the popular status of a car brand.
+
+**Endpoint:** `PATCH /api/panel/car-brands/popular/:id`
+
+**Authentication:** Required (Admin)
+
+**Request Body:**
+```json
+{
+  "isPopular": true
+}
+```
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Car brand marked as popular successfully",
+  "data": {
+    "id": 50,
+    "name": "Tesla",
+    "slug": "tesla",
+    "isPopular": true,
+    "updatedAt": "2024-11-23T11:00:00.000Z"
+  }
+}
+```
+
+**Note:** 
+- Send `isPopular: true` to mark as popular
+- Send `isPopular: false` to unmark as popular
+- Popular brands appear in the "popular" section of the public endpoint
+
+---
+
+### 4. Delete Car Brand
 
 Soft delete a car brand (cascades to models and variants).
 
@@ -469,7 +507,7 @@ Soft delete a car brand (cascades to models and variants).
 
 ---
 
-### 4. Create Car Model
+### 5. Create Car Model
 
 Create a new car model.
 
@@ -505,7 +543,7 @@ Create a new car model.
 
 ---
 
-### 5. Create Car Variant
+### 6. Create Car Variant
 
 Create a new car variant.
 
@@ -558,7 +596,7 @@ When creating a car listing, use these endpoints to populate cascading dropdowns
 ```javascript
 GET /api/public/car-brands
 // Response has two sections:
-// - featured: [Toyota, Honda, Maruti Suzuki]
+// - popular: [Toyota, Honda, Maruti Suzuki] (brands with isPopular: true)
 // - all: [Audi, BMW, Honda, Maruti Suzuki, Toyota] (alphabetical)
 // User selects: Toyota (id: 1)
 ```
@@ -622,4 +660,4 @@ GET /api/public/car-specifications/45
 
 ---
 
-**Last Updated:** November 23, 2024
+**Last Updated:** January 4, 2025

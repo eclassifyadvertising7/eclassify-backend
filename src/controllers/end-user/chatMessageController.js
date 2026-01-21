@@ -1,16 +1,7 @@
-/**
- * End-User ChatMessage Controller
- * Handles user's chat message operations
- */
-
 import chatMessageService from '#services/chatMessageService.js';
 import { successResponse, errorResponse, createResponse } from '#utils/responseFormatter.js';
 
 class ChatMessageController {
-  /**
-   * Send message (text, image, or location)
-   * POST /api/end-user/chats/messages/send/:roomId
-   */
   static async sendMessage(req, res) {
     try {
       const userId = req.user.userId;
@@ -44,7 +35,6 @@ class ChatMessageController {
           messageText
         );
 
-        // Emit socket event for real-time update
         const io = req.app.get('io');
         if (io) {
           io.to(`room_${roomId}`).emit('new_message', {
@@ -70,7 +60,6 @@ class ChatMessageController {
           messageText
         );
 
-        // Emit socket event for real-time update
         const io = req.app.get('io');
         if (io) {
           io.to(`room_${roomId}`).emit('new_message', {
@@ -95,10 +84,6 @@ class ChatMessageController {
     }
   }
 
-  /**
-   * Get messages for room
-   * GET /api/end-user/chats/messages/list/:roomId
-   */
   static async getMessages(req, res) {
     try {
       const userId = req.user.userId;
@@ -120,10 +105,6 @@ class ChatMessageController {
     }
   }
 
-  /**
-   * Edit message
-   * PATCH /api/end-user/chats/messages/edit/:messageId
-   */
   static async editMessage(req, res) {
     try {
       const userId = req.user.userId;
@@ -145,10 +126,6 @@ class ChatMessageController {
     }
   }
 
-  /**
-   * Delete message
-   * DELETE /api/end-user/chats/messages/delete/:messageId
-   */
   static async deleteMessage(req, res) {
     try {
       const userId = req.user.userId;
@@ -164,10 +141,6 @@ class ChatMessageController {
     }
   }
 
-  /**
-   * Mark messages as read
-   * PATCH /api/end-user/chats/messages/mark-read/:roomId
-   */
   static async markAsRead(req, res) {
     try {
       const userId = req.user.userId;

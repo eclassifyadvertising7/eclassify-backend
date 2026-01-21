@@ -114,11 +114,19 @@ class AuthRepository {
     return await db.User.create(userData);
   }
 
-  /**
-   * Update user's last login timestamp
-   * @param {number} userId - User ID
-   * @returns {Promise<void>}
-   */
+  async findByReferralCode(code) {
+    return await db.User.findOne({
+      where: { referralCode: code },
+      attributes: ['id', 'mobile', 'email', 'fullName', 'referralCode']
+    });
+  }
+
+  async incrementReferralCount(userId) {
+    return await db.User.increment('referralCount', {
+      where: { id: userId }
+    });
+  }
+
   async updateLastLogin(userId) {
     await db.User.update(
       { lastLoginAt: new Date() },
@@ -133,6 +141,73 @@ class AuthRepository {
   async getDefaultRole() {
     return await db.Role.findOne({
       where: { slug: 'user', isActive: true }
+    });
+  }
+
+  async findAll(filters = {}) {
+    const where = {};
+    
+    if (filters.status) {
+      where.status = filters.status;
+    }
+
+    return await db.User.findAll({
+      where,
+      attributes: ['id', 'fullName', 'email', 'mobile', 'status'],
+      include: [
+        {
+          model: db.Role,
+          as: 'role',
+          attributes: ['id', 'name', 'slug']
+        }
+      ]
+    });
+  }
+
+  async findByIds(userIds) {
+    return await db.User.findAll({
+      where: {
+        id: userIds
+      },
+      attributes: ['id', 'fullName', 'email', 'mobile', 'status'],
+      include: [
+        {
+          model: db.Role,
+          as: 'role',
+          attributes: ['id', 'name', 'slug']
+        }
+      ]
+    });
+  }
+
+  async findByRole(roleSlug) {
+    return await db.User.findAll({
+      include: [
+        {
+          model: db.Role,
+          as: 'role',
+          where: { slug: roleSlug },
+          attributes: ['id', 'name', 'slug']
+        }
+      ],
+      attributes: ['id', 'fullName', 'email', 'mobile', 'status']
+    });
+  }
+
+  async findBySubscriptionTier(subscriptionTier) {
+    return await db.User.findAll({
+      include: [
+        {
+          model: db.UserSubscription,
+          as: 'activeSubscription',
+          where: {
+            tier: subscriptionTier,
+            status: 'active'
+          },
+          required: true
+        }
+      ],
+      attributes: ['id', 'fullName', 'email', 'mobile', 'status']
     });
   }
 }

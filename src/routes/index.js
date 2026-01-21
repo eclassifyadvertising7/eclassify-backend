@@ -1,6 +1,7 @@
 import express from 'express';
 import authRoutes from './auth/authRoutes.js';
 import commonLocationRoutes from './common/locationRoutes.js';
+import panelLocationRoutes from './panel/locationRoutes.js';
 import commonProfileRoutes from './common/profileRoutes.js';
 import subscriptionRoutes from './end-user/subscriptionRoutes.js';
 import subscriptionPlanRoutes from './panel/subscriptionPlanRoutes.js';
@@ -34,18 +35,28 @@ import publicFavoriteRoutes from './public/userFavoriteRoutes.js';
 import publicSearchRoutes from './public/userSearchRoutes.js';
 import endUserNotificationRoutes from './end-user/userNotificationRoutes.js';
 import panelNotificationRoutes from './panel/userNotificationRoutes.js';
+import endUserReportRoutes from './end-user/reportRoutes.js';
+import endUserReferralRoutes from './end-user/referralRoutes.js';
+import panelReportRoutes from './panel/reportRoutes.js';
+import panelRoleRoutes from './panel/roleRoutes.js';
+import panelDashboardRoutes from './panel/dashboardRoutes.js';
+import publicReferralRoutes from './public/referralRoutes.js';
 
 // Create main router
 const router = express.Router();
 
 // Health check endpoint
 router.get('/health', (req, res) => {
+  const getUptime = req.app.get('getUptime');
+  const uptime = getUptime ? getUptime() : null;
+  
   res.json({
     success: true,
     message: 'API is running',
     data: {
+      status: 'healthy',
       timestamp: new Date().toISOString(),
-      uptime: process.uptime()
+      uptime: uptime
     }
   });
 });
@@ -53,6 +64,7 @@ router.get('/health', (req, res) => {
 // Mount feature routes
 router.use('/auth', authRoutes);
 router.use('/common', commonLocationRoutes);
+router.use('/panel/locations', panelLocationRoutes);
 router.use('/profile', commonProfileRoutes);
 router.use('/end-user/subscriptions', subscriptionRoutes);
 router.use('/end-user/listings', endUserListingRoutes);
@@ -61,9 +73,11 @@ router.use('/end-user/chats', endUserChatRoutes);
 router.use('/end-user/invoices', endUserInvoiceRoutes);
 router.use('/end-user/transactions', endUserTransactionRoutes);
 router.use('/end-user', endUserFavoriteRoutes);
-router.use('/end-user', endUserSearchRoutes);
-router.use('/end-user', endUserActivityRoutes);
+router.use('/end-user/searches', endUserSearchRoutes);
+router.use('/end-user/activity', endUserActivityRoutes);
 router.use('/end-user/notifications', endUserNotificationRoutes);
+router.use('/end-user/reports', endUserReportRoutes);
+router.use('/end-user/referrals', endUserReferralRoutes);
 router.use('/panel/subscription-plans', subscriptionPlanRoutes);
 router.use('/panel/subscriptions', panelSubscriptionRoutes);
 // TEMPORARY: Manual payment routes - Delete when payment gateway is implemented
@@ -79,15 +93,19 @@ router.use('/panel/invoices', panelInvoiceRoutes);
 router.use('/panel/transactions', panelTransactionRoutes);
 router.use('/panel', panelFavoriteRoutes);
 router.use('/panel', panelSearchRoutes);
-router.use('/panel', panelActivityRoutes);
+router.use('/panel/activity', panelActivityRoutes);
 router.use('/panel', panelCarDataRoutes);
 router.use('/panel/notifications', panelNotificationRoutes);
+router.use('/panel/reports', panelReportRoutes);
+router.use('/panel/roles', panelRoleRoutes);
+router.use('/panel/dashboard', panelDashboardRoutes);
 router.use('/public/categories', publicCategoryRoutes);
 router.use('/public/listings', publicListingRoutes);
 router.use('/public/subscription-plans', publicSubscriptionPlanRoutes);
 router.use('/public', publicFavoriteRoutes);
 router.use('/public', publicSearchRoutes);
 router.use('/public', publicCarDataRoutes);
+router.use('/public/referrals', publicReferralRoutes);
 
 // Export router for use in app.js
 export default router;

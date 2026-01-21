@@ -31,12 +31,27 @@ export async function up(queryInterface, Sequelize) {
       onUpdate: 'CASCADE',
       onDelete: 'RESTRICT'
     },
+    category_slug: {
+      type: Sequelize.STRING(100),
+      allowNull: true,
+      references: {
+        model: 'categories',
+        key: 'slug'
+      },
+      onUpdate: 'CASCADE',
+      onDelete: 'RESTRICT'
+    },
     title: {
       type: Sequelize.STRING(200),
       allowNull: false
     },
     slug: {
       type: Sequelize.STRING(250),
+      allowNull: true,
+      unique: true,
+    },
+    share_code: {
+      type: Sequelize.STRING(10),
       allowNull: true,
       unique: true,
     },
@@ -72,6 +87,14 @@ export async function up(queryInterface, Sequelize) {
       },
       onUpdate: 'CASCADE',
       onDelete: 'RESTRICT'
+    },
+    state_name: {
+      type: Sequelize.STRING(100),
+      allowNull: true,
+    },
+    city_name: {
+      type: Sequelize.STRING(100),
+      allowNull: true,
     },
     locality: {
       type: Sequelize.STRING(200),
@@ -163,6 +186,18 @@ export async function up(queryInterface, Sequelize) {
       allowNull: false,
       defaultValue: 0
     },
+    cover_image: {
+      type: Sequelize.STRING(500),
+      allowNull: true
+    },
+    cover_image_storage_type: {
+      type: Sequelize.ENUM('local', 'cloudinary', 'aws', 'gcs', 'digital_ocean'),
+      allowNull: true
+    },
+    cover_image_mime_type: {
+      type: Sequelize.STRING(100),
+      allowNull: true
+    },
     is_auto_approved: {
       type: Sequelize.BOOLEAN,
       allowNull: false,
@@ -224,16 +259,19 @@ export async function up(queryInterface, Sequelize) {
     republish_count: {
       type: Sequelize.INTEGER,
       allowNull: false,
-      defaultValue: 0, 
+      defaultValue: 0,
+    },
+    last_republished_at: {
+      type: Sequelize.DATE,
+      allowNull: true,
     },
     republish_history: {
       type: Sequelize.JSONB,
       allowNull: true,
     },
-    republished_at: {
-      type: Sequelize.DATE,
-      allowNull: false,
-      defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
+    essential_data: {
+      type: Sequelize.JSONB,
+      allowNull: true,
     },
     created_at: {
       type: Sequelize.DATE,
@@ -254,6 +292,10 @@ export async function up(queryInterface, Sequelize) {
 
   await queryInterface.addIndex('listings', ['category_id'], {
     name: 'idx_listings_category_id'
+  });
+
+  await queryInterface.addIndex('listings', ['category_slug'], {
+    name: 'idx_listings_category_slug'
   });
 
   await queryInterface.addIndex('listings', ['state_id', 'city_id'], {
@@ -277,12 +319,30 @@ export async function up(queryInterface, Sequelize) {
   });
 
   // Add index for republish tracking
-  await queryInterface.addIndex('listings', ['republished_at'], {
-    name: 'idx_listings_republished_at'
+  await queryInterface.addIndex('listings', ['last_republished_at'], {
+    name: 'idx_listings_last_republished_at'
   });
 
-  await queryInterface.addIndex('listings', ['republish_count'], {
-    name: 'idx_listings_republish_count'
+  await queryInterface.addIndex('listings', ['share_code'], {
+    name: 'idx_listings_share_code'
+  });
+
+  // Add GIN index for essential_data JSONB column
+  await queryInterface.addIndex('listings', ['essential_data'], {
+    name: 'idx_listings_essential_data',
+    using: 'GIN'
+  });
+
+  // Add CHECK constraint to prevent negative total_favorites
+  await queryInterface.addConstraint('listings', {
+    fields: ['total_favorites'],
+    type: 'check',
+    name: 'check_total_favorites_non_negative',
+    where: {
+      total_favorites: {
+        [Sequelize.Op.gte]: 0
+      }
+    }
   });
 }
 

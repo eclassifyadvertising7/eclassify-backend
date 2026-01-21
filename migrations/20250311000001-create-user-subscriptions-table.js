@@ -88,6 +88,11 @@ export async function up(queryInterface, Sequelize) {
       type: Sequelize.INTEGER,
       allowNull: false
     },
+    is_free_plan: {
+      type: Sequelize.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+    },
     // Pricing Snapshot
     base_price: {
       type: Sequelize.DECIMAL(10, 2),
@@ -231,6 +236,19 @@ export async function up(queryInterface, Sequelize) {
       allowNull: false,
       defaultValue: false,
       comment: 'Snapshot: auto-approve setting from plan'
+    },
+    // Republish Settings Snapshot
+    max_republish_count: {
+      type: Sequelize.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+      comment: 'Maximum times a listing can be republished (0 = unlimited)'
+    },
+    republish_cooldown_days: {
+      type: Sequelize.INTEGER,
+      allowNull: false,
+      defaultValue: 7,
+      comment: 'Minimum days required between consecutive republishes'
     },
     // Support Snapshot
     support_level: {

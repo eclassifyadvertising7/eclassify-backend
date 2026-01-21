@@ -54,6 +54,41 @@ const UserFavorite = sequelize.define('UserFavorite', {
   ]
 });
 
+UserFavorite.addHook('afterCreate', async (favorite, options) => {
+  const { Listing } = await import('#models/index.js').then(m => m.default);
+  await Listing.increment('totalFavorites', {
+    by: 1,
+    where: { id: favorite.listingId },
+    transaction: options.transaction
+  });
+});
+
+UserFavorite.addHook('afterDestroy', async (favorite, options) => {
+  try {
+    const { Listing } = await import('#models/index.js').then(m => m.default);
+    await Listing.decrement('totalFavorites', {
+      by: 1,
+      where: { id: favorite.listingId },
+      transaction: options.transaction
+    });
+  } catch (error) {
+    if (error.name === 'SequelizeDatabaseError' && error.parent?.constraint === 'check_total_favorites_non_negative') {
+      // Silently ignore constraint violation (already at 0)
+    } else {
+      throw error;
+    }
+  }
+});
+
+UserFavorite.addHook('afterRestore', async (favorite, options) => {
+  const { Listing } = await import('#models/index.js').then(m => m.default);
+  await Listing.increment('totalFavorites', {
+    by: 1,
+    where: { id: favorite.listingId },
+    transaction: options.transaction
+  });
+});
+
 // Define associations
 UserFavorite.associate = (models) => {
   // Belongs to User

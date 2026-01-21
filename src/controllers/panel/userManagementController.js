@@ -2,7 +2,6 @@ import userManagementService from '#services/userManagementService.js';
 import { successResponse, errorResponse, notFoundResponse, validationErrorResponse } from '#utils/responseFormatter.js';
 
 class UserManagementController {
-  // List external users (user role)
   static async listExternalUsers(req, res) {
     try {
       const { page = 1, limit = 20, search = '', status, startDate, endDate } = req.query;
@@ -27,7 +26,6 @@ class UserManagementController {
     }
   }
 
-  // List internal users (admin, marketing, seo, etc.)
   static async listInternalUsers(req, res) {
     try {
       const { page = 1, limit = 20, search = '', status, startDate, endDate } = req.query;
@@ -52,7 +50,6 @@ class UserManagementController {
     }
   }
 
-  // Get user details
   static async getUserDetails(req, res) {
     try {
       const { userId } = req.params;
@@ -70,7 +67,6 @@ class UserManagementController {
     }
   }
 
-  // Create new user
   static async createUser(req, res) {
     try {
       const userData = req.body;
@@ -89,7 +85,6 @@ class UserManagementController {
     }
   }
 
-  // Toggle user status (activate/deactivate)
   static async toggleUserStatus(req, res) {
     try {
       const { userId } = req.params;
@@ -112,7 +107,6 @@ class UserManagementController {
     }
   }
 
-  // Delete user
   static async deleteUser(req, res) {
     try {
       const { userId } = req.params;
@@ -131,7 +125,6 @@ class UserManagementController {
     }
   }
 
-  // Update KYC status
   static async updateKycStatus(req, res) {
     try {
       const { userId } = req.params;
@@ -154,7 +147,6 @@ class UserManagementController {
     }
   }
 
-  // Make user verified
   static async makeUserVerified(req, res) {
     try {
       const { userId } = req.params;
@@ -172,7 +164,6 @@ class UserManagementController {
     }
   }
 
-  // Toggle auto-approve for user
   static async toggleAutoApprove(req, res) {
     try {
       const { userId } = req.params;
@@ -195,7 +186,6 @@ class UserManagementController {
     }
   }
 
-  // Get user statistics
   static async getUserStatistics(req, res) {
     try {
       const result = await userManagementService.getUserStatistics();

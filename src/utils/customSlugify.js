@@ -13,6 +13,18 @@ const generateAlphaNumericCode = (limit = 7) => {
   return code;
 };
 
+export const generateShareCode = (limit = 7) => {
+  const characters = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+
+  for (let i = 0; i < limit; i++) {
+    const randomIndex = Math.floor(Math.random() * characters.length);
+    code += characters[randomIndex];
+  }
+
+  return code;
+};
+
 export const customSlugify = (text, options = {}) => {
   const safeText = text ?? '';
 
@@ -64,4 +76,5 @@ export default {
   customSlugify,
   getIndianTimestamp,
   generateFileName,
+  generateShareCode,
 };

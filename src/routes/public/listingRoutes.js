@@ -9,8 +9,8 @@ import { optionalAuthenticate } from '#middleware/authMiddleware.js';
 
 const router = express.Router();
 
-// Homepage listings (action before slug to avoid conflicts)
-router.get('/homepage', optionalAuthenticate, ListingController.homepage);
+// Homepage listings with category filtering (action before slug to avoid conflicts)
+router.get('/homepage', optionalAuthenticate, ListingController.getHomepageListings);
 
 // Get featured listings (action before slug to avoid conflicts)
 router.get('/featured', optionalAuthenticate, ListingController.getFeatured);
@@ -30,9 +30,15 @@ router.get('/category/:categorySlugOrId', optionalAuthenticate, ListingControlle
 // Get similar listings (action before slug to avoid conflicts)
 router.get('/:id/similar', optionalAuthenticate, ListingController.getSimilarListings);
 
+// Get related listings (action before slug to avoid conflicts)
+router.get('/related/:id', optionalAuthenticate, ListingController.getRelatedListings);
+
 // Increment view count (action before slug to avoid conflicts)
 // Optional auth: if authenticated, checks if user is owner or super_admin
 router.post('/view/:id', optionalAuthenticate, ListingController.incrementViewCount);
+
+// Get listing by share code (action before slug to avoid conflicts)
+router.get('/share/:shareCode', optionalAuthenticate, ListingController.getByShareCode);
 
 // Browse all active listings (legacy - kept for backward compatibility)
 router.get('/', optionalAuthenticate, ListingController.browse);

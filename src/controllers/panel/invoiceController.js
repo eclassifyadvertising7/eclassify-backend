@@ -14,7 +14,6 @@ class InvoiceController {
 
       const pagination = { page: parseInt(page), limit: parseInt(limit) };
 
-      // Super admin can see all invoices (no userId restriction)
       const result = await invoiceService.listInvoices(filters, pagination);
 
       if (!result.success) {
@@ -56,7 +55,6 @@ class InvoiceController {
       }
 
       // TODO: Generate PDF and send as download
-      // For now, return invoice data
       return successResponse(res, result.data, 'Invoice ready for download');
     } catch (error) {
       console.error('Error downloading invoice:', error);

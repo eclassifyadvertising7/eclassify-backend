@@ -5,14 +5,12 @@ import activityLogMiddleware from '#middleware/activityLogMiddleware.js';
 
 const router = express.Router();
 
-// Apply activity log middleware to all routes for session tracking
+// All routes require authentication
+router.use(authenticate);
 router.use(activityLogMiddleware);
 
-// Log search activity (supports anonymous users)
+// Log search activity
 router.post('/log', UserSearchController.logSearch);
-
-// Routes below require authentication
-router.use(authenticate);
 
 // Get user search history
 router.get('/history', UserSearchController.getSearchHistory);

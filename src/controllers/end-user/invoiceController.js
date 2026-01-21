@@ -38,7 +38,6 @@ class InvoiceController {
         return errorResponse(res, result.message, 404);
       }
 
-      // Verify ownership
       if (result.data.userId !== userId) {
         return errorResponse(res, 'You can only view your own invoices', 403);
       }
@@ -62,7 +61,6 @@ class InvoiceController {
       }
 
       // TODO: Generate PDF and send as download
-      // For now, return invoice data
       return successResponse(res, result.data, 'Invoice ready for download');
     } catch (error) {
       console.error('Error downloading invoice:', error);
@@ -75,7 +73,7 @@ class InvoiceController {
       const userId = req.user.userId;
       const invoiceData = {
         ...req.body,
-        userId // Ensure invoice is created for the authenticated user
+        userId
       };
 
       const result = await invoiceService.createInvoice(invoiceData, userId);

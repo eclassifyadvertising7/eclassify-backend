@@ -28,7 +28,7 @@ export const UPLOAD_CONFIG = {
   // Listing media configuration
   LISTING_MEDIA: {
     IMAGE: {
-      maxSize: 5 * 1024 * 1024, // 5MB
+      maxSize: 10 * 1024 * 1024, // 10MB
       maxFiles: 15,
       allowedTypes: ['image/jpeg', 'image/png', 'image/webp'],
       allowedExtensions: ['.jpg', '.jpeg', '.png', '.webp'],
@@ -38,7 +38,7 @@ export const UPLOAD_CONFIG = {
       quality: 80
     },
     VIDEO: {
-      maxSize: 50 * 1024 * 1024, // 50MB
+      maxSize: 20 * 1024 * 1024, // 20MB
       maxFiles: 3,
       maxDuration: 60, // seconds
       allowedTypes: ['video/mp4', 'video/quicktime', 'video/x-msvideo'],
