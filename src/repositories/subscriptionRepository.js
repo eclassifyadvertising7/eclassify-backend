@@ -663,6 +663,50 @@ class SubscriptionRepository {
     });
   }
 
+  /**
+   * Get user subscription by ID with ownership verification
+   * @param {number} userId 
+   * @param {number} subscriptionId 
+   * @returns {Promise<Object|null>} Subscription info
+   */
+  async getUserSubscriptionById(userId, subscriptionId) {
+    return await UserSubscription.findOne({
+      where: { 
+        id: subscriptionId,
+        userId: userId // Ensure user owns this subscription
+      },
+      attributes: [
+        'id',
+        'planName',
+        'status',
+        ['activated_at', 'startDate'],
+        ['ends_at', 'endDate'],
+        'maxTotalListings',
+        'listingQuotaLimit'
+      ]
+    });
+  }
+
+  /**
+   * Get all user subscriptions
+   * @param {number} userId 
+   * @returns {Promise<Array>} User subscriptions
+   */
+  async getUserSubscriptions(userId) {
+    return await UserSubscription.findAll({
+      where: { userId },
+      attributes: [
+        'id',
+        'planName',
+        'status',
+        ['activated_at', 'startDate'],
+        ['ends_at', 'endDate'],
+        'maxTotalListings',
+        'listingQuotaLimit'
+      ],
+      order: [['created_at', 'DESC']]
+    });
+  }
 }
 
 // Export singleton instance

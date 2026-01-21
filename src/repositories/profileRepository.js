@@ -24,7 +24,10 @@ class ProfileRepository {
         'status',
         'isPhoneVerified',
         'isEmailVerified',
-        'kycStatus'
+        'isVerified',
+        'kycStatus',
+        ['created_at', 'createdAt'],
+        ['updated_at', 'updatedAt']
       ],
       include: [
         {
@@ -47,7 +50,9 @@ class ProfileRepository {
             'longitude',
             'profilePhoto',
             'profilePhotoStorageType',
-            'profilePhotoMimeType'
+            'profilePhotoMimeType',
+            ['created_at', 'createdAt'],
+            ['updated_at', 'updatedAt']
           ]
         },
         {
@@ -175,6 +180,31 @@ class ProfileRepository {
   async profileExists(userId) {
     const count = await UserProfile.count({ where: { userId } });
     return count > 0;
+  }
+
+  /**
+   * Get user public profile info
+   * @param {number} userId 
+   * @returns {Promise<Object|null>} Public user info
+   */
+  async getUserPublicInfo(userId) {
+    return await User.findOne({
+      where: { id: userId },
+      attributes: ['id', 'fullName', ['created_at', 'createdAt'], 'isVerified'],
+      include: [
+        {
+          model: UserProfile,
+          as: 'profile',
+          attributes: [
+            'cityName',
+            'stateName',
+            'profilePhoto',
+            'profilePhotoStorageType',
+            'profilePhotoMimeType'
+          ]
+        }
+      ]
+    });
   }
 
   async getPreferredLocation(userId) {

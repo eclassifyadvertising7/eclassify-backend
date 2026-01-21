@@ -38,6 +38,8 @@ export const SUCCESS_MESSAGES = {
   LISTING_SUBMITTED: 'Listing submitted for approval',
   LISTING_SUBMITTED_FOR_MANUAL_APPROVAL: 'Listing submitted for manual approval due to quota limit',
   LISTING_MARKED_SOLD: 'Listing marked as sold',
+  LISTING_MADE_FEATURED: 'Listing made featured successfully',
+  LISTING_REMOVED_FROM_FEATURED: 'Listing removed from featured successfully',
   
   // Listing media operations
   MEDIA_UPLOADED: 'Media uploaded successfully',
@@ -133,6 +135,10 @@ export const ERROR_MESSAGES = {
   LISTING_ALREADY_APPROVED: 'Listing already approved',
   LISTING_ALREADY_REJECTED: 'Listing already rejected',
   LISTING_CANNOT_EDIT: 'Cannot edit listing in current status',
+  LISTING_ALREADY_FEATURED: 'Listing is already featured',
+  LISTING_NOT_FEATURED: 'Listing is not featured',
+  FEATURED_QUOTA_EXCEEDED: 'Featured listing quota exceeded for this category',
+  LISTING_NOT_ACTIVE: 'Only active listings can be featured',
   
   // Listing media errors
   MEDIA_NOT_FOUND: 'Media not found',

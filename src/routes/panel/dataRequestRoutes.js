@@ -17,6 +17,9 @@ router.get('/', DataRequestController.getAllRequests);
 // Get specific request by ID
 router.get('/:id', DataRequestController.getRequestById);
 
+// Update request (edit request details before approval/rejection)
+router.put('/:id', DataRequestController.updateRequest);
+
 // Approve request (explicit payload)
 router.patch('/approve/:id', DataRequestController.approveRequest);
 

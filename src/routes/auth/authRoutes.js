@@ -70,6 +70,20 @@ router.post('/refresh-token', AuthController.refreshToken);
 router.post('/logout', AuthController.logout);
 
 /**
+ * @route POST /api/auth/forgot-password
+ * @desc Request password reset link
+ * @access Public
+ */
+router.post('/forgot-password', AuthController.forgotPassword);
+
+/**
+ * @route POST /api/auth/reset-password
+ * @desc Reset password using token
+ * @access Public
+ */
+router.post('/reset-password', AuthController.resetPassword);
+
+/**
  * @route GET /api/auth/google
  * @desc Initiate Google OAuth login
  * @access Public

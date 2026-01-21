@@ -89,6 +89,36 @@ class AuthController {
       });
     }
   }
+
+  static async forgotPassword(req, res) {
+    try {
+      const { username } = req.body;
+      const result = await authService.forgotPassword(username);
+      return res.status(200).json(result);
+    } catch (error) {
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+        data: null,
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
+
+  static async resetPassword(req, res) {
+    try {
+      const { username, otp, newPassword } = req.body;
+      const result = await authService.resetPassword(username, otp, newPassword);
+      return res.status(200).json(result);
+    } catch (error) {
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+        data: null,
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
 }
 
 export default AuthController;

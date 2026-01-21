@@ -430,6 +430,110 @@ class DataRequestService {
     };
   }
 
+  async updateRequest(requestId, updateData, reviewerId) {
+    const request = await dataRequestRepository.findById(requestId);
+
+    if (!request) {
+      throw new Error('Request not found');
+    }
+
+    if (request.status !== 'pending') {
+      throw new Error(`Cannot edit request that is already ${request.status}`);
+    }
+
+    const { requestType, brandName, modelName, variantName, stateName, cityName, additionalDetails } = updateData;
+
+    // Validation based on request type
+    if (requestType && !['brand', 'model', 'variant', 'state', 'city'].includes(requestType)) {
+      throw new Error('Invalid request type. Must be: brand, model, variant, state, or city');
+    }
+
+    const finalRequestType = requestType || request.requestType;
+
+    // Car data validation
+    if (['brand', 'model', 'variant'].includes(finalRequestType)) {
+      const finalBrandName = brandName !== undefined ? brandName : request.brandName;
+      if (!finalBrandName || finalBrandName.trim().length < 2) {
+        throw new Error('Brand name is required and must be at least 2 characters');
+      }
+
+      if (finalRequestType === 'model') {
+        const finalModelName = modelName !== undefined ? modelName : request.modelName;
+        if (!finalModelName || finalModelName.trim().length < 2) {
+          throw new Error('Model name is required for model requests');
+        }
+      }
+
+      if (finalRequestType === 'variant') {
+        const finalModelName = modelName !== undefined ? modelName : request.modelName;
+        const finalVariantName = variantName !== undefined ? variantName : request.variantName;
+        
+        if (!finalModelName || finalModelName.trim().length < 2) {
+          throw new Error('Model name is required for variant requests');
+        }
+        if (!finalVariantName || finalVariantName.trim().length < 2) {
+          throw new Error('Variant name is required for variant requests');
+        }
+      }
+    }
+
+    // Location validation
+    if (finalRequestType === 'state') {
+      const finalStateName = stateName !== undefined ? stateName : request.stateName;
+      if (!finalStateName || finalStateName.trim().length < 2) {
+        throw new Error('State name is required and must be at least 2 characters');
+      }
+    }
+
+    if (finalRequestType === 'city') {
+      const finalStateName = stateName !== undefined ? stateName : request.stateName;
+      const finalCityName = cityName !== undefined ? cityName : request.cityName;
+      
+      if (!finalStateName || finalStateName.trim().length < 2) {
+        throw new Error('State name is required for city requests');
+      }
+      if (!finalCityName || finalCityName.trim().length < 2) {
+        throw new Error('City name is required and must be at least 2 characters');
+      }
+    }
+
+    // Check for duplicate pending request (excluding current request)
+    const duplicateCheckData = {
+      brandName: brandName !== undefined ? brandName?.trim() : request.brandName,
+      modelName: modelName !== undefined ? modelName?.trim() : request.modelName,
+      variantName: variantName !== undefined ? variantName?.trim() : request.variantName,
+      stateName: stateName !== undefined ? stateName?.trim() : request.stateName,
+      cityName: cityName !== undefined ? cityName?.trim() : request.cityName,
+      requestType: finalRequestType,
+      excludeId: requestId
+    };
+
+    const duplicate = await dataRequestRepository.checkDuplicate(duplicateCheckData);
+
+    if (duplicate) {
+      throw new Error('A similar request is already pending review');
+    }
+
+    // Prepare update data
+    const updateFields = {};
+    
+    if (requestType !== undefined) updateFields.requestType = requestType;
+    if (brandName !== undefined) updateFields.brandName = brandName?.trim() || null;
+    if (modelName !== undefined) updateFields.modelName = modelName?.trim() || null;
+    if (variantName !== undefined) updateFields.variantName = variantName?.trim() || null;
+    if (stateName !== undefined) updateFields.stateName = stateName?.trim() || null;
+    if (cityName !== undefined) updateFields.cityName = cityName?.trim() || null;
+    if (additionalDetails !== undefined) updateFields.additionalDetails = additionalDetails?.trim() || null;
+
+    const updatedRequest = await dataRequestRepository.update(requestId, updateFields);
+
+    return {
+      success: true,
+      message: 'Request updated successfully',
+      data: updatedRequest
+    };
+  }
+
   async getStatistics() {
     const stats = await dataRequestRepository.getStatistics();
 

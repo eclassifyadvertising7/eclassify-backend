@@ -67,6 +67,30 @@ class LocationService {
     };
   }
 
+  async getNearbyCities(options = {}) {
+    const { lat, lng, radius = 50 } = options;
+
+    if (!lat || !lng) {
+      throw new Error('Latitude and longitude are required');
+    }
+
+    if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      throw new Error('Invalid coordinates');
+    }
+
+    if (isNaN(radius) || radius <= 0) {
+      throw new Error('Radius must be a positive number');
+    }
+
+    const cities = await locationRepository.getNearbyCities(lat, lng, radius);
+
+    return {
+      success: true,
+      message: SUCCESS_MESSAGES.DATA_RETRIEVED,
+      data: cities
+    };
+  }
+
   async getAllStatesForAdmin(options = {}) {
     const { page = 1, limit = 50, search = '' } = options;
 

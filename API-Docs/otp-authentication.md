@@ -171,11 +171,14 @@
 **Request Payload:**
 ```json
 {
-  "mobile": "9175113022",
-  "email": "user@example.com",
+  "username": "9175113022",
   "device_name": "iPhone 13"
 }
 ```
+
+**Fields:**
+- `username` (required) - Email address or 10-digit mobile number (must be OTP verified)
+- `device_name` (optional) - Device identifier
 
 **Response Payload:**
 ```json
@@ -188,14 +191,24 @@
       "mobile": "9175113022",
       "email": "user@example.com",
       "fullName": "John Doe",
-      "roleId": 1,
-      "roleSlug": "user",
-      "isActive": true
+      "countryCode": "+91",
+      "role": "user",
+      "profile_image": null,
+      "last_login_at": "2024-01-15T10:45:00.000Z",
+      "isPhoneVerified": true,
+      "isEmailVerified": true,
+      "is_password_reset": false
     },
     "tokens": {
-      "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-      "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-    }
+      "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+      "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+      "token_type": "Bearer"
+    },
+    "counts": {
+      "unreadNotifications": 5,
+      "unreadChats": 3
+    },
+    "authMethod": "otp"
   },
   "timestamp": "2024-01-15T10:45:00.000Z"
 }
@@ -205,8 +218,34 @@
 ```json
 {
   "success": false,
-  "message": "Mobile number not verified. Please verify OTP first",
+  "message": "Mobile number must be verified via OTP before login",
   "data": null,
   "timestamp": "2024-01-15T10:45:00.000Z"
 }
 ```
+
+**Example Request (Mobile):**
+```bash
+curl -X POST http://localhost:5000/api/auth/otp/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "9175113022",
+    "device_name": "iPhone 13"
+  }'
+```
+
+**Example Request (Email):**
+```bash
+curl -X POST http://localhost:5000/api/auth/otp/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "user@example.com",
+    "device_name": "iPhone 13"
+  }'
+```
+
+**Notes:**
+- User must verify OTP before calling this endpoint
+- Supports login with either mobile number or email address
+- Automatically marks mobile/email as verified if not already
+- Updates last login timestamp

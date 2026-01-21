@@ -50,39 +50,13 @@ class ListingService {
       throw new Error('Invalid category');
     }
 
-    console.log(`[LISTING CREATE] Checking eligibility...`);
-    const eligibility = await quotaService.checkListingEligibility(userId, listingData.categoryId);
-    console.log(`[LISTING CREATE] Eligibility result:`, JSON.stringify(eligibility, null, 2));
-
     listingData.userId = userId;
     listingData.categorySlug = category.slug;
     listingData.createdBy = userId;
     listingData.status = 'draft';
     listingData.isAutoApproved = false;
 
-    let quotaExceeded = false;
-    let quotaMessage = null;
-
-    if (!eligibility.data.canCreate) {
-      quotaExceeded = true;
-      quotaMessage = `${eligibility.message}. Your listing has been saved as draft.`;
-      console.log(`[LISTING CREATE] QUOTA EXCEEDED - Saving as draft`);
-    } else if (eligibility.data.hasAutoApprove) {
-      listingData.status = 'active';
-      listingData.isAutoApproved = true;
-      listingData.approvedAt = new Date();
-      listingData.approvedBy = userId;
-      listingData.publishedAt = new Date();
-      
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 30);
-      listingData.expiresAt = expiresAt;
-      console.log(`[LISTING CREATE] AUTO-APPROVE - Setting status to active`);
-    } else {
-      console.log(`[LISTING CREATE] NO AUTO-APPROVE - Keeping as draft`);
-    }
-
-    console.log(`[LISTING CREATE] Creating listing with status=${listingData.status}`);
+    console.log(`[LISTING CREATE] Creating listing as draft`);
     const listing = await listingRepository.create(listingData);
     console.log(`[LISTING CREATE] Listing created with ID=${listing.id}`);
 
@@ -105,36 +79,14 @@ class ListingService {
 
     await this.updateListingKeywords(listing.id, listingData, categorySpecificData);
 
-    if (listingData.status === 'active') {
-      console.log(`[LISTING CREATE] Status is active, consuming quota...`);
-      try {
-        await quotaService.consumeQuota(userId, listingData.categoryId, listing.id);
-        console.log(`[LISTING CREATE] Quota consumed successfully`);
-      } catch (error) {
-        console.error(`[LISTING CREATE] ERROR consuming quota:`, error.message);
-      }
-    } else {
-      console.log(`[LISTING CREATE] Status is ${listingData.status}, NOT consuming quota`);
-    }
-
     const completeListing = await listingRepository.getById(listing.id, { includeAll: true });
 
-    let message;
-    if (quotaExceeded) {
-      message = quotaMessage;
-    } else if (listingData.status === 'active') {
-      message = 'Listing created and auto-approved successfully';
-    } else {
-      message = SUCCESS_MESSAGES.LISTING_CREATED;
-    }
-
-    console.log(`[LISTING CREATE] ========== END (${message}) ==========`);
+    console.log(`[LISTING CREATE] ========== END (Listing saved as draft) ==========`);
 
     return {
       success: true,
-      message,
-      data: completeListing,
-      quotaExceeded
+      message: SUCCESS_MESSAGES.LISTING_CREATED,
+      data: completeListing
     };
   }
 
@@ -221,7 +173,7 @@ class ListingService {
   }
 
   async update(id, updateData, categoryData, userId, isAdmin = false) {
-    const listing = await listingRepository.getById(id);
+    const listing = await listingRepository.getById(id, { includeAll: true });
 
     if (!listing) {
       throw new Error(ERROR_MESSAGES.LISTING_NOT_FOUND);
@@ -232,23 +184,23 @@ class ListingService {
     }
 
     if (!isAdmin && !['draft', 'rejected'].includes(listing.status)) {
-      throw new Error(ERROR_MESSAGES.LISTING_CANNOT_EDIT);
+      throw new Error('Only draft or rejected listings can be updated');
+    }
+
+    if (updateData.categoryId !== undefined) {
+      throw new Error('Category cannot be changed after creation');
+    }
+
+    if (updateData.shareCode !== undefined) {
+      throw new Error('Share code cannot be modified');
     }
 
     if (updateData.title && updateData.title.length < 10) {
       throw new Error('Title must be at least 10 characters');
     }
 
-    if (updateData.description && updateData.description.length < 50) {
-      throw new Error('Description must be at least 50 characters');
-    }
-
-    if (updateData.categoryId && updateData.categoryId !== listing.categoryId) {
-      const category = await categoryRepository.getById(updateData.categoryId);
-      if (!category) {
-        throw new Error('Invalid category');
-      }
-      updateData.categorySlug = category.slug;
+    if (updateData.price !== undefined && updateData.price <= 0) {
+      throw new Error('Price must be greater than 0');
     }
 
     await listingRepository.update(id, updateData, { userId });
@@ -263,10 +215,21 @@ class ListingService {
 
     const updatedListing = await listingRepository.getById(id, { includeAll: true });
 
+    let categorySpecificData = null;
+    if (updatedListing.carListing) {
+      categorySpecificData = updatedListing.carListing.toJSON();
+    } else if (updatedListing.propertyListing) {
+      categorySpecificData = updatedListing.propertyListing.toJSON();
+    }
+    
+    await this.updateListingKeywords(id, updatedListing.toJSON(), categorySpecificData);
+
+    const completeListing = await listingRepository.getById(id, { includeAll: true });
+
     return {
       success: true,
       message: SUCCESS_MESSAGES.LISTING_UPDATED,
-      data: updatedListing
+      data: completeListing
     };
   }
 
@@ -474,6 +437,101 @@ class ListingService {
     return {
       success: true,
       message: SUCCESS_MESSAGES.LISTING_MARKED_SOLD,
+      data: updatedListing
+    };
+  }
+
+  async makeFeatured(id, userId) {
+    const listing = await listingRepository.getById(id, { includeAll: true });
+
+    if (!listing) {
+      throw new Error(ERROR_MESSAGES.LISTING_NOT_FOUND);
+    }
+
+    if (listing.userId !== userId) {
+      throw new Error(ERROR_MESSAGES.FORBIDDEN);
+    }
+
+    if (listing.status !== 'active') {
+      throw new Error(ERROR_MESSAGES.LISTING_NOT_ACTIVE);
+    }
+
+    if (listing.isFeatured) {
+      throw new Error(ERROR_MESSAGES.LISTING_ALREADY_FEATURED);
+    }
+
+    const { UserSubscription, SubscriptionPlan } = models;
+    
+    const activeSubscription = await UserSubscription.findOne({
+      where: {
+        userId,
+        status: 'active'
+      },
+      include: [
+        {
+          model: SubscriptionPlan,
+          as: 'plan',
+          where: { categoryId: listing.categoryId },
+          required: true
+        }
+      ]
+    });
+
+    if (!activeSubscription) {
+      throw new Error(ERROR_MESSAGES.NO_ACTIVE_SUBSCRIPTION);
+    }
+
+    const currentFeaturedCount = await listingRepository.countFeaturedByUserAndCategory(
+      userId,
+      listing.categoryId
+    );
+
+    if (currentFeaturedCount >= activeSubscription.maxFeaturedListings) {
+      throw new Error(ERROR_MESSAGES.FEATURED_QUOTA_EXCEEDED);
+    }
+
+    const featuredUntil = new Date();
+    featuredUntil.setDate(featuredUntil.getDate() + activeSubscription.featuredDays);
+
+    await listingRepository.update(id, {
+      isFeatured: true,
+      featuredUntil
+    }, { userId });
+
+    const updatedListing = await listingRepository.getById(id, { includeAll: true });
+
+    return {
+      success: true,
+      message: SUCCESS_MESSAGES.LISTING_MADE_FEATURED,
+      data: updatedListing
+    };
+  }
+
+  async removeFeatured(id, userId) {
+    const listing = await listingRepository.getById(id, { includeAll: true });
+
+    if (!listing) {
+      throw new Error(ERROR_MESSAGES.LISTING_NOT_FOUND);
+    }
+
+    if (listing.userId !== userId) {
+      throw new Error(ERROR_MESSAGES.FORBIDDEN);
+    }
+
+    if (!listing.isFeatured) {
+      throw new Error(ERROR_MESSAGES.LISTING_NOT_FEATURED);
+    }
+
+    await listingRepository.update(id, {
+      isFeatured: false,
+      featuredUntil: null
+    }, { userId });
+
+    const updatedListing = await listingRepository.getById(id, { includeAll: true });
+
+    return {
+      success: true,
+      message: SUCCESS_MESSAGES.LISTING_REMOVED_FROM_FEATURED,
       data: updatedListing
     };
   }

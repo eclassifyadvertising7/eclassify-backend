@@ -6,7 +6,7 @@
 import models from '#models/index.js';
 import { Op } from 'sequelize';
 
-const { ChatRoom, Listing, User, UserProfile, ChatMessage } = models;
+const { ChatRoom, Listing, User, UserProfile, ChatMessage, Category } = models;
 
 class ChatRoomRepository {
   /**
@@ -29,12 +29,19 @@ class ChatRoomRepository {
       {
         model: Listing,
         as: 'listing',
-        attributes: ['id', 'title', 'slug', 'price', 'status', 'userId']
+        attributes: ['id', 'title', 'slug', 'price', 'status', 'userId'],
+        include: [
+          {
+            model: Category,
+            as: 'category',
+            attributes: ['id', 'name', 'slug']
+          }
+        ]
       },
       {
         model: User,
         as: 'buyer',
-        attributes: ['id', 'fullName', 'email', 'mobile'],
+        attributes: ['id', 'fullName', 'email', 'mobile', 'isVerified', ['created_at', 'createdAt']],
         include: [
           {
             model: UserProfile,
@@ -46,7 +53,7 @@ class ChatRoomRepository {
       {
         model: User,
         as: 'seller',
-        attributes: ['id', 'fullName', 'email', 'mobile'],
+        attributes: ['id', 'fullName', 'email', 'mobile', 'isVerified', ['created_at', 'createdAt']],
         include: [
           {
             model: UserProfile,
@@ -188,6 +195,11 @@ class ChatRoomRepository {
         attributes: ['id', 'title', 'slug', 'price', 'status'],
         include: [
           {
+            model: Category,
+            as: 'category',
+            attributes: ['id', 'name', 'slug']
+          },
+          {
             model: models.ListingMedia,
             as: 'media',
             where: { isPrimary: true },
@@ -199,7 +211,7 @@ class ChatRoomRepository {
       {
         model: User,
         as: 'buyer',
-        attributes: ['id', 'fullName'],
+        attributes: ['id', 'fullName', 'isVerified', ['created_at', 'createdAt']],
         include: [
           {
             model: UserProfile,
@@ -211,7 +223,7 @@ class ChatRoomRepository {
       {
         model: User,
         as: 'seller',
-        attributes: ['id', 'fullName'],
+        attributes: ['id', 'fullName', 'isVerified', ['created_at', 'createdAt']],
         include: [
           {
             model: UserProfile,

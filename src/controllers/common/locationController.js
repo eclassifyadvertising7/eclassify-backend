@@ -52,6 +52,25 @@ class LocationController {
       return errorResponse(res, error.message, 400);
     }
   }
+
+  static async getNearbyCities(req, res) {
+    try {
+      const { lat, lng, radius } = req.query;
+      
+      if (!lat || !lng) {
+        return errorResponse(res, 'Latitude and longitude are required', 400);
+      }
+
+      const result = await locationService.getNearbyCities({
+        lat: parseFloat(lat),
+        lng: parseFloat(lng),
+        radius: radius ? parseFloat(radius) : 50
+      });
+      return successResponse(res, result.data, result.message);
+    } catch (error) {
+      return errorResponse(res, error.message, 400);
+    }
+  }
 }
 
 export default LocationController;

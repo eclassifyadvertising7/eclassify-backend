@@ -39,6 +39,8 @@ Authorization: Bearer <access_token>
     "kycStatus": "pending",
     "subscriptionType": "free",
     "subscriptionExpiresAt": null,
+    "createdAt": "2024-01-15T10:30:00.000Z",
+    "updatedAt": "2024-01-20T14:45:00.000Z",
     "profile": {
       "id": 45,
       "dob": "1990-01-01",
@@ -55,6 +57,8 @@ Authorization: Bearer <access_token>
       "latitude": "18.5204",
       "longitude": "73.8567",
       "profilePhoto": "https://res.cloudinary.com/your-cloud/image/upload/eclassify_app/uploads/profiles/user-123/photo.jpg",
+      "createdAt": "2024-01-15T10:30:00.000Z",
+      "updatedAt": "2024-01-20T14:45:00.000Z",
       "state": {
         "id": 1,
         "name": "Maharashtra",
@@ -108,12 +112,12 @@ stateId: 1 (optional)
 pincode: 411001 (optional)
 latitude: 18.5204 (optional)
 longitude: 73.8567 (optional)
-profilePhoto: <file> (optional, max 2MB, JPEG/PNG/WebP)
+photo: <file> (optional, max 2MB, JPEG/PNG/WebP)
 ```
 
 **Validation Rules:**
 - `email`: Valid email format
-- `profilePhoto`: Max 2MB, JPEG/PNG/WebP only
+- `photo`: Max 2MB, JPEG/PNG/WebP only
 - `cityId`: Must be a valid city ID
 - `stateId`: Must be a valid state ID
 - `latitude`: Decimal number
@@ -362,7 +366,7 @@ fullName: Jane Smith (optional)
 email: jane@example.com (optional)
 status: active (optional)
 kycStatus: approved (optional)
-profilePhoto: <file> (optional, max 2MB, JPEG/PNG/WebP)
+photo: <file> (optional, max 2MB, JPEG/PNG/WebP)
 ```
 
 **Response (200 OK):**
@@ -683,7 +687,7 @@ curl -X PUT http://localhost:3000/api/profile/me \
   -F "cityId=5" \
   -F "cityName=Pune" \
   -F "stateId=1" \
-  -F "profilePhoto=@/path/to/photo.jpg"
+  -F "photo=@/path/to/photo.jpg"
 ```
 
 **Get User Profile by ID (Admin):**

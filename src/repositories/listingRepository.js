@@ -80,7 +80,7 @@ class ListingRepository {
       { 
         model: User, 
         as: 'user', 
-        attributes: ['id', 'fullName', 'email', 'mobile'],
+        attributes: ['id', 'fullName', 'email', 'mobile', 'isVerified', ['created_at', 'createdAt']],
         include: [
           {
             model: UserProfile,
@@ -136,7 +136,7 @@ class ListingRepository {
       { 
         model: User, 
         as: 'user', 
-        attributes: ['id', 'fullName', 'email', 'mobile'],
+        attributes: ['id', 'fullName', 'email', 'mobile', 'isVerified', ['created_at', 'createdAt']],
         include: [
           {
             model: UserProfile,
@@ -240,7 +240,7 @@ class ListingRepository {
       { 
         model: User, 
         as: 'user', 
-        attributes: ['id', 'fullName', 'email', 'mobile'],
+        attributes: ['id', 'fullName', 'email', 'mobile', 'isVerified', ['created_at', 'createdAt']],
         include: [
           {
             model: UserProfile,
@@ -1239,6 +1239,264 @@ class ListingRepository {
     });
 
     return scoredListings.slice(0, limit);
+  }
+
+  async countFeaturedByUserAndCategory(userId, categoryId) {
+    return await Listing.count({
+      where: {
+        userId,
+        categoryId,
+        isFeatured: true,
+        status: 'active',
+        featuredUntil: {
+          [Op.gte]: new Date()
+        }
+      }
+    });
+  }
+  /**
+   * Get user's listing statistics by category using single query approach
+   * @param {number} userId 
+   * @param {number} categoryId 
+   * @returns {Promise<Object>} Status counts
+   */
+  async getUserCategoryStats(userId, categoryId) {
+    // Single query to get all listings with just status and expires_at
+    const listings = await Listing.findAll({
+      where: { userId, categoryId },
+      attributes: ['status', 'expiresAt'],
+      raw: true
+    });
+
+    // Process in JavaScript to calculate counts - much faster than 6 separate queries
+    const stats = listings.reduce((acc, listing) => {
+      const now = new Date();
+      const expiresAt = new Date(listing.expiresAt);
+      
+      if (listing.status === 'active' && expiresAt > now) {
+        acc.active++;
+      } else if (listing.status === 'sold') {
+        acc.sold++;
+      } else if (listing.status === 'expired' || (listing.status === 'active' && expiresAt <= now)) {
+        acc.expired++;
+      } else if (listing.status === 'draft') {
+        acc.draft++;
+      } else if (listing.status === 'pending') {
+        acc.pending++;
+      } else if (listing.status === 'rejected') {
+        acc.rejected++;
+      }
+      
+      acc.total++;
+      return acc;
+    }, { active: 0, sold: 0, expired: 0, draft: 0, pending: 0, rejected: 0, total: 0 });
+
+    return stats;
+  }
+
+  /**
+   * Get user's recent listings for a category with complete data
+   * @param {number} userId 
+   * @param {number} categoryId 
+   * @param {number} limit 
+   * @returns {Promise<Array>} Recent listings
+   */
+  async getUserCategoryRecentListings(userId, categoryId, limit = 3) {
+    return await Listing.findAll({
+      where: { userId, categoryId },
+      include: [{
+        model: Category,
+        as: 'category',
+        attributes: ['id', 'name', 'slug']
+      }],
+      // Let Sequelize handle all fields and model getters automatically
+      // This includes coverImage getter for URL transformation
+      order: [['created_at', 'DESC']],
+      limit
+    });
+  }
+
+  /**
+   * Get user's listings for a category with pagination and status filtering
+   * @param {number} userId 
+   * @param {number} categoryId 
+   * @param {Object} options - { page, limit, status }
+   * @returns {Promise<Object>} Paginated listings
+   */
+  async getUserCategoryListings(userId, categoryId, options = {}) {
+    const { page = 1, limit = 20, status = 'all' } = options;
+    const validLimit = Math.min(Math.max(1, parseInt(limit)), 50);
+    const validPage = Math.max(1, parseInt(page));
+    const offset = (validPage - 1) * validLimit;
+
+    // Build where clause based on status filter
+    let whereClause = { userId, categoryId };
+    
+    if (status === 'active') {
+      whereClause.status = 'active';
+      whereClause.expiresAt = { [Op.gt]: new Date() };
+    } else if (status === 'sold') {
+      whereClause.status = 'sold';
+    } else if (status === 'expired') {
+      whereClause[Op.or] = [
+        { status: 'expired' },
+        { 
+          status: 'active',
+          expiresAt: { [Op.lte]: new Date() }
+        }
+      ];
+    } else if (status === 'draft') {
+      whereClause.status = 'draft';
+    } else if (status === 'pending') {
+      whereClause.status = 'pending';
+    } else if (status === 'rejected') {
+      whereClause.status = 'rejected';
+    }
+    // 'all' status doesn't add any additional filters
+
+    return await Listing.findAndCountAll({
+      where: whereClause,
+      include: [{
+        model: Category,
+        as: 'category',
+        attributes: ['id', 'name', 'slug']
+      }],
+      // Let Sequelize handle all fields and model getters automatically
+      order: [['created_at', 'DESC']],
+      limit: validLimit,
+      offset
+    });
+  }
+
+  /**
+   * Get total listings count for a user
+   * @param {number} userId 
+   * @returns {Promise<number>} Total count
+   */
+  async getUserTotalListingsCount(userId) {
+    return await Listing.count({
+      where: { userId }
+    });
+  }
+
+  /**
+   * Get subscription listing statistics using single query approach
+   * @param {number} userId 
+   * @param {number} subscriptionId 
+   * @returns {Promise<Object>} Status counts
+   */
+  async getSubscriptionListingStats(userId, subscriptionId) {
+    // Single query to get all listings with just status and expires_at
+    const listings = await Listing.findAll({
+      where: { userId, userSubscriptionId: subscriptionId },
+      attributes: ['status', 'expiresAt'],
+      raw: true
+    });
+
+    // Process in JavaScript to calculate counts - much faster than 7 separate queries
+    const stats = listings.reduce((acc, listing) => {
+      const now = new Date();
+      const expiresAt = new Date(listing.expiresAt);
+      
+      if (listing.status === 'active' && expiresAt > now) {
+        acc.active++;
+      } else if (listing.status === 'sold') {
+        acc.sold++;
+      } else if (listing.status === 'expired' || (listing.status === 'active' && expiresAt <= now)) {
+        acc.expired++;
+      } else if (listing.status === 'draft') {
+        acc.draft++;
+      } else if (listing.status === 'pending') {
+        acc.pending++;
+      } else if (listing.status === 'rejected') {
+        acc.rejected++;
+      }
+      
+      acc.total++;
+      return acc;
+    }, { active: 0, sold: 0, expired: 0, draft: 0, pending: 0, rejected: 0, total: 0 });
+
+    // Calculate used quota (only active, sold, and expired listings consume quota)
+    stats.quotaConsuming = stats.active + stats.sold + stats.expired;
+
+    return stats;
+  }
+
+  /**
+   * Get subscription listings with pagination and status filtering
+   * @param {number} userId 
+   * @param {number} subscriptionId 
+   * @param {Object} options - { page, limit, status }
+   * @returns {Promise<Object>} Paginated listings
+   */
+  async getSubscriptionListings(userId, subscriptionId, options = {}) {
+    const { page = 1, limit = 20, status = 'all' } = options;
+    const validLimit = Math.min(Math.max(1, parseInt(limit)), 50);
+    const validPage = Math.max(1, parseInt(page));
+    const offset = (validPage - 1) * validLimit;
+
+    // Build where clause based on status filter
+    let whereClause = { 
+      userId,
+      userSubscriptionId: subscriptionId 
+    };
+    
+    if (status === 'active') {
+      whereClause.status = 'active';
+      whereClause.expiresAt = { [Op.gt]: new Date() };
+    } else if (status === 'sold') {
+      whereClause.status = 'sold';
+    } else if (status === 'expired') {
+      whereClause[Op.or] = [
+        { status: 'expired' },
+        { 
+          status: 'active',
+          expiresAt: { [Op.lte]: new Date() }
+        }
+      ];
+    } else if (status === 'rejected') {
+      whereClause.status = 'rejected';
+    } else if (status === 'pending') {
+      whereClause.status = 'pending';
+    } else if (status === 'draft') {
+      whereClause.status = 'draft';
+    }
+    // 'all' status doesn't add additional filters
+
+    return await Listing.findAndCountAll({
+      where: whereClause,
+      include: [
+        {
+          model: Category,
+          as: 'category',
+          attributes: ['id', 'name', 'slug']
+        }
+      ],
+      // Let Sequelize handle all fields and model getters automatically
+      // This includes coverImage getter, totalFavorites, and all other fields
+      order: [['created_at', 'DESC']],
+      limit: validLimit,
+      offset
+    });
+  }
+
+  /**
+   * Get categories that have listings for a user
+   * @param {number} userId 
+   * @returns {Promise<Array>} Categories with listings
+   */
+  async getUserCategoriesWithListings(userId) {
+    return await Category.findAll({
+      include: [{
+        model: Listing,
+        as: 'listings',
+        where: { userId },
+        required: true,
+        attributes: []
+      }],
+      attributes: ['id', 'name', 'slug'],
+      group: ['Category.id', 'Category.name', 'Category.slug']
+    });
   }
 }
 

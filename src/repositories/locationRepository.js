@@ -146,6 +146,65 @@ class LocationRepository {
     });
   }
 
+  async getNearbyCities(lat, lng, radius) {
+    const cities = await City.findAll({
+      where: {
+        isActive: true,
+        isDeleted: false,
+        latitude: { [Op.ne]: null },
+        longitude: { [Op.ne]: null }
+      },
+      attributes: [
+        'id',
+        'name',
+        'slug',
+        'district',
+        'stateName',
+        'stateId',
+        'pincode',
+        'latitude',
+        'longitude',
+        'isPopular'
+      ]
+    });
+
+    const nearbyCities = cities
+      .map(city => {
+        const distance = this._calculateDistance(
+          lat,
+          lng,
+          parseFloat(city.latitude),
+          parseFloat(city.longitude)
+        );
+        return {
+          ...city.toJSON(),
+          distance: Math.round(distance * 10) / 10
+        };
+      })
+      .filter(city => city.distance <= radius)
+      .sort((a, b) => a.distance - b.distance);
+
+    return nearbyCities;
+  }
+
+  _calculateDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371;
+    const dLat = this._toRad(lat2 - lat1);
+    const dLon = this._toRad(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(this._toRad(lat1)) *
+        Math.cos(this._toRad(lat2)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+
+  _toRad(degrees) {
+    return degrees * (Math.PI / 180);
+  }
+
   async getCityById(cityId) {
     return await City.findOne({
       where: {

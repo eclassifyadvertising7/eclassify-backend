@@ -9,6 +9,7 @@ import emailService from '#services/emailService.js';
 import { generateTokens, verifyRefreshToken } from '#utils/jwtHelper.js';
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '#utils/constants/messages.js';
 import db from '#models/index.js';
+import config from '#config/env.js';
 
 class AuthService {
   _generateReferralCode() {
@@ -250,13 +251,23 @@ class AuthService {
   }
 
   async login(loginData, deviceInfo = {}) {
-    const { mobile, password } = loginData;
+    const { username, password } = loginData;
 
-    if (!mobile || !password) {
+    if (!username || !password) {
       throw new Error(ERROR_MESSAGES.MISSING_REQUIRED_FIELDS);
     }
 
-    const user = await authRepository.findByMobile(mobile);
+    const isMobile = /^\d{10}$/.test(username);
+    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(username);
+
+    if (!isMobile && !isEmail) {
+      throw new Error('Invalid email or mobile number format');
+    }
+
+    const user = isMobile 
+      ? await authRepository.findByMobile(username)
+      : await authRepository.findByEmail(username);
+
     if (!user) {
       throw new Error(ERROR_MESSAGES.INVALID_CREDENTIALS);
     }
@@ -486,29 +497,30 @@ class AuthService {
   }
 
   async loginWithOtp(loginData, deviceInfo = {}) {
-    const { mobile, email } = loginData;
+    const { username } = loginData;
 
-    if (!mobile && !email) {
-      throw new Error('Either mobile number or email address is required');
+    if (!username) {
+      throw new Error('Email or mobile number is required');
     }
 
-    if (mobile && !/^\d{10}$/.test(mobile)) {
-      throw new Error(ERROR_MESSAGES.INVALID_PHONE_FORMAT);
+    const isMobile = /^\d{10}$/.test(username);
+    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(username);
+
+    if (!isMobile && !isEmail) {
+      throw new Error('Invalid email or mobile number format');
     }
 
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      throw new Error('Valid email address is required');
-    }
-
-    const identifier = mobile || email;
-    const verifiedOtp = await otpRepository.findVerifiedOtp(identifier, 'login');
+    const verifiedOtp = await otpRepository.findVerifiedOtp(username, 'login');
 
     if (!verifiedOtp) {
-      const contactType = mobile ? 'Mobile number' : 'Email address';
+      const contactType = isMobile ? 'Mobile number' : 'Email address';
       throw new Error(`${contactType} must be verified via OTP before login`);
     }
 
-    const user = await authRepository.findByMobile(mobile);
+    const user = isMobile 
+      ? await authRepository.findByMobile(username)
+      : await authRepository.findByEmail(username);
+
     if (!user) {
       throw new Error(ERROR_MESSAGES.USER_NOT_FOUND);
     }
@@ -522,11 +534,11 @@ class AuthService {
     }
 
     const updateData = {};
-    if (!user.isPhoneVerified) {
+    if (isMobile && !user.isPhoneVerified) {
       updateData.isPhoneVerified = true;
       updateData.phoneVerifiedAt = new Date();
     }
-    if (!user.isEmailVerified) {
+    if (isEmail && !user.isEmailVerified) {
       updateData.isEmailVerified = true;
       updateData.emailVerifiedAt = new Date();
     }
@@ -672,6 +684,131 @@ class AuthService {
       },
       { where: { id: userId } }
     );
+  }
+
+  async forgotPassword(username) {
+    if (!username) {
+      throw new Error('Email or mobile number is required');
+    }
+
+    const isMobile = /^\d{10}$/.test(username);
+    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(username);
+
+    if (!isMobile && !isEmail) {
+      throw new Error('Invalid email or mobile number format');
+    }
+
+    const user = isMobile 
+      ? await authRepository.findByMobile(username)
+      : await authRepository.findByEmail(username);
+
+    if (!user) {
+      throw new Error(ERROR_MESSAGES.USER_NOT_FOUND);
+    }
+
+    if (user.status === 'blocked' || user.status === 'suspended') {
+      throw new Error(ERROR_MESSAGES.ACCOUNT_SUSPENDED);
+    }
+
+    if (!user.isActive) {
+      throw new Error('Account is inactive');
+    }
+
+    const hasEmail = user.email && user.email.trim() !== '';
+    const channel = hasEmail ? 'email' : 'sms';
+    const otpTarget = hasEmail ? user.email : user.mobile;
+
+    await otpRepository.invalidatePreviousOtps(username, 'password_reset');
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + 10);
+
+    await otpRepository.create({
+      mobile: isMobile ? username : (hasEmail ? null : user.mobile),
+      email: isEmail ? username : (hasEmail ? user.email : null),
+      countryCode: user.countryCode,
+      otp,
+      type: 'password_reset',
+      channel,
+      expiresAt
+    });
+
+    if (channel === 'email') {
+      setImmediate(async () => {
+        try {
+          await emailService.sendOtp(otpTarget, otp, 'password-reset', user.fullName);
+          console.log(`Password reset OTP sent to ${otpTarget}`);
+        } catch (error) {
+          console.error('Failed to send password reset OTP:', error.message);
+        }
+      });
+    }
+
+    return {
+      success: true,
+      message: channel === 'email'
+        ? 'Password reset OTP has been sent to your email'
+        : 'Password reset OTP has been sent to your mobile',
+      data: {
+        email: user.email,
+        channel,
+        expiresAt
+      },
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  async resetPassword(username, otp, newPassword) {
+    if (!username || !otp || !newPassword) {
+      throw new Error(ERROR_MESSAGES.MISSING_REQUIRED_FIELDS);
+    }
+
+    if (newPassword.length < 6) {
+      throw new Error('Password must be at least 6 characters');
+    }
+
+    const isMobile = /^\d{10}$/.test(username);
+    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(username);
+
+    if (!isMobile && !isEmail) {
+      throw new Error('Invalid email or mobile number format');
+    }
+
+    const otpRecord = await otpRepository.findActiveOtp(username, 'password_reset');
+
+    if (!otpRecord) {
+      throw new Error('Invalid or expired OTP');
+    }
+
+    if (otpRecord.otp !== otp) {
+      await otpRepository.incrementAttempts(otpRecord.id);
+      throw new Error('Invalid OTP');
+    }
+
+    if (new Date() > new Date(otpRecord.expiresAt)) {
+      throw new Error('OTP has expired');
+    }
+
+    const user = isMobile 
+      ? await authRepository.findByMobile(username)
+      : await authRepository.findByEmail(username);
+
+    if (!user) {
+      throw new Error(ERROR_MESSAGES.USER_NOT_FOUND);
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await authRepository.updatePassword(user.id, passwordHash);
+    await otpRepository.markAsVerified(otpRecord.id);
+    await authRepository.invalidateAllUserSessions(user.id);
+
+    return {
+      success: true,
+      message: SUCCESS_MESSAGES.PASSWORD_RESET_SUCCESS,
+      data: null,
+      timestamp: new Date().toISOString()
+    };
   }
 }
 

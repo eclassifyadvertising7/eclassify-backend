@@ -156,11 +156,16 @@ class DataRequestRepository {
     return await this.findById(id);
   }
 
-  async checkDuplicate({ brandName, modelName, variantName, stateName, cityName, requestType }) {
+  async checkDuplicate({ brandName, modelName, variantName, stateName, cityName, requestType, excludeId }) {
     const where = {
       status: 'pending',
       requestType
     };
+
+    // Exclude current request if editing
+    if (excludeId) {
+      where.id = { [Op.ne]: excludeId };
+    }
 
     // Car data duplicates
     if (requestType === 'brand' && brandName) {

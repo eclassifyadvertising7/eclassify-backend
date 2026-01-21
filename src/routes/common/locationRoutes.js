@@ -38,4 +38,11 @@ router.get('/popular-cities', LocationController.getPopularCities);
  */
 router.get('/search-cities', LocationController.searchCities);
 
+/**
+ * @route GET /api/common/all-cities/nearby
+ * @desc Get nearby cities based on coordinates
+ * @access Public
+ */
+router.get('/all-cities/nearby', LocationController.getNearbyCities);
+
 export default router;

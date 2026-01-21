@@ -2,14 +2,32 @@
 
 Base URL: `/api/auth`
 
+## Overview
+
+The authentication system supports multiple authentication methods:
+- **Password-based authentication** (signup/login with password)
+- **OTP-based authentication** (signup/login with OTP verification)
+- **Google OAuth** (sign in with Google account)
+- **Password reset** (forgot password with OTP)
+
 ## Table of Contents
-- [Signup](#signup)
-- [Login](#login)
-- [Get Profile](#get-profile)
-- [Refresh Token](#refresh-token)
-- [Logout](#logout)
+- [Password-Based Authentication](#password-based-authentication)
+  - [Signup](#signup)
+  - [Login](#login)
+- [OTP-Based Authentication](#otp-based-authentication)
+- [Google OAuth Authentication](#google-oauth-authentication)
+- [Password Reset](#password-reset)
+- [Common Endpoints](#common-endpoints)
+  - [Get Profile](#get-profile)
+  - [Refresh Token](#refresh-token)
+  - [Logout](#logout)
+- [JWT Token Structure](#jwt-token-structure)
+- [Status Codes](#status-codes)
+- [Notes](#notes)
 
 ---
+
+## Password-Based Authentication
 
 ## Signup
 
@@ -29,16 +47,22 @@ Content-Type: application/json
 {
   "fullName": "string (required, min 2 characters)",
   "mobile": "string (required, 10 digits)",
+  "email": "string (required, valid email)",
   "password": "string (required, min 6 characters)",
-  "countryCode": "string (optional, default: +91)"
+  "countryCode": "string (optional, default: +91)",
+  "referralCode": "string (optional)",
+  "device_name": "string (optional)"
 }
 ```
 
 ### Field Descriptions
 - `fullName`: User's full name (minimum 2 characters)
 - `mobile`: 10-digit mobile number without country code
+- `email`: Valid email address
 - `password`: User password (minimum 6 characters)
 - `countryCode`: Country dialing code (defaults to +91 for India)
+- `referralCode`: Referral code from another user (optional)
+- `device_name`: Device identifier for session tracking (optional)
 
 ### Success Response (201 Created)
 ```json
@@ -51,12 +75,13 @@ Content-Type: application/json
       "fullName": "John Doe",
       "mobile": "9876543210",
       "countryCode": "+91",
-      "email": null,
+      "email": "john@example.com",
       "role": "user",
       "profile_image": null,
       "last_login_at": null,
       "isPhoneVerified": false,
-      "isEmailVerified": false
+      "isEmailVerified": false,
+      "is_password_reset": false
     },
     "tokens": {
       "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
@@ -94,6 +119,26 @@ Content-Type: application/json
 }
 ```
 
+**400 Bad Request** - Invalid referral code
+```json
+{
+  "success": false,
+  "message": "Invalid referral code",
+  "data": null,
+  "timestamp": "2025-11-23T10:30:00.000Z"
+}
+```
+
+**400 Bad Request** - Cannot use own referral code
+```json
+{
+  "success": false,
+  "message": "Cannot use your own referral code",
+  "data": null,
+  "timestamp": "2025-11-23T10:30:00.000Z"
+}
+```
+
 ### Example Request
 ```bash
 curl -X POST http://localhost:5000/api/auth/signup \
@@ -101,7 +146,10 @@ curl -X POST http://localhost:5000/api/auth/signup \
   -d '{
     "fullName": "John Doe",
     "mobile": "9876543210",
-    "password": "securepass123"
+    "email": "john@example.com",
+    "password": "securepass123",
+    "referralCode": "REFABC12",
+    "device_name": "iPhone 13"
   }'
 ```
 
@@ -109,7 +157,7 @@ curl -X POST http://localhost:5000/api/auth/signup \
 
 ## Login
 
-Authenticate user and receive JWT token.
+Authenticate user with email or mobile number and receive JWT token.
 
 **Endpoint:** `POST /api/auth/login`
 
@@ -123,14 +171,16 @@ Content-Type: application/json
 ### Request Body
 ```json
 {
-  "mobile": "string (required, 10 digits)",
-  "password": "string (required)"
+  "username": "string (required, email or 10-digit mobile)",
+  "password": "string (required)",
+  "device_name": "string (optional)"
 }
 ```
 
 ### Field Descriptions
-- `mobile`: 10-digit mobile number used during registration
+- `username`: Email address or 10-digit mobile number used during registration
 - `password`: User password
+- `device_name`: Device identifier for session tracking (optional)
 
 ### Success Response (200 OK)
 ```json
@@ -143,12 +193,13 @@ Content-Type: application/json
       "fullName": "John Doe",
       "mobile": "9876543210",
       "countryCode": "+91",
-      "email": null,
+      "email": "john@example.com",
       "role": "user",
       "profile_image": null,
       "last_login_at": "2025-11-23T10:30:00.000Z",
       "isPhoneVerified": false,
-      "isEmailVerified": false
+      "isEmailVerified": false,
+      "is_password_reset": false
     },
     "tokens": {
       "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
@@ -196,19 +247,80 @@ Content-Type: application/json
 }
 ```
 
-### Example Request
+**400 Bad Request** - Invalid format
+```json
+{
+  "success": false,
+  "message": "Invalid email or mobile number format",
+  "data": null,
+  "timestamp": "2025-11-23T10:30:00.000Z"
+}
+```
+
+### Example Request (Mobile)
 ```bash
 curl -X POST http://localhost:5000/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{
-    "mobile": "9876543210",
+    "username": "9876543210",
+    "password": "securepass123"
+  }'
+```
+
+### Example Request (Email)
+```bash
+curl -X POST http://localhost:5000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "john@example.com",
     "password": "securepass123"
   }'
 ```
 
 ---
 
-## Get Profile
+## OTP-Based Authentication
+
+For OTP-based authentication (passwordless signup and login), see the dedicated documentation:
+
+**[OTP Authentication API Documentation](./otp-authentication.md)**
+
+Key endpoints:
+- `POST /api/auth/otp/send` - Send OTP to mobile/email
+- `POST /api/auth/otp/verify` - Verify OTP code
+- `POST /api/auth/otp/signup` - Complete signup after OTP verification
+- `POST /api/auth/otp/login` - Complete login after OTP verification
+
+---
+
+## Google OAuth Authentication
+
+For Google OAuth authentication (sign in with Google), see the dedicated documentation:
+
+**[Google OAuth API Documentation](./google-oauth.md)**
+
+Key endpoints:
+- `GET /api/auth/google` - Initiate Google OAuth flow
+- `GET /api/auth/google/callback` - Handle Google OAuth callback
+- `POST /api/auth/google/complete-profile` - Add mobile number to Google account
+
+---
+
+## Password Reset
+
+For password reset functionality, see the dedicated documentation:
+
+**[Password Reset API Documentation](./password-reset.md)**
+
+Key endpoints:
+- `POST /api/auth/forgot-password` - Request password reset OTP
+- `POST /api/auth/reset-password` - Reset password using OTP
+
+---
+
+## Common Endpoints
+
+### Get Profile
 
 Retrieve authenticated user's profile information.
 
@@ -240,8 +352,7 @@ None
     "status": "active",
     "isPhoneVerified": false,
     "isEmailVerified": false,
-    "subscriptionType": "free",
-    "subscriptionExpiresAt": null,
+    "is_password_reset": false,
     "last_login_at": "2025-11-23T10:30:00.000Z",
     "createdAt": "2025-11-20T08:15:00.000Z"
   },
@@ -460,9 +571,9 @@ curl -X POST http://localhost:5000/api/auth/logout \
 - `iat`: Token issued at timestamp
 - `exp`: Token expiration timestamp
 
-### Token Types
-- **Access Token**: Short-lived (default: 7 days), used for API authentication
-- **Refresh Token**: Long-lived (default: 30 days), used to get new access tokens
+### Token Expiry
+- **Access Token**: 7 days (configurable via `ACCESS_TOKEN_EXPIRY` env variable)
+- **Refresh Token**: 30 days (configurable via `REFRESH_TOKEN_EXPIRY` env variable)
 
 ### Token Usage
 Include the access token in the `Authorization` header for protected routes:
@@ -476,6 +587,12 @@ Authorization: Bearer <your_access_token>
 3. When access token expires, use refresh token to get new tokens
 4. Old refresh token is invalidated, new tokens are issued
 5. Repeat until refresh token expires (requires re-login)
+
+### Session Management
+- Each login/signup creates a new session record with device information
+- Sessions track: device name, user agent, IP address
+- Refresh token rotation invalidates old tokens
+- All sessions can be invalidated (e.g., on password reset)
 
 ---
 
@@ -495,28 +612,75 @@ Authorization: Bearer <your_access_token>
 
 ## Notes
 
-1. **Mobile Number Format**: Always provide 10-digit mobile numbers without country code. Country code is stored separately (defaults to +91).
+### Authentication Methods
 
-2. **Password Requirements**: Minimum 6 characters (can be enhanced with complexity rules).
+1. **Multiple Authentication Options**:
+   - Password-based: Traditional email/mobile + password
+   - OTP-based: Passwordless authentication with OTP verification
+   - Google OAuth: Sign in with Google account
+   - All methods generate the same JWT token structure
 
-3. **Token Expiry**: 
-   - Access tokens expire in 7 days (configurable via `ACCESS_TOKEN_EXPIRY`)
-   - Refresh tokens expire in 30 days (configurable via `REFRESH_TOKEN_EXPIRY`)
+2. **Account Linking**:
+   - Google OAuth automatically links to existing accounts with matching email
+   - Users can have both password and Google OAuth enabled
+   - Mobile number can be added to Google accounts later
 
-4. **Account Status**: Users with status `blocked`, `suspended`, or inactive accounts cannot login or refresh tokens.
+### User Registration
 
-5. **Default Role**: New users are automatically assigned the "user" role during signup.
+3. **Default Role**: New users are automatically assigned the "user" role during signup.
 
-6. **Phone Verification**: Currently, phone verification is not enforced but the flag is tracked for future implementation.
+4. **Free Subscription**: All new users automatically receive free subscription plans upon registration.
 
-7. **Session Management**: Each login/signup creates a new session record. Refresh token rotation invalidates old tokens.
+5. **Referral System**: 
+   - Each user gets a unique referral code (e.g., `REFABC12`)
+   - Users can sign up with a referral code
+   - Referrer's count is incremented when someone uses their code
+   - Cannot use your own referral code
 
-8. **Response Format**: All responses include a `timestamp` field with ISO 8601 format.
+6. **Welcome Notification**: New users receive an automated welcome notification.
 
-9. **Token Storage**: Store refresh tokens securely (httpOnly cookies recommended). Access tokens can be stored in memory.
+### Mobile and Email
 
-10. **Unread Counts**: Login and signup responses include real-time unread counts for notifications and chat messages. These counts are calculated at the time of authentication:
+7. **Mobile Number Format**: Always provide 10-digit mobile numbers without country code. Country code is stored separately (defaults to +91).
+
+8. **Email Required**: Both mobile and email are required fields for all signup methods (password-based and OTP-based).
+
+9. **Verification Flags**:
+   - `isPhoneVerified`: Set to true after OTP verification or Google OAuth
+   - `isEmailVerified`: Set to true after OTP verification or Google OAuth
+   - `is_password_reset`: Set to true after password reset
+
+### Security
+
+10. **Password Requirements**: Minimum 6 characters (can be enhanced with complexity rules).
+
+11. **Account Status**: Users with status `blocked`, `suspended`, or inactive accounts cannot login or refresh tokens.
+
+12. **Session Management**: 
+    - Each login/signup creates a new session record with device information
+    - Sessions track: device name, user agent, IP address
+    - Refresh token rotation invalidates old tokens
+    - All sessions invalidated on password reset
+
+13. **Token Storage**: Store refresh tokens securely (httpOnly cookies recommended). Access tokens can be stored in memory.
+
+### API Response
+
+14. **Response Format**: All responses include a `timestamp` field with ISO 8601 format.
+
+15. **Unread Counts**: Login and signup responses include real-time unread counts:
     - `unreadNotifications`: Total unread notifications for the user
     - `unreadChats`: Total unread chat messages across all chat rooms
     - New users will have both counts as 0
-    - For real-time updates after login, use Socket.io (see `SOCKET-UNREAD-COUNTS-PLAN.md`)
+    - For real-time updates after login, use Socket.io
+
+16. **Device Information**: Optional `device_name` parameter can be included in request body for session tracking.
+
+### Password Reset
+
+17. **Password Reset Flow**:
+    - Request OTP via email/SMS using forgot-password endpoint
+    - OTP expires in 10 minutes
+    - Reset password using OTP and new password
+    - All active sessions are invalidated after successful reset
+    - See [Password Reset API Documentation](./password-reset.md) for details

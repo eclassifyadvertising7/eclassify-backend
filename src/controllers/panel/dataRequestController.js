@@ -71,6 +71,19 @@ class DataRequestController {
     }
   }
 
+  static async updateRequest(req, res) {
+    try {
+      const { id } = req.params;
+      const reviewerId = req.user.userId;
+
+      const result = await dataRequestService.updateRequest(id, req.body, reviewerId);
+
+      return successResponse(res, result.data, result.message);
+    } catch (error) {
+      return errorResponse(res, error.message, 400);
+    }
+  }
+
   static async getStatistics(req, res) {
     try {
       const result = await dataRequestService.getStatistics();
