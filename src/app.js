@@ -23,6 +23,7 @@ const allowedOrigins = [
   "http://eclassify-frontend.vercel.app",
   "https://sealsale.online",
   "http://sealsale.online",
+  "http://localhost:8080",
   process.env.CORS_ORIGIN,
   process.env.FRONTEND_URL,
 ].filter(Boolean);

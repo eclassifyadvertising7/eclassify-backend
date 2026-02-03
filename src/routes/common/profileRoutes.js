@@ -61,6 +61,13 @@ router.get('/me/preferred-location', authenticate, ProfileController.getPreferre
 router.put('/me/preferred-location', authenticate, ProfileController.updatePreferredLocation);
 
 /**
+ * @route POST /api/profile/change-password
+ * @desc Change password for authenticated user
+ * @access Private (All authenticated users)
+ */
+router.post('/change-password', authenticate, ProfileController.changePassword);
+
+/**
  * @route GET /api/profile/:userId
  * @desc Get any user's profile by ID (Admin only)
  * @access Private (Admin/Super Admin)

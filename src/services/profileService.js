@@ -1,4 +1,5 @@
 import profileRepository from '#repositories/profileRepository.js';
+import authRepository from '#repositories/authRepository.js';
 import imageService from '#services/imageService.js';
 import { uploadFile, deleteFile } from '#config/storageConfig.js';
 import { getRelativePath } from '#utils/storageHelper.js';
@@ -7,6 +8,7 @@ import { sequelize } from '#models/index.js';
 import models from '#models/index.js';
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '#utils/constants/messages.js';
 import sharp from 'sharp';
+import bcrypt from 'bcrypt';
 
 const { User } = models;
 const STORAGE_TYPE = process.env.STORAGE_TYPE || 'local';
@@ -350,7 +352,6 @@ class ProfileService {
 
   async updatePreferredLocation(userId, locationData) {
     try {
-      // Check if user exists
       const user = await User.findByPk(userId);
       if (!user) {
         throw new Error(ERROR_MESSAGES.USER_NOT_FOUND);
@@ -394,6 +395,39 @@ class ProfileService {
     } catch (error) {
       throw error;
     }
+  }
+
+  async changePassword(userId, currentPassword, newPassword) {
+    if (!currentPassword || !newPassword) {
+      throw new Error(ERROR_MESSAGES.MISSING_REQUIRED_FIELDS);
+    }
+
+    if (newPassword.length < 6) {
+      throw new Error('New password must be at least 6 characters');
+    }
+
+    if (currentPassword === newPassword) {
+      throw new Error('New password must be different from current password');
+    }
+
+    const user = await authRepository.findById(userId);
+    if (!user) {
+      throw new Error(ERROR_MESSAGES.USER_NOT_FOUND);
+    }
+
+    const isPasswordValid = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!isPasswordValid) {
+      throw new Error('Current password is incorrect');
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await authRepository.updatePassword(userId, passwordHash);
+
+    return {
+      success: true,
+      message: 'Password changed successfully',
+      data: null
+    };
   }
 }
 
