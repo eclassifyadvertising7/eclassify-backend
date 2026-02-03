@@ -101,6 +101,18 @@ class ProfileController {
       return errorResponse(res, error.message, 400);
     }
   }
+
+  static async changePassword(req, res) {
+    try {
+      const userId = req.user.userId;
+      const { currentPassword, newPassword } = req.body;
+
+      const result = await profileService.changePassword(userId, currentPassword, newPassword);
+      return successResponse(res, result.data, result.message);
+    } catch (error) {
+      return errorResponse(res, error.message, 400);
+    }
+  }
 }
 
 export default ProfileController;

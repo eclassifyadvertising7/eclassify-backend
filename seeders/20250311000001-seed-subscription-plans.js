@@ -23,7 +23,8 @@ export async function up(queryInterface, Sequelize) {
       freeQuota: { limit: 1, activeListings: 1, price: 0 },
       basicQuota: { total: 15, activeListings: 15, price: 299 },
       standardQuota: { total: 30, activeListings: 30, price: 599 },
-      premiumQuota: { total: 50, activeListings: 50, price: 999 }
+      premiumQuota: { total: 50, activeListings: 50, price: 999 },
+      testQuota: { total: 3, activeListings: 3, price: 99 }
     },
     {
       category: propertiesCategory,
@@ -31,7 +32,8 @@ export async function up(queryInterface, Sequelize) {
       freeQuota: { limit: 1, activeListings: 1 },
       basicQuota: { total: 15, activeListings: 15, price: 499 },
       standardQuota: { total: 30, activeListings: 30, price: 899 },
-      premiumQuota: { total: 50, activeListings: 50, price: 1499 }
+      premiumQuota: { total: 50, activeListings: 50, price: 1499 },
+      testQuota: { total: 3, activeListings: 3, price: 149 }
     }
   ];
 
@@ -250,6 +252,60 @@ export async function up(queryInterface, Sequelize) {
         boostedDays: 15,
         spotlightDays: 7
       }
+    },
+    {
+      tier: 'test',
+      name: 'Test Plan',
+      tagline: 'For testing featured listings',
+      description: 'Test plan with limited featured listings for development and testing purposes.',
+      shortDescription: 'Test plan with 1 featured listing',
+      sortOrder: 5,
+      billingCycle: 'monthly',
+      durationDays: 30,
+      showOriginalPrice: false,
+      showOfferBadge: true,
+      offerBadgeText: 'TEST',
+      isDefault: false,
+      isFeatured: false,
+      isSystemPlan: false,
+      isFreePlan: false,
+      isQuotaBased: true,
+      supportLevel: 'standard',
+      features: {
+        showPhoneNumber: true,
+        showWhatsapp: true,
+        allowChat: true,
+        priorityChatSupport: false,
+        analyticsEnabled: true,
+        viewCountVisible: true,
+        trackLeads: true,
+        sellerVerificationIncluded: false,
+        trustBadge: false,
+        warrantyBadge: false,
+        geoTargetingEnabled: false,
+        radiusTargetingKm: null,
+        socialSharingEnabled: true,
+        createPromotions: false,
+        autoApproval: false,
+        priorityModeration: false,
+        appealRejectedListings: true
+      },
+      visibility: {
+        priorityScore: 5,
+        searchBoostMultiplier: 1.1,
+        recommendationBoostMultiplier: 1.0,
+        crossCityVisibility: false,
+        nationalVisibility: false
+      },
+      featuredLimits: {
+        maxFeaturedListings: 2,
+        maxBoostedListings: 0,
+        maxSpotlightListings: 0,
+        maxHomepageListings: 0,
+        featuredDays: 7,
+        boostedDays: 0,
+        spotlightDays: 0
+      }
     }
   ];
 
@@ -344,6 +400,19 @@ export async function up(queryInterface, Sequelize) {
             finalPrice: categoryConfig.premiumQuota.price
           };
           break;
+        case 'test':
+          quotaConfig = {
+            maxTotalListings: categoryConfig.testQuota.total,
+            maxActiveListings: categoryConfig.testQuota.activeListings,
+            listingQuotaLimit: categoryConfig.testQuota.total,
+            listingQuotaRollingDays: 30
+          };
+          pricing = {
+            basePrice: categoryConfig.testQuota.price,
+            discountAmount: 0,
+            finalPrice: categoryConfig.testQuota.price
+          };
+          break;
       }
 
       // Determine upsell suggestion
@@ -351,7 +420,8 @@ export async function up(queryInterface, Sequelize) {
         'free': 'basic',
         'basic': 'standard',
         'standard': 'premium',
-        'premium': null
+        'premium': null,
+        'test': 'basic'
       };
       const nextTier = upsellMap[planTier.tier];
       const upsellSuggestion = nextTier ? { recommended: `${categoryConfig.categoryType}-${nextTier}` } : {};
@@ -419,8 +489,8 @@ export async function down(queryInterface, Sequelize) {
   await queryInterface.bulkDelete('subscription_plans', {
     plan_code: {
       [Sequelize.Op.in]: [
-        'cars-free', 'cars-basic', 'cars-standard', 'cars-premium',
-        'properties-free', 'properties-basic', 'properties-standard', 'properties-premium'
+        'cars-free', 'cars-basic', 'cars-standard', 'cars-premium', 'cars-test',
+        'properties-free', 'properties-basic', 'properties-standard', 'properties-premium', 'properties-test'
       ]
     }
   });
