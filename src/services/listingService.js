@@ -314,6 +314,14 @@ class ListingService {
     console.log(`[LISTING SUBMIT] NO AUTO-APPROVE - Setting status to pending`);
     await listingRepository.updateStatus(id, 'pending', { userId });
 
+    console.log(`[LISTING SUBMIT] Reserving quota for pending listing...`);
+    try {
+      await quotaService.consumeQuota(userId, listing.categoryId, id);
+      console.log(`[LISTING SUBMIT] Quota reserved successfully`);
+    } catch (error) {
+      console.error(`[LISTING SUBMIT] ERROR reserving quota:`, error.message);
+    }
+
     const updatedListing = await listingRepository.getById(id, { includeAll: true });
 
     console.log(`[LISTING SUBMIT] ========== END (PENDING) ==========`);

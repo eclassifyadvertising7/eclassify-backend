@@ -80,6 +80,7 @@ class LocationRepository {
         'district',
         'stateName',
         'pincode',
+        'locality',
         'latitude',
         'longitude'
       ],
@@ -102,6 +103,7 @@ class LocationRepository {
         'stateName',
         'stateId',
         'pincode',
+        'locality',
         'latitude',
         'longitude',
         'displayOrder'
@@ -114,16 +116,25 @@ class LocationRepository {
     const whereClause = {
       isActive: true,
       isDeleted: false,
-      name: {
-        [Op.iLike]: `%${query}%`
-      }
+      [Op.or]: [
+        {
+          locality: {
+            [Op.iLike]: `%${query}%`
+          }
+        },
+        {
+          name: {
+            [Op.iLike]: `%${query}%`
+          }
+        }
+      ]
     };
 
     if (stateId) {
       whereClause.stateId = stateId;
     }
 
-    return await City.findAll({
+    const cities = await City.findAll({
       where: whereClause,
       attributes: [
         'id',
@@ -133,17 +144,33 @@ class LocationRepository {
         'stateName',
         'stateId',
         'pincode',
+        'locality',
         'latitude',
         'longitude',
         'isPopular'
       ],
-      order: [
-        ['isPopular', 'DESC'],
-        ['displayOrder', 'ASC'],
-        ['name', 'ASC']
-      ],
-      limit
+      limit: limit * 2
     });
+
+    const sortedCities = cities.sort((a, b) => {
+      const aLocalityMatch = a.locality?.toLowerCase().includes(query.toLowerCase());
+      const bLocalityMatch = b.locality?.toLowerCase().includes(query.toLowerCase());
+      
+      if (aLocalityMatch && !bLocalityMatch) return -1;
+      if (!aLocalityMatch && bLocalityMatch) return 1;
+      
+      if (b.isPopular !== a.isPopular) {
+        return b.isPopular ? 1 : -1;
+      }
+      
+      if (a.displayOrder !== b.displayOrder) {
+        return a.displayOrder - b.displayOrder;
+      }
+      
+      return a.name.localeCompare(b.name);
+    });
+
+    return sortedCities.slice(0, limit);
   }
 
   async getNearbyCities(lat, lng, radius) {
@@ -162,6 +189,7 @@ class LocationRepository {
         'stateName',
         'stateId',
         'pincode',
+        'locality',
         'latitude',
         'longitude',
         'isPopular'

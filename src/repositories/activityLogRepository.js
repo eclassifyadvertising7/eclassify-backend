@@ -250,6 +250,81 @@ class ActivityLogRepository {
   }
 
   /**
+   * Get recently viewed listings for a user
+   * @param {number} userId - User ID
+   * @param {Object} options - Query options
+   * @returns {Promise<Object>} Recently viewed listings with pagination
+   */
+  async getRecentlyViewedListings(userId, options = {}) {
+    const { limit = 20, offset = 0 } = options;
+
+    const viewedListings = await sequelize.query(
+      `
+      SELECT DISTINCT ON (target_id) 
+        target_id,
+        created_at as last_viewed_at
+      FROM user_activity_logs
+      WHERE user_id = :userId
+        AND activity_type = 'view_listing_detail'
+        AND target_type = 'listing'
+      ORDER BY target_id, created_at DESC
+      LIMIT :limit OFFSET :offset
+      `,
+      {
+        replacements: { userId, limit, offset },
+        type: sequelize.QueryTypes.SELECT
+      }
+    );
+
+    const totalCount = await UserActivityLog.count({
+      where: {
+        userId,
+        activityType: 'view_listing_detail',
+        targetType: 'listing'
+      },
+      distinct: true,
+      col: 'targetId'
+    });
+
+    const listingIds = viewedListings.map(v => v.target_id);
+    const viewTimestamps = viewedListings.reduce((acc, v) => {
+      acc[v.target_id] = v.last_viewed_at;
+      return acc;
+    }, {});
+
+    if (listingIds.length === 0) {
+      return {
+        listings: [],
+        total: 0,
+        limit,
+        offset
+      };
+    }
+
+    const { Listing } = models;
+    const listings = await Listing.findAll({
+      where: {
+        id: { [Op.in]: listingIds }
+      }
+    });
+
+    const listingsWithViewTime = listings
+      .map(listing => {
+        const listingData = listing.toJSON();
+        listingData.lastViewedAt = viewTimestamps[listing.id];
+        return listingData;
+      })
+      .sort((a, b) => new Date(b.lastViewedAt) - new Date(a.lastViewedAt));
+
+    return {
+      listings: listingsWithViewTime,
+      total: totalCount,
+      limit,
+      offset
+    };
+  }
+
+  /**
    * Delete old activity logs (for data retention)
    * @param {Date} beforeDate - Delete logs before this date
    * @returns {Promise<number>} Number of deleted records

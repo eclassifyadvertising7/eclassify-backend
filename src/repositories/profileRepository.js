@@ -218,12 +218,12 @@ class ProfileRepository {
       where: { userId },
       attributes: [
         'id',
-        ['preferred_state_id', 'preferredStateId'],
-        ['preferred_state_name', 'preferredStateName'],
-        ['preferred_city_id', 'preferredCityId'],
-        ['preferred_city_name', 'preferredCityName'],
-        ['preferred_latitude', 'preferredLatitude'],
-        ['preferred_longitude', 'preferredLongitude']
+        'preferredStateId',
+        'preferredStateName',
+        'preferredCityId',
+        'preferredCityName',
+        'preferredLatitude',
+        'preferredLongitude'
       ]
     });
 
