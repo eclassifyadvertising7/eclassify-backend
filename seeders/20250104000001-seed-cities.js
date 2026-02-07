@@ -29,7 +29,7 @@ const normalizeString = (str) => {
 export default {
   up: async (queryInterface) => {
     // Read state cities data from JSON file
-    const citiesFilePath = join(__dirname, '../data/stateCitiesData.json');
+    const citiesFilePath = join(__dirname, '../data/stateCitiesDataNew.json');
     const citiesData = JSON.parse(readFileSync(citiesFilePath, 'utf-8'));
 
     // Get all states from database
@@ -99,6 +99,7 @@ export default {
         district_id: null, // Will be populated later if districts are seeded
         state_name: stateInfo.name,
         district: null,
+        locality: cityData.locality && cityData.locality.trim() !== '' ? cityData.locality : null,
         pincode: cityData.pincode || null,
         latitude: cityData.latitude ? parseFloat(cityData.latitude) : null,
         longitude: cityData.longitude ? parseFloat(cityData.longitude) : null,

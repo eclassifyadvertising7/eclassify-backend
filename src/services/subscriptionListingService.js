@@ -109,6 +109,7 @@ class SubscriptionListingService {
     return listings.map(listing => ({
       id: listing.id,
       title: listing.title,
+      slug: listing.slug,
       price: listing.price,
       status: listing.status,
       categoryName: listing.category?.name || 'Unknown',

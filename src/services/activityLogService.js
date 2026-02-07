@@ -119,6 +119,47 @@ class ActivityLogService {
     return uuidv4();
   }
 
+  async getRecentlyViewedListings(userId, options = {}) {
+    try {
+      if (!userId) {
+        throw new Error('User ID is required');
+      }
+
+      const page = parseInt(options.page) || 1;
+      const limit = Math.min(parseInt(options.limit) || 20, 50);
+      const offset = (page - 1) * limit;
+
+      const result = await activityLogRepository.getRecentlyViewedListings(userId, {
+        limit,
+        offset
+      });
+
+      const totalPages = Math.ceil(result.total / limit);
+
+      return {
+        success: true,
+        message: 'Recently viewed listings retrieved successfully',
+        data: {
+          listings: result.listings,
+          pagination: {
+            total: result.total,
+            limit,
+            offset,
+            currentPage: page,
+            totalPages
+          }
+        }
+      };
+    } catch (error) {
+      console.error('Error getting recently viewed listings:', error);
+      return {
+        success: false,
+        message: 'Failed to retrieve recently viewed listings',
+        error: error.message
+      };
+    }
+  }
+
   /**
    * Get user activity analytics
    * @param {Object} filters - Filter options

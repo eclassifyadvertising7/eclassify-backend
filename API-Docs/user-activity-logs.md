@@ -1,334 +1,108 @@
 # User Activity Logs API Documentation
 
 ## Overview
-API endpoints for tracking and analyzing user activity logs, focusing on listing views and chat initiations for analytics and recommendations.
-
-## Authentication
-End-user endpoints support both authenticated and anonymous users. Panel endpoints require admin/staff roles.
+API endpoints for tracking and retrieving user activity logs, including listing views and recently viewed listings.
 
 ---
 
 ## End-User Endpoints
 
-### Log Listing View
-**POST** `/api/end-user/activity/log-view`
+### Get Recently Viewed Listings
 
-Log when a user views a listing detail page.
+Retrieve listings that the authenticated user has recently viewed, ordered by most recent view first.
 
-**Request Body:**
-```json
-{
-  "listingId": 12345,
-  "metadata": {
-    "view_duration": 45,
-    "referrer_source": "search_results",
-    "page_url": "/listing/12345",
-    "scroll_depth": 85
-  }
-}
-```
+**Endpoint:** `GET /api/end-user/activity/recently-viewed`
 
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Activity logged successfully",
-  "data": {
-    "activityLogId": 67890
-  }
-}
-```
-
-**Metadata Fields:**
-- `view_duration` (number) - Time spent on page in seconds
-- `referrer_source` (string) - How user arrived: `search_results`, `category_page`, `direct_link`, `favorites`, `external`, `recommendation`
-- `page_url` (string) - Full page URL
-- `scroll_depth` (number) - Percentage of page scrolled (0-100)
-
----
-
-### Log Chat Initiation
-**POST** `/api/end-user/activity/log-chat`
-
-Log when a user initiates chat with a seller.
-
-**Request Body:**
-```json
-{
-  "listingId": 12345,
-  "metadata": {
-    "seller_id": 67890,
-    "chat_room_id": 555,
-    "button_location": "listing_header"
-  }
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Activity logged successfully",
-  "data": {
-    "activityLogId": 67891
-  }
-}
-```
-
-**Metadata Fields:**
-- `seller_id` (number) - ID of the seller being contacted
-- `chat_room_id` (number) - ID of created chat room (if successful)
-- `button_location` (string) - Where chat was initiated: `listing_header`, `listing_footer`, `contact_section`, `floating_button`
-
----
-
-### Get User Activity Summary
-**GET** `/api/end-user/activity/summary`
-
-Get authenticated user's activity summary and statistics.
+**Authentication:** Required (JWT token)
 
 **Query Parameters:**
-- `startDate` (string, optional) - Start date (ISO format)
-- `endDate` (string, optional) - End date (ISO format)
+- `page` (optional, integer, default: 1) - Page number for pagination
+- `limit` (optional, integer, default: 20, max: 50) - Number of listings per page
 
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Activity summary retrieved successfully",
-  "data": {
-    "view_listing_detail": {
-      "count": 45,
-      "uniqueTargets": 32
-    },
-    "initiate_chat": {
-      "count": 8,
-      "uniqueTargets": 7
-    }
-  }
-}
+**Request Example:**
+```http
+GET /api/end-user/activity/recently-viewed?page=1&limit=20
+Authorization: Bearer <jwt_token>
 ```
 
----
-
-## Panel Endpoints (Admin/Staff)
-
-### Get Activity Analytics
-**GET** `/api/panel/activity/analytics`
-
-Get comprehensive activity analytics for admin dashboard.
-
-**Query Parameters:**
-- `startDate` (string, optional) - Start date (ISO format)
-- `endDate` (string, optional) - End date (ISO format)
-- `activityType` (string, optional) - Filter by activity type: `view_listing_detail`, `initiate_chat`
-- `userId` (number, optional) - Filter by specific user
-
-**Response:**
+**Success Response (200 OK):**
 ```json
 {
   "success": true,
-  "message": "Analytics retrieved successfully",
-  "data": [
-    {
-      "activityType": "view_listing_detail",
-      "count": 2340,
-      "date": "2025-01-15"
-    },
-    {
-      "activityType": "initiate_chat",
-      "count": 156,
-      "date": "2025-01-15"
-    }
-  ]
-}
-```
-
----
-
-### Get Activity Logs
-**GET** `/api/panel/activity/logs`
-
-Get detailed activity logs with filtering and pagination.
-
-**Query Parameters:**
-- `page` (number, optional) - Page number (default: 1)
-- `limit` (number, optional) - Items per page (default: 50, max: 100)
-- `userId` (number, optional) - Filter by user ID
-- `sessionId` (string, optional) - Filter by session ID
-- `activityType` (string, optional) - Filter by activity type
-- `targetId` (number, optional) - Filter by target ID (listing ID)
-- `startDate` (string, optional) - Start date (ISO format)
-- `endDate` (string, optional) - End date (ISO format)
-- `ipAddress` (string, optional) - Filter by IP address
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Activity logs retrieved successfully",
+  "message": "Recently viewed listings retrieved successfully",
   "data": {
-    "logs": [
+    "listings": [
       {
-        "id": 67890,
-        "userId": 123,
-        "sessionId": "sess_abc123",
-        "activityType": "view_listing_detail",
-        "targetId": 12345,
-        "targetType": "listing",
-        "metadata": {
-          "view_duration": 45,
-          "referrer_source": "search_results",
-          "scroll_depth": 85
+        "id": 123,
+        "userId": 45,
+        "categoryId": 1,
+        "categorySlug": "cars",
+        "title": "2020 BMW 3 Series",
+        "slug": "2020-bmw-3-series-abc123",
+        "shareCode": "XYZ123",
+        "description": "Well maintained BMW 3 Series...",
+        "price": "2500000.00",
+        "priceNegotiable": false,
+        "stateId": 21,
+        "cityId": 1234,
+        "stateName": "Maharashtra",
+        "cityName": "Mumbai",
+        "locality": "Andheri West",
+        "pincode": "400053",
+        "address": "Near Metro Station",
+        "latitude": "19.1234567",
+        "longitude": "72.8765432",
+        "status": "active",
+        "isFeatured": false,
+        "featuredUntil": null,
+        "expiresAt": "2026-03-06T10:30:00.000Z",
+        "publishedAt": "2026-02-04T10:30:00.000Z",
+        "approvedAt": "2026-02-04T11:00:00.000Z",
+        "approvedBy": 1,
+        "rejectedAt": null,
+        "rejectedBy": null,
+        "rejectionReason": null,
+        "viewCount": 45,
+        "contactCount": 12,
+        "totalFavorites": 8,
+        "coverImage": "http://localhost:5000/uploads/listings/user-45/images/photo.jpg",
+        "coverImageStorageType": "local",
+        "coverImageMimeType": "image/jpeg",
+        "isAutoApproved": false,
+        "postedByType": "owner",
+        "userSubscriptionId": 789,
+        "isPaidListing": true,
+        "keywords": "bmw, 3 series, luxury car",
+        "republishCount": 0,
+        "lastRepublishedAt": null,
+        "republishHistory": null,
+        "essentialData": {
+          "brand": "BMW",
+          "model": "3 Series",
+          "year": 2020,
+          "fuelType": "Petrol"
         },
-        "ipAddress": "192.168.1.100",
-        "userAgent": "Mozilla/5.0...",
-        "createdAt": "2025-01-15T10:30:00Z",
-        "user": {
-          "id": 123,
-          "email": "user@example.com",
-          "mobile": "9175113022"
-        }
+        "createdBy": 45,
+        "updatedBy": 45,
+        "deletedBy": null,
+        "deletedAt": null,
+        "createdAt": "2026-02-04T10:30:00.000Z",
+        "updatedAt": "2026-02-04T10:30:00.000Z",
+        "lastViewedAt": "2026-02-04T15:45:00.000Z"
       }
     ],
-    "total": 1250,
-    "limit": 50,
-    "offset": 0
-  }
-}
-```
-
----
-
-### Get Activity Count by Type
-**GET** `/api/panel/activity/count-by-type`
-
-Get activity counts grouped by activity type.
-
-**Query Parameters:**
-- `userId` (number, optional) - Filter by user ID
-- `targetId` (number, optional) - Filter by target ID
-- `startDate` (string, optional) - Start date (ISO format)
-- `endDate` (string, optional) - End date (ISO format)
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Activity counts retrieved successfully",
-  "data": [
-    {
-      "activityType": "view_listing_detail",
-      "count": 2340
-    },
-    {
-      "activityType": "initiate_chat",
-      "count": 156
-    }
-  ]
-}
-```
-
----
-
-### Get Most Viewed Listings
-**GET** `/api/panel/activity/most-viewed`
-
-Get listings with highest view counts for analytics.
-
-**Query Parameters:**
-- `limit` (number, optional) - Number of results (default: 10, max: 50)
-- `startDate` (string, optional) - Start date (ISO format)
-- `endDate` (string, optional) - End date (ISO format)
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Most viewed listings retrieved successfully",
-  "data": [
-    {
-      "targetId": 12345,
-      "viewCount": 245,
-      "uniqueUsers": 189,
-      "listing": {
-        "id": 12345,
-        "title": "Honda City 2020",
-        "price": 850000,
-        "status": "active"
-      }
-    }
-  ]
-}
-```
-
----
-
-### Get Conversion Rate Analytics
-**GET** `/api/panel/activity/conversion-rate`
-
-Get conversion rate from listing views to chat initiations.
-
-**Query Parameters:**
-- `startDate` (string, optional) - Start date (ISO format)
-- `endDate` (string, optional) - End date (ISO format)
-- `targetId` (number, optional) - Filter by specific listing
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Conversion analytics retrieved successfully",
-  "data": {
-    "totalViews": 2340,
-    "totalChats": 156,
-    "conversionRate": 6.67
-  }
-}
-```
-
----
-
-### Get User Activity Details
-**GET** `/api/panel/activity/user/:userId`
-
-Get detailed activity breakdown for a specific user.
-
-**Query Parameters:**
-- `startDate` (string, optional) - Start date (ISO format)
-- `endDate` (string, optional) - End date (ISO format)
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "User activity summary retrieved successfully",
-  "data": {
-    "view_listing_detail": {
-      "count": 45,
-      "uniqueTargets": 32
-    },
-    "initiate_chat": {
-      "count": 8,
-      "uniqueTargets": 7
+    "pagination": {
+      "total": 45,
+      "limit": 20,
+      "offset": 0,
+      "currentPage": 1,
+      "totalPages": 3
     }
   }
 }
 ```
 
----
-
-## Error Handling
-
-### Common Error Responses
-
-**400 Bad Request:**
-```json
-{
-  "success": false,
-  "message": "Missing required fields for activity logging"
-}
-```
+**Error Responses:**
 
 **401 Unauthorized:**
 ```json
@@ -338,109 +112,44 @@ Get detailed activity breakdown for a specific user.
 }
 ```
 
-**403 Forbidden:**
-```json
-{
-  "success": false,
-  "message": "Insufficient permissions"
-}
-```
-
-**404 Not Found:**
-```json
-{
-  "success": false,
-  "message": "Listing not found"
-}
-```
-
 **500 Internal Server Error:**
 ```json
 {
   "success": false,
-  "message": "Failed to log activity"
+  "message": "Internal server error"
 }
-```
-
----
-
-## Frontend Integration Examples
-
-### Activity Logging Integration
-
-```javascript
-// Log listing view when user visits listing detail page
-const logListingView = async (listingId, metadata = {}) => {
-  try {
-    await fetch('/api/end-user/activity/log-view', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}` // Optional for anonymous users
-      },
-      body: JSON.stringify({
-        listingId,
-        metadata: {
-          referrer_source: document.referrer ? 'external' : 'direct_link',
-          page_url: window.location.href,
-          view_duration: null, // Will be updated on page unload
-          ...metadata
-        }
-      })
-    });
-  } catch (error) {
-    console.error('Error logging view:', error);
-  }
-};
-
-// Log chat initiation when user clicks chat button
-const logChatInitiation = async (listingId, sellerId, buttonLocation) => {
-  try {
-    await fetch('/api/end-user/activity/log-chat', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        listingId,
-        metadata: {
-          seller_id: sellerId,
-          button_location: buttonLocation,
-          chat_room_id: null // Will be updated after chat room creation
-        }
-      })
-    });
-  } catch (error) {
-    console.error('Error logging chat initiation:', error);
-  }
-};
-
-// Track view duration on page unload
-let viewStartTime = Date.now();
-
-window.addEventListener('beforeunload', () => {
-  const viewDuration = Math.round((Date.now() - viewStartTime) / 1000);
-  
-  // Use sendBeacon for reliable logging on page unload
-  navigator.sendBeacon('/api/end-user/activity/update-view-duration', 
-    JSON.stringify({
-      activityLogId: currentActivityLogId,
-      viewDuration
-    })
-  );
-});
 ```
 
 ---
 
 ## Notes
 
-- Activity logging is non-blocking and should not affect user experience
-- Anonymous users are tracked via session ID for basic analytics
-- View duration tracking helps identify engaging content
-- Conversion rate analytics help optimize listing performance
-- All timestamps are in ISO 8601 format (UTC)
-- Panel endpoints require appropriate role permissions
-- IP addresses are logged for fraud detection and analytics
-- Metadata is stored as JSONB for flexible analysis
+### Deduplication
+- If a user views the same listing multiple times, only the most recent view is returned
+- Each listing appears only once in the results
+
+### Listing Fields
+- All listing fields are returned as full Sequelize objects
+- `coverImage` field uses getter to return full URL based on storage type
+- `lastViewedAt` is added to each listing object showing when it was last viewed
+
+### Pagination
+- Default limit is 20 listings per page
+- Maximum limit is 50 listings per page
+- Use `page` parameter to navigate through results
+
+### Listing Status
+- Only non-deleted listings are returned
+- Includes listings with any status (draft, pending, active, expired, sold, rejected)
+
+### Performance
+- Query uses `DISTINCT ON (target_id)` for efficient deduplication
+- Existing database indexes on `(user_id, created_at)` optimize performance
+
+---
+
+## Related Endpoints
+
+- `POST /api/end-user/activity/log` - Log user activity (view, chat initiation)
+- `GET /api/panel/activity/most-viewed` - Get most viewed listings (admin)
+- `GET /api/panel/activity/conversion-rate` - Get view-to-chat conversion rate (admin)

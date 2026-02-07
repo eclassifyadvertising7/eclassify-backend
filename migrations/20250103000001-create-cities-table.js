@@ -43,6 +43,10 @@ export async function up(queryInterface, Sequelize) {
       type: Sequelize.STRING(255),
       allowNull: true,
     },
+    locality: {
+      type: Sequelize.STRING(255),
+      allowNull: true,
+    },
     pincode: {
       type: Sequelize.STRING(10),
       allowNull: true,

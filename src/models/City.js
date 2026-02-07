@@ -39,6 +39,10 @@ City.init(
       type: DataTypes.STRING(255),
       allowNull: true,
     },
+    locality: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
     pincode: {
       type: DataTypes.STRING(10),
       allowNull: true,
