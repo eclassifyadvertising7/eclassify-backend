@@ -9,6 +9,7 @@ import sequelize from '#config/database.js';
 import SearchHelper from '#utils/searchHelper.js';
 import LocationHelper from '#utils/locationHelper.js';
 import ScoringHelper from '#utils/scoringHelper.js';
+import scoringLogger from '#utils/loggers/scoringLogger.js';
 
 const { Listing, CarListing, PropertyListing, ListingMedia, Category, State, City, User, UserProfile, UserFavorite } = models;
 
@@ -651,6 +652,333 @@ class ListingRepository {
       postedByType,
       featuredOnly,
       sortBy = 'relevance',
+      filters = {}
+    } = searchParams;
+
+    const { page = 1, limit = 20 } = pagination;
+    const offset = (page - 1) * limit;
+
+    const where = SearchHelper.buildSearchWhere(query, {
+      categoryId,
+      priceMin,
+      priceMax,
+      stateId,
+      cityId,
+      postedByType,
+      featuredOnly
+    });
+
+    if (locality) {
+      where.locality = { [Op.iLike]: `%${locality}%` };
+    }
+
+    const include = [];
+
+    if (categoryId) {
+      const { CarBrand, CarModel, CarVariant } = models;
+      
+      if (filters.brandId || filters.modelId || filters.variantId || filters.year || 
+          filters.fuelType || filters.transmission || filters.condition) {
+        
+        const carWhere = {};
+        if (filters.brandId) carWhere.brandId = filters.brandId;
+        if (filters.modelId) carWhere.modelId = filters.modelId;
+        if (filters.variantId) carWhere.variantId = filters.variantId;
+        if (filters.year) carWhere.year = filters.year;
+        if (filters.fuelType) carWhere.fuelType = filters.fuelType;
+        if (filters.transmission) carWhere.transmission = filters.transmission;
+        if (filters.condition) carWhere.condition = filters.condition;
+        if (filters.minMileage) carWhere.mileageKm = { [Op.gte]: filters.minMileage };
+        if (filters.maxMileage) {
+          carWhere.mileageKm = carWhere.mileageKm || {};
+          carWhere.mileageKm[Op.lte] = filters.maxMileage;
+        }
+
+        include.push({
+          model: CarListing,
+          as: 'carListing',
+          where: carWhere,
+          required: true,
+          include: [
+            { model: CarBrand, as: 'brand', attributes: ['id', 'name', 'slug'] },
+            { model: CarModel, as: 'model', attributes: ['id', 'name', 'slug'] },
+            { model: CarVariant, as: 'variant', attributes: ['id', 'variantName', 'slug'], required: false }
+          ]
+        });
+      }
+
+      if (filters.propertyType || filters.bedrooms || filters.bathrooms || filters.areaSqft) {
+        const propertyWhere = {};
+        if (filters.propertyType) {
+          if (Array.isArray(filters.propertyType)) {
+            propertyWhere.propertyType = { [Op.in]: filters.propertyType };
+          } else {
+            propertyWhere.propertyType = filters.propertyType;
+          }
+        }
+        if (filters.bedrooms) propertyWhere.bedrooms = filters.bedrooms;
+        if (filters.bathrooms) propertyWhere.bathrooms = filters.bathrooms;
+        if (filters.minArea) propertyWhere.areaSqft = { [Op.gte]: filters.minArea };
+        if (filters.maxArea) {
+          propertyWhere.areaSqft = propertyWhere.areaSqft || {};
+          propertyWhere.areaSqft[Op.lte] = filters.maxArea;
+        }
+
+        include.push({
+          model: PropertyListing,
+          as: 'propertyListing',
+          where: propertyWhere,
+          required: true
+        });
+      }
+    }
+
+    const order = SearchHelper.buildSearchOrder(query, sortBy, userLocation);
+
+    const { count, rows } = await Listing.findAndCountAll({
+      where,
+      include,
+      order,
+      limit,
+      offset,
+      distinct: true
+    });
+
+    const listingsWithFavorited = await this.addIsFavoritedField(rows, userId);
+    
+    const enrichedResults = listingsWithFavorited.map((listing) => {
+      const listingData = listing.toJSON ? listing.toJSON() : listing;
+      
+      const scoreResult = ScoringHelper.calculateTotalScore(listingData, {
+        userLocation
+      });
+
+      return {
+        ...listingData,
+        totalScore: scoreResult.totalScore,
+        scoreBreakdown: scoreResult.breakdown
+      };
+    });
+
+    const sortedResults = sortBy === 'relevance' 
+      ? ScoringHelper.sortListings(enrichedResults)
+      : ScoringHelper.sortListingsWithPrimary(enrichedResults, sortBy);
+
+    return {
+      listings: sortedResults,
+      pagination: {
+        total: count,
+        page,
+        limit,
+        totalPages: Math.ceil(count / limit)
+      },
+      searchMeta: {
+        query: query || '',
+        totalResults: count,
+        hasLocationFilter: !!(stateId || cityId),
+        userLocation: userLocation || null
+      }
+    };
+  }
+
+  calculateBoundingBox(lat, lng, radiusKm) {
+    const latDelta = radiusKm / 111.32;
+    const lngDelta = radiusKm / (111.32 * Math.cos(lat * Math.PI / 180));
+    
+    return {
+      minLat: lat - latDelta,
+      maxLat: lat + latDelta,
+      minLng: lng - lngDelta,
+      maxLng: lng + lngDelta
+    };
+  }
+
+  async findListingsByDistance(userLocation, filters = {}, pagination = {}, userId = null) {
+    if (!userLocation?.latitude || !userLocation?.longitude) {
+      const requestId = filters.requestId || null;
+      if (requestId) {
+        scoringLogger.debug('No coordinates, using standard search', { requestId });
+      }
+      return await this.getAll(filters, pagination, userId, null);
+    }
+
+    const { page = 1, limit = 20 } = pagination;
+    const offset = (page - 1) * limit;
+    const radiusKm = 200;
+    const requestId = filters.requestId || null;
+    const queryStartTime = Date.now();
+
+    if (requestId) {
+      scoringLogger.debug('Distance-based search started', {
+        requestId,
+        userLocation: { lat: userLocation.latitude, lng: userLocation.longitude },
+        source: userLocation.source,
+        radiusKm,
+        filters: { ...filters, requestId: undefined },
+        pagination
+      });
+    }
+
+    const bounds = this.calculateBoundingBox(
+      userLocation.latitude,
+      userLocation.longitude,
+      radiusKm
+    );
+
+    if (requestId) {
+      scoringLogger.debug('Bounding box calculated', {
+        requestId,
+        bounds,
+        radiusKm
+      });
+    }
+
+    const userPoint = `ST_SetSRID(ST_MakePoint(${userLocation.longitude}, ${userLocation.latitude}), 4326)::geography`;
+
+    const conditions = [
+      `status = 'active'`,
+      `expires_at > NOW()`,
+      `latitude BETWEEN ${bounds.minLat} AND ${bounds.maxLat}`,
+      `longitude BETWEEN ${bounds.minLng} AND ${bounds.maxLng}`,
+      `location IS NOT NULL`,
+      `ST_DWithin(location, ${userPoint}, ${radiusKm * 1000})`
+    ];
+
+    if (filters.categoryId) conditions.push(`category_id = ${filters.categoryId}`);
+    if (filters.priceMin) conditions.push(`price >= ${filters.priceMin}`);
+    if (filters.priceMax) conditions.push(`price <= ${filters.priceMax}`);
+
+    const query = `
+      SELECT 
+        listings.*,
+        ST_Distance(location, ${userPoint}) / 1000 AS distance_km
+      FROM listings
+      WHERE ${conditions.join(' AND ')}
+      ORDER BY is_featured DESC, distance_km ASC
+      LIMIT ${limit * 3}
+    `;
+
+    const [rawResults] = await sequelize.query(query);
+    const queryTime = Date.now() - queryStartTime;
+
+    if (requestId) {
+      scoringLogger.debug('Distance query executed', {
+        requestId,
+        resultsFound: rawResults.length,
+        queryTime: `${queryTime}ms`
+      });
+    }
+
+    if (rawResults.length === 0) {
+      if (requestId) {
+        scoringLogger.debug('No listings found', {
+          requestId,
+          message: 'No listings found within 200km radius'
+        });
+      }
+
+      return {
+        listings: [],
+        pagination: {
+          total: 0,
+          page,
+          limit,
+          totalPages: 0
+        }
+      };
+    }
+
+    const listingIds = rawResults.map(r => r.id);
+    const fullListings = await Listing.findAll({
+      where: { id: { [Op.in]: listingIds } },
+      include: [
+        {
+          model: Category,
+          as: 'category',
+          attributes: ['id', 'name', 'slug']
+        }
+      ]
+    });
+
+    const distanceMap = new Map(rawResults.map(r => [r.id, parseFloat(r.distance_km)]));
+    fullListings.forEach(listing => {
+      listing.dataValues.distance_km = distanceMap.get(listing.id);
+    });
+
+    const listingsWithFavorites = await this.addIsFavoritedField(fullListings, userId);
+
+    const scoredListings = listingsWithFavorites.map(listing => {
+      const listingData = listing.toJSON();
+      const scoreResult = ScoringHelper.calculateTotalScore(listingData, { 
+        userLocation,
+        distance_km: listingData.distance_km,
+        requestId 
+      });
+
+      return {
+        ...listing.dataValues,
+        totalScore: scoreResult.totalScore,
+        scoreBreakdown: scoreResult.breakdown
+      };
+    });
+
+    const sortBy = filters.sortBy || 'relevance';
+    const sortedListings = sortBy === 'relevance'
+      ? ScoringHelper.sortListings(scoredListings)
+      : ScoringHelper.sortListingsWithPrimary(scoredListings, sortBy, requestId);
+
+    const paginatedListings = sortedListings.slice(offset, offset + limit);
+
+    const countQuery = `
+      SELECT COUNT(*) as total
+      FROM listings
+      WHERE ${conditions.join(' AND ')}
+    `;
+
+    const [[countResult]] = await sequelize.query(countQuery);
+    const totalCount = parseInt(countResult.total);
+
+    if (requestId) {
+      scoringLogger.debug('Distance search completed', {
+        requestId,
+        totalResults: totalCount,
+        returnedResults: paginatedListings.length,
+        totalTime: `${Date.now() - queryStartTime}ms`
+      });
+    }
+
+    return {
+      listings: paginatedListings,
+      pagination: {
+        total: totalCount,
+        page,
+        limit,
+        totalPages: Math.ceil(totalCount / limit)
+      }
+    };
+  }
+
+
+  /**
+   * Search listings with advanced filtering and ranking
+   * @param {Object} searchParams - Search parameters
+   * @param {Object} userLocation - User location for proximity scoring
+   * @param {Object} pagination - Pagination options
+   * @param {number|null} userId - User ID to check favorites for
+   * @returns {Promise<Object>}
+   */
+  async searchListings(searchParams, userLocation = null, pagination = {}, userId = null) {
+    const {
+      query,
+      categoryId,
+      priceMin,
+      priceMax,
+      stateId,
+      cityId,
+      locality,
+      postedByType,
+      featuredOnly,
+      sortBy = 'relevance',
       filters = {} // Category-specific filters
     } = searchParams;
 
@@ -978,38 +1306,103 @@ class ListingRepository {
       categories = [],
       limit = 10,
       featuredLimit = 10,
-      userLocation = null
+      userLocation = null,
+      requestId = null
     } = filters;
 
-    const baseWhere = {
-      status: 'active',
-      expiresAt: { [Op.gt]: new Date() }
-    };
+    const hasCoordinates = !!(userLocation?.latitude && userLocation?.longitude);
+    const radiusKm = 200;
 
     const result = {
       featured: [],
       byCategory: {}
     };
 
-    const featuredListings = await Listing.findAll({
-      where: {
-        ...baseWhere,
-        isFeatured: true,
-        featuredUntil: { [Op.gt]: new Date() }
-      },
-      include: [
-        {
-          model: Category,
-          as: 'category',
-          attributes: ['id'],
-          where: { isActive: true }
-        }
-      ]
-    });
+    if (requestId) {
+      scoringLogger.debug('Fetching featured listings', { 
+        requestId, 
+        featuredLimit,
+        hasCoordinates,
+        userLocation: hasCoordinates ? { lat: userLocation.latitude, lng: userLocation.longitude } : null
+      });
+    }
+
+    let featuredListings = [];
+    let featuredDistanceMap = new Map();
+
+    if (hasCoordinates) {
+      const bounds = this.calculateBoundingBox(userLocation.latitude, userLocation.longitude, radiusKm);
+      const userPoint = `ST_SetSRID(ST_MakePoint(${userLocation.longitude}, ${userLocation.latitude}), 4326)::geography`;
+
+      const featuredQuery = `
+        SELECT 
+          listings.*,
+          ST_Distance(location, ${userPoint}) / 1000 AS distance_km
+        FROM listings
+        WHERE status = 'active'
+          AND expires_at > NOW()
+          AND is_featured = true
+          AND featured_until > NOW()
+          AND latitude BETWEEN ${bounds.minLat} AND ${bounds.maxLat}
+          AND longitude BETWEEN ${bounds.minLng} AND ${bounds.maxLng}
+          AND location IS NOT NULL
+          AND ST_DWithin(location, ${userPoint}, ${radiusKm * 1000})
+        ORDER BY distance_km ASC
+        LIMIT ${parseInt(featuredLimit) * 2}
+      `;
+
+      const [rawFeatured] = await sequelize.query(featuredQuery);
+      
+      if (rawFeatured.length > 0) {
+        const featuredIds = rawFeatured.map(r => r.id);
+        featuredListings = await Listing.findAll({
+          where: { id: { [Op.in]: featuredIds } },
+          include: [
+            {
+              model: Category,
+              as: 'category',
+              attributes: ['id', 'name', 'slug'],
+              where: { isActive: true }
+            }
+          ]
+        });
+
+        rawFeatured.forEach(r => {
+          featuredDistanceMap.set(r.id, parseFloat(r.distance_km));
+        });
+      }
+    } else {
+      featuredListings = await Listing.findAll({
+        where: {
+          status: 'active',
+          expiresAt: { [Op.gt]: new Date() },
+          isFeatured: true,
+          featuredUntil: { [Op.gt]: new Date() }
+        },
+        include: [
+          {
+            model: Category,
+            as: 'category',
+            attributes: ['id', 'name', 'slug'],
+            where: { isActive: true }
+          }
+        ],
+        limit: parseInt(featuredLimit) * 2
+      });
+    }
 
     const scoredFeaturedListings = featuredListings.map(listing => {
       const listingData = listing.toJSON();
-      const scoreResult = ScoringHelper.calculateTotalScore(listingData, { userLocation });
+      const distance_km = featuredDistanceMap.get(listing.id);
+      if (distance_km !== undefined) {
+        listingData.distance_km = distance_km;
+      }
+      
+      const scoreResult = ScoringHelper.calculateTotalScore(listingData, { 
+        userLocation, 
+        distance_km,
+        requestId 
+      });
       
       return {
         ...listingData,
@@ -1021,26 +1414,100 @@ class ListingRepository {
     const sortedFeaturedListings = ScoringHelper.sortListings(scoredFeaturedListings);
     result.featured = sortedFeaturedListings.slice(0, parseInt(featuredLimit));
 
+    if (requestId) {
+      scoringLogger.debug('Featured listings scored', {
+        requestId,
+        totalFeatured: featuredListings.length,
+        returned: result.featured.length,
+        withDistance: hasCoordinates
+      });
+    }
+
     if (categories.length > 0) {
-      for (const categoryId of categories) {
-        const categoryListings = await Listing.findAll({
-          where: {
-            ...baseWhere,
-            categoryId
-          },
-          include: [
-            {
-              model: Category,
-              as: 'category',
-              attributes: ['id', 'name', 'slug'],
-              where: { isActive: true }
-            }
-          ]
+      if (requestId) {
+        scoringLogger.debug('Fetching category listings', {
+          requestId,
+          categories,
+          limitPerCategory: limit,
+          hasCoordinates
         });
+      }
+
+      for (const categoryId of categories) {
+        let categoryListings = [];
+        let categoryDistanceMap = new Map();
+
+        if (hasCoordinates) {
+          const bounds = this.calculateBoundingBox(userLocation.latitude, userLocation.longitude, radiusKm);
+          const userPoint = `ST_SetSRID(ST_MakePoint(${userLocation.longitude}, ${userLocation.latitude}), 4326)::geography`;
+
+          const categoryQuery = `
+            SELECT 
+              listings.*,
+              ST_Distance(location, ${userPoint}) / 1000 AS distance_km
+            FROM listings
+            WHERE status = 'active'
+              AND expires_at > NOW()
+              AND category_id = ${categoryId}
+              AND latitude BETWEEN ${bounds.minLat} AND ${bounds.maxLat}
+              AND longitude BETWEEN ${bounds.minLng} AND ${bounds.maxLng}
+              AND location IS NOT NULL
+              AND ST_DWithin(location, ${userPoint}, ${radiusKm * 1000})
+            ORDER BY distance_km ASC
+            LIMIT ${parseInt(limit) * 2}
+          `;
+
+          const [rawCategory] = await sequelize.query(categoryQuery);
+          
+          if (rawCategory.length > 0) {
+            const categoryIds = rawCategory.map(r => r.id);
+            categoryListings = await Listing.findAll({
+              where: { id: { [Op.in]: categoryIds } },
+              include: [
+                {
+                  model: Category,
+                  as: 'category',
+                  attributes: ['id', 'name', 'slug'],
+                  where: { isActive: true }
+                }
+              ]
+            });
+
+            rawCategory.forEach(r => {
+              categoryDistanceMap.set(r.id, parseFloat(r.distance_km));
+            });
+          }
+        } else {
+          categoryListings = await Listing.findAll({
+            where: {
+              status: 'active',
+              expiresAt: { [Op.gt]: new Date() },
+              categoryId
+            },
+            include: [
+              {
+                model: Category,
+                as: 'category',
+                attributes: ['id', 'name', 'slug'],
+                where: { isActive: true }
+              }
+            ],
+            limit: parseInt(limit) * 2
+          });
+        }
 
         const scoredCategoryListings = categoryListings.map(listing => {
           const listingData = listing.toJSON();
-          const scoreResult = ScoringHelper.calculateTotalScore(listingData, { userLocation });
+          const distance_km = categoryDistanceMap.get(listing.id);
+          if (distance_km !== undefined) {
+            listingData.distance_km = distance_km;
+          }
+          
+          const scoreResult = ScoringHelper.calculateTotalScore(listingData, { 
+            userLocation,
+            distance_km,
+            requestId 
+          });
           
           return {
             ...listingData,
@@ -1053,7 +1520,8 @@ class ListingRepository {
 
         const totalCount = await Listing.count({
           where: {
-            ...baseWhere,
+            status: 'active',
+            expiresAt: { [Op.gt]: new Date() },
             categoryId
           },
           include: [
@@ -1074,6 +1542,17 @@ class ListingRepository {
             listings: sortedCategoryListings.slice(0, parseInt(limit)),
             totalCount
           };
+
+          if (requestId) {
+            scoringLogger.debug('Category listings scored', {
+              requestId,
+              categoryId,
+              categoryName: category.name,
+              totalListings: categoryListings.length,
+              returned: sortedCategoryListings.slice(0, parseInt(limit)).length,
+              withDistance: hasCoordinates
+            });
+          }
         }
       }
     }

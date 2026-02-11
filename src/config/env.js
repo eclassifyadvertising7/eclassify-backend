@@ -89,6 +89,12 @@ const config = {
   invoice: {
     prefix: process.env.INVOICE_PREFIX || 'ECA',
     transactionPrefix: process.env.TRANSACTION_PREFIX || 'TXN'
+  },
+
+  // Map provider configuration
+  map: {
+    // Supported providers: ola_maps, google_maps, mapbox, manual
+    provider: process.env.MAP_PROVIDER || 'ola_maps'
   }
 };
 

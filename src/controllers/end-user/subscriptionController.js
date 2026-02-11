@@ -1,4 +1,5 @@
 import subscriptionService from '#services/subscriptionService.js';
+import quotaService from '#services/quotaService.js';
 import {
   successResponse,
   createResponse,
@@ -70,6 +71,27 @@ class SubscriptionController {
       return successResponse(res, result.data, result.message);
     } catch (error) {
       return errorResponse(res, error.message, 400);
+    }
+  }
+
+  static async checkQuotaStatus(req, res) {
+    try {
+      const userId = req.user.userId;
+      const categoryId = parseInt(req.params.categoryId);
+
+      if (isNaN(categoryId)) {
+        return errorResponse(res, 'Invalid category ID', 400);
+      }
+
+      const result = await quotaService.checkQuotaForListing(userId, categoryId);
+
+      if (!result.success) {
+        return errorResponse(res, result.message, 400);
+      }
+
+      return successResponse(res, result.data, result.message);
+    } catch (error) {
+      return errorResponse(res, error.message, 500);
     }
   }
 

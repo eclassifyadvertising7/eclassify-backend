@@ -6,11 +6,13 @@ import categoryRepository from '#repositories/categoryRepository.js';
 import quotaService from '#services/quotaService.js';
 import userSearchService from '#services/userSearchService.js';
 import notificationHelperService from '#services/notificationHelperService.js';
+import locationService from '#services/locationService.js';
 import models from '#models/index.js';
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '#utils/constants/messages.js';
 import SearchHelper from '#utils/searchHelper.js';
 import LocationHelper from '#utils/locationHelper.js';
 import { generateShareCode } from '#utils/customSlugify.js';
+import scoringLogger from '#utils/loggers/scoringLogger.js';
 
 const { User } = models;
 
@@ -20,8 +22,6 @@ class ListingService {
       throw new Error('Title must be at least 10 characters');
     }
 
-
-
     if (!listingData.price || listingData.price <= 0) {
       throw new Error('Price must be greater than 0');
     }
@@ -30,12 +30,12 @@ class ListingService {
       throw new Error('Category is required');
     }
 
-    if (!listingData.stateId) {
-      throw new Error('State is required');
+    if (!listingData.locationData && !listingData.stateId) {
+      throw new Error('Location data or state is required');
     }
 
-    if (!listingData.cityId) {
-      throw new Error('City is required');
+    if (!listingData.locationData && !listingData.cityId) {
+      throw new Error('Location data or city is required');
     }
   }
 
@@ -48,6 +48,30 @@ class ListingService {
     const category = await categoryRepository.getById(listingData.categoryId);
     if (!category) {
       throw new Error('Invalid category');
+    }
+
+    if (listingData.locationData) {
+      const location = await locationService.cacheLocation(
+        listingData.locationData,
+        userId
+      );
+      
+      listingData.locationId = location.id;
+      listingData.latitude = location.latitude;
+      listingData.longitude = location.longitude;
+      listingData.stateName = location.state;
+      listingData.cityName = location.city;
+      
+      listingData.address = listingData.locationData.address;
+      listingData.locality = location.formattedAddress || listingData.locationData.locality;
+      listingData.pincode = listingData.locationData.pincode || location.pincode;
+      
+      if (location.matchedStateId) {
+        listingData.stateId = location.matchedStateId;
+      }
+      if (location.matchedCityId) {
+        listingData.cityId = location.matchedCityId;
+      }
     }
 
     listingData.userId = userId;
@@ -162,14 +186,32 @@ class ListingService {
   }
 
   async getAll(filters = {}, pagination = {}, userId = null, userLocation = null) {
-    const result = await listingRepository.getAll(filters, pagination, userId, userLocation);
-
-    return {
-      success: true,
-      message: SUCCESS_MESSAGES.LISTINGS_FETCHED,
-      data: result.listings,
-      pagination: result.pagination
-    };
+    const hasCoordinates = !!(userLocation?.latitude && userLocation?.longitude);
+    
+    if (hasCoordinates) {
+      const result = await listingRepository.findListingsByDistance(
+        userLocation,
+        filters,
+        pagination,
+        userId
+      );
+      
+      return {
+        success: true,
+        message: SUCCESS_MESSAGES.LISTINGS_FETCHED,
+        data: result.listings,
+        pagination: result.pagination
+      };
+    } else {
+      const result = await listingRepository.getAll(filters, pagination, userId, null);
+      
+      return {
+        success: true,
+        message: SUCCESS_MESSAGES.LISTINGS_FETCHED,
+        data: result.listings,
+        pagination: result.pagination
+      };
+    }
   }
 
   async update(id, updateData, categoryData, userId, isAdmin = false) {
@@ -201,6 +243,29 @@ class ListingService {
 
     if (updateData.price !== undefined && updateData.price <= 0) {
       throw new Error('Price must be greater than 0');
+    }
+
+    if (updateData.locationData) {
+      const location = await locationService.cacheLocation(
+        updateData.locationData,
+        userId
+      );
+      
+      updateData.locationId = location.id;
+      updateData.latitude = location.latitude;
+      updateData.longitude = location.longitude;
+      updateData.stateName = location.state;
+      updateData.cityName = location.city;
+      updateData.address = updateData.locationData.address || location.formattedAddress;
+      updateData.locality = updateData.locationData.locality || location.locality;
+      updateData.pincode = updateData.locationData.pincode || location.pincode;
+      
+      if (location.matchedStateId) {
+        updateData.stateId = location.matchedStateId;
+      }
+      if (location.matchedCityId) {
+        updateData.cityId = location.matchedCityId;
+      }
     }
 
     await listingRepository.update(id, updateData, { userId });
@@ -660,9 +725,10 @@ class ListingService {
   }
 
   async searchListings(searchParams, userContext = {}, pagination = {}) {
+    const requestId = `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const timer = scoringLogger.startTimer();
+    
     try {
-      console.log('[searchListings SERVICE] Starting...');
-      
       const {
         query,
         categoryId,
@@ -679,29 +745,71 @@ class ListingService {
 
       const { userId, sessionId, userLocation, ipAddress, userAgent } = userContext;
 
-      console.log('[searchListings SERVICE] userLocation:', userLocation);
-
-      const effectiveUserLocation = userLocation || LocationHelper.parseUserLocation({ 
-        query: { stateId, cityId },
-        user: userContext.user 
+      const hasCoordinates = !!(userLocation?.latitude && userLocation?.longitude);
+      
+      scoringLogger.searchInitiated(requestId, {
+        userId,
+        categoryId,
+        sortBy,
+        hasCoordinates,
+        userLocation: hasCoordinates ? { 
+          lat: userLocation.latitude, 
+          lng: userLocation.longitude,
+          source: userLocation.source 
+        } : null,
+        priceRange: priceMin || priceMax ? { min: priceMin, max: priceMax } : null
       });
 
-      console.log('[searchListings SERVICE] effectiveUserLocation:', effectiveUserLocation);
-      console.log('[searchListings SERVICE] Calling repository...');
+      let searchResult;
 
-      const searchResult = await listingRepository.searchListings(
-        searchParams,
-        effectiveUserLocation,
-        pagination,
-        userId
-      );
+      if (hasCoordinates) {
+        scoringLogger.searchMethodSelected(requestId, {
+          method: 'bounding_box',
+          reason: 'User has coordinates',
+          source: userLocation.source
+        });
+        
+        const fallbackFilters = {
+          categoryId,
+          priceMin,
+          priceMax,
+          sortBy,
+          requestId,
+          ...filters
+        };
 
-      console.log('[searchListings SERVICE] Repository returned successfully');
-      console.log('[searchListings SERVICE] Results count:', searchResult.listings?.length);
+        searchResult = await listingRepository.findListingsByDistance(
+          userLocation,
+          fallbackFilters,
+          pagination,
+          userId
+        );
+
+        searchResult.searchMeta = {
+          query: query || '',
+          totalResults: searchResult.pagination.total,
+          userLocation: {
+            latitude: userLocation.latitude,
+            longitude: userLocation.longitude,
+            source: userLocation.source
+          }
+        };
+      } else {
+        scoringLogger.searchMethodSelected(requestId, {
+          method: 'standard_search',
+          reason: 'No coordinates available'
+        });
+        
+        searchResult = await listingRepository.searchListings(
+          searchParams,
+          userLocation,
+          pagination,
+          userId
+        );
+      }
 
       if (query || Object.keys(filters).length > 0) {
         try {
-          console.log('[searchListings SERVICE] Logging search activity...');
           await userSearchService.logSearch({
             userId: userId || null,
             sessionId: sessionId || 'anonymous',
@@ -719,19 +827,32 @@ class ListingService {
             },
             resultsCount: searchResult.pagination.total,
             categoryId: categoryId || null,
-            locationFilters: effectiveUserLocation ? {
-              stateId: effectiveUserLocation.stateId,
-              cityId: effectiveUserLocation.cityId
+            locationFilters: hasCoordinates ? {
+              latitude: userLocation.latitude,
+              longitude: userLocation.longitude
             } : {},
             priceRange: priceMin || priceMax ? { min: priceMin, max: priceMax } : {},
             ipAddress,
             userAgent
           });
-          console.log('[searchListings SERVICE] Search activity logged');
         } catch (error) {
-          console.error('[searchListings SERVICE] Error logging search activity:', error);
+          scoringLogger.warn('Failed to log search activity', { requestId, error: error.message });
         }
       }
+
+      timer.done({
+        message: 'Search completed',
+        requestId,
+        resultsCount: searchResult.listings?.length || 0,
+        totalResults: searchResult.pagination.total,
+        method: hasCoordinates ? 'bounding_box' : 'standard_search'
+      });
+
+      scoringLogger.searchCompleted(requestId, {
+        resultsCount: searchResult.listings?.length || 0,
+        totalResults: searchResult.pagination.total,
+        method: hasCoordinates ? 'bounding_box' : 'standard_search'
+      });
 
       return {
         success: true,
@@ -746,7 +867,11 @@ class ListingService {
               query,
               categoryId,
               priceRange: priceMin || priceMax ? { min: priceMin, max: priceMax } : null,
-              location: effectiveUserLocation,
+              location: hasCoordinates ? {
+                latitude: userLocation.latitude,
+                longitude: userLocation.longitude,
+                source: userLocation.source
+              } : null,
               postedByType,
               featuredOnly,
               ...filters
@@ -755,8 +880,12 @@ class ListingService {
         }
       };
     } catch (error) {
-      console.error('[searchListings SERVICE] ERROR:', error.message);
-      console.error('[searchListings SERVICE] ERROR STACK:', error.stack);
+      scoringLogger.error('Search failed', {
+        requestId,
+        error: error.message,
+        stack: error.stack
+      });
+      
       return {
         success: false,
         message: 'Failed to search listings',
@@ -805,8 +934,27 @@ class ListingService {
   }
 
   async getHomepageListings(filters = {}) {
+    const requestId = `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
     try {
-      const result = await listingRepository.getHomepageListings(filters);
+      const hasCoordinates = !!(filters.userLocation?.latitude && filters.userLocation?.longitude);
+      
+      scoringLogger.info('Homepage listings requested', {
+        requestId,
+        categories: filters.categories,
+        limit: filters.limit,
+        featuredLimit: filters.featuredLimit,
+        hasCoordinates,
+        source: filters.userLocation?.source || 'none'
+      });
+
+      const result = await listingRepository.getHomepageListings({ ...filters, requestId });
+
+      scoringLogger.info('Homepage listings retrieved', {
+        requestId,
+        featuredCount: result.featured?.length || 0,
+        categoriesCount: Object.keys(result.byCategory || {}).length
+      });
 
       return {
         success: true,
@@ -814,6 +962,11 @@ class ListingService {
         data: result
       };
     } catch (error) {
+      scoringLogger.error('Homepage listings failed', {
+        requestId,
+        error: error.message
+      });
+      
       return {
         success: false,
         message: ERROR_MESSAGES.LISTINGS_FETCH_FAILED,
@@ -998,6 +1151,157 @@ class ListingService {
     if (normalizedSlug === 'properties' || normalizedSlug === 'property') return 'property';
     
     return null;
+  }
+
+  async cacheOLALocation(olaResponse, userId = null) {
+    try {
+      const parsed = LocationHelper.parseOLALocation(olaResponse);
+      if (!parsed) {
+        throw new Error('Failed to parse OLA location response');
+      }
+
+      const matched = await LocationHelper.matchLocationToDatabase(
+        parsed.city,
+        parsed.state
+      );
+
+      const { default: models } = await import('#models/index.js');
+      const { Location } = models;
+
+      const existing = await Location.findOne({
+        where: {
+          provider: 'ola_maps',
+          externalId: parsed.placeId
+        }
+      });
+
+      if (existing) {
+        await existing.increment('usageCount');
+        await existing.update({ lastUsedAt: new Date() });
+        return existing.id;
+      }
+
+      const location = await Location.create({
+        provider: 'ola_maps',
+        externalId: parsed.placeId,
+        placeId: parsed.placeId,
+        reference: parsed.reference,
+        name: parsed.placeName || parsed.city || 'Unknown Location',
+        type: 'place',
+        country: 'India',
+        state: parsed.state,
+        city: parsed.city,
+        locality: parsed.locality,
+        pincode: parsed.pincode,
+        latitude: parsed.latitude,
+        longitude: parsed.longitude,
+        formattedAddress: parsed.formattedAddress,
+        matchedStateId: matched.stateId,
+        matchedCityId: matched.cityId,
+        matchConfidence: matched.confidence,
+        rawResponse: olaResponse,
+        usageCount: 1,
+        lastUsedAt: new Date(),
+        createdBy: userId
+      });
+
+      return location.id;
+    } catch (error) {
+      console.error('Error caching OLA location:', error);
+      throw error;
+    }
+  }
+
+  async cacheGoogleLocation(googleResponse, userId = null) {
+    try {
+      const parsed = LocationHelper.parseGoogleLocation(googleResponse);
+      if (!parsed) {
+        throw new Error('Failed to parse Google location response');
+      }
+
+      const matched = await LocationHelper.matchLocationToDatabase(
+        parsed.city,
+        parsed.state
+      );
+
+      const { default: models } = await import('#models/index.js');
+      const { Location } = models;
+
+      const existing = await Location.findOne({
+        where: {
+          provider: 'google',
+          externalId: parsed.externalId
+        }
+      });
+
+      if (existing) {
+        await existing.increment('usageCount');
+        await existing.update({ lastUsedAt: new Date() });
+        return existing.id;
+      }
+
+      const location = await Location.create({
+        provider: 'google',
+        externalId: parsed.externalId,
+        providerNumericId: parsed.providerNumericId,
+        parentId: parsed.parentId,
+        name: parsed.name || parsed.city || 'Unknown Location',
+        type: parsed.type || 'place',
+        country: parsed.country || 'India',
+        state: parsed.state,
+        district: parsed.district,
+        city: parsed.city,
+        locality: parsed.locality,
+        pincode: parsed.pincode,
+        latitude: parsed.latitude,
+        longitude: parsed.longitude,
+        formattedAddress: parsed.formattedAddress,
+        addressComponents: googleResponse.addressComponents || null,
+        matchedStateId: matched.stateId,
+        matchedCityId: matched.cityId,
+        matchConfidence: matched.confidence,
+        rawResponse: googleResponse,
+        usageCount: 1,
+        lastUsedAt: new Date(),
+        createdBy: userId
+      });
+
+      return location.id;
+    } catch (error) {
+      console.error('Error caching Google location:', error);
+      throw error;
+    }
+  }
+
+  async updateListingLocation(listingId, locationData, userId = null) {
+    try {
+      let locationId = null;
+
+      if (locationData.olaLocation) {
+        locationId = await this.cacheOLALocation(locationData.olaLocation, userId);
+      } else if (locationData.googleLocation) {
+        locationId = await this.cacheGoogleLocation(locationData.googleLocation, userId);
+      }
+
+      const updateData = {
+        locationId,
+        latitude: locationData.latitude,
+        longitude: locationData.longitude,
+        stateName: locationData.stateName,
+        cityName: locationData.cityName,
+        locality: locationData.locality,
+        pincode: locationData.pincode,
+        address: locationData.address
+      };
+
+      if (locationData.stateId) updateData.stateId = locationData.stateId;
+      if (locationData.cityId) updateData.cityId = locationData.cityId;
+
+      return await listingRepository.update(listingId, updateData, { userId });
+    } catch (error) {
+      console.error('Error updating listing location:', error);
+      throw error;
+    }
   }
 }
 

@@ -51,6 +51,7 @@ export async function up(queryInterface, Sequelize) {
       showOriginalPrice: false,
       showOfferBadge: false,
       isDefault: true,
+      isPublic: false,
       isFeatured: false,
       isSystemPlan: true,
       isFreePlan: true,
@@ -310,12 +311,12 @@ export async function up(queryInterface, Sequelize) {
   ];
 
   // Common fields for all plans
-  const getCommonFields = (categoryConfig, planTier, tierConfig) => ({
+  const getCommonFields = (categoryConfig, planTier) => ({
     version: 1,
     currency: 'INR',
     terms_and_conditions: null,
     is_active: true,
-    is_public: true,
+    is_public: planTier.isPublic,
     deprecated_at: null,
     replaced_by_plan_id: null,
     created_by: null,
@@ -473,7 +474,7 @@ export async function up(queryInterface, Sequelize) {
         cross_city_visibility: planTier.visibility.crossCityVisibility,
         national_visibility: planTier.visibility.nationalVisibility,
         // Add common fields
-        ...getCommonFields(categoryConfig, planTier, planTier)
+        ...getCommonFields(categoryConfig, planTier)
       };
 
       plansToInsert.push(plan);

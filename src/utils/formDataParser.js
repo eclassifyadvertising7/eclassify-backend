@@ -150,7 +150,8 @@ export const parseListingData = (body) => {
     locality: parseString(body.locality),
     address: parseString(body.address),
     latitude: parseFloat(body.latitude),
-    longitude: parseFloat(body.longitude)
+    longitude: parseFloat(body.longitude),
+    locationData: body.locationData || null
   };
 };
 

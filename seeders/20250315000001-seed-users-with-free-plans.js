@@ -23,15 +23,16 @@ export async function up(queryInterface, Sequelize) {
 
   // Get role IDs dynamically
   const [roles] = await queryInterface.sequelize.query(
-    "SELECT id, slug FROM roles WHERE slug IN ('super_admin', 'user')"
+    "SELECT id, slug FROM roles WHERE slug IN ('super_admin', 'user', 'employee')"
   );
 
   const superAdminRole = roles.find((r) => r.slug === "super_admin");
   const userRole = roles.find((r) => r.slug === "user");
+  const employeeRole = roles.find((r) => r.slug === "employee");
 
-  if (!superAdminRole || !userRole) {
+  if (!superAdminRole || !userRole || !employeeRole) {
     throw new Error(
-      "Required roles (super_admin, user) not found. Please run role seeders first."
+      "Required roles (super_admin, user, employee) not found. Please run role seeders first."
     );
   }
 
@@ -46,7 +47,7 @@ export async function up(queryInterface, Sequelize) {
 
   // Check if users already exist to avoid duplicates
   const [existingUsers] = await queryInterface.sequelize.query(
-    "SELECT mobile FROM users WHERE mobile IN ('9175113022', '9123456789', '8002111222', '8002333444', '8002445566')"
+    "SELECT mobile FROM users WHERE mobile IN ('9175113022', '9123456789', '8002111222', '8002333444', '8002445566', '8002666777')"
   );
 
   if (existingUsers.length > 0) {
@@ -162,13 +163,34 @@ export async function up(queryInterface, Sequelize) {
       created_at: now,
       updated_at: now,
     },
+    {
+      country_code: "+91",
+      mobile: "8002888999",
+      full_name: "Employee",
+      email: "employee.eclassify@yopmail.com",
+      password_hash: userHashedPassword,
+      role_id: employeeRole.id,
+      status: "active",
+      is_active: true,
+      is_password_reset: false,
+      is_phone_verified: true,
+      is_email_verified: false,
+      phone_verified_at: now,
+      email_verified_at: null,
+      kyc_status: "pending",
+      is_verified: false,
+      max_devices: 1,
+      is_auto_approve_enabled: false,
+      created_at: now,
+      updated_at: now,
+    },
   ];
 
   await queryInterface.bulkInsert("users", usersToInsert);
 
-  // Get the inserted user IDs - ONLY regular users (not super admins)
+  // Get the inserted user IDs - ONLY regular users and employee (not super admins)
   const [insertedUsers] = await queryInterface.sequelize.query(
-    "SELECT id, mobile, full_name, role_id FROM users WHERE mobile IN ('8002111222', '8002333444', '8002445566')"
+    "SELECT id, mobile, full_name, role_id FROM users WHERE mobile IN ('8002111222', '8002333444', '8002445566', '8002666777')"
   );
 
   console.log(`✅ Created ${usersToInsert.length} users total`);
@@ -349,9 +371,9 @@ export async function up(queryInterface, Sequelize) {
 }
 
 export async function down(queryInterface, Sequelize) {
-  // First delete subscriptions for regular users only
+  // First delete subscriptions for regular users and employee
   const [users] = await queryInterface.sequelize.query(
-    "SELECT id FROM users WHERE mobile IN ('8002111222', '8002333444', '8002445566')"
+    "SELECT id FROM users WHERE mobile IN ('8002111222', '8002333444', '8002445566', '8002666777')"
   );
 
   if (users.length > 0) {
@@ -363,15 +385,15 @@ export async function down(queryInterface, Sequelize) {
       }
     });
 
-    console.log(`✅ Deleted subscriptions for ${users.length} regular users`);
+    console.log(`✅ Deleted subscriptions for ${users.length} regular users and employee`);
   }
 
-  // Then delete all users (including super admins)
+  // Then delete all users (including super admins and employee)
   await queryInterface.bulkDelete("users", {
     mobile: {
-      [Sequelize.Op.in]: ["9175113022", "9123456789", "8002111222", "8002333444", "8002444555"],
+      [Sequelize.Op.in]: ["9175113022", "9123456789", "8002111222", "8002333444", "8002444555", "8002666777"],
     },
   });
 
-  console.log('✅ Deleted all users (super admins + regular users with free plan assignments)');
+  console.log('✅ Deleted all users (super admins + regular users + employee with free plan assignments)');
 }

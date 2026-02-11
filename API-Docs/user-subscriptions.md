@@ -1088,7 +1088,141 @@ Get detailed information about a specific subscription (must be owned by user).
 
 ---
 
-### 11. Cancel Subscription
+### 11. Check Quota Status
+
+Check quota availability for a specific category before creating a listing.
+
+**Endpoint:** `GET /api/end-user/subscriptions/check-quota/:categoryId`
+
+**Authentication:** Required
+
+**Path Parameters:**
+- `categoryId` (integer, required): Category ID
+
+**Purpose:** 
+- Check if user has available quota to create a listing in the specified category
+- Get current subscription plan details
+- View quota usage statistics (used, remaining, percentage)
+
+**Example Request:**
+```
+GET /api/end-user/subscriptions/check-quota/1
+```
+
+**Success Response - Quota Available (200):**
+```json
+{
+  "success": true,
+  "message": "Quota available",
+  "data": {
+    "canCreateListing": true,
+    "hasQuota": true,
+    "subscription": {
+      "planType": "paid",
+      "planName": "Cars Premium Plan",
+      "status": "active",
+      "activatedAt": "2025-01-15T10:00:00.000Z",
+      "endsAt": "2025-02-15T10:00:00.000Z"
+    },
+    "quota": {
+      "used": 3,
+      "limit": 10,
+      "remaining": 7,
+      "rollingDays": 30
+    },
+    "quotaPercentage": 30,
+    "isNearLimit": false,
+    "isExhausted": false
+  }
+}
+```
+
+**Success Response - Quota Exhausted (200):**
+```json
+{
+  "success": true,
+  "message": "Quota exhausted",
+  "data": {
+    "canCreateListing": false,
+    "hasQuota": false,
+    "subscription": {
+      "planType": "free",
+      "planName": "Cars Free Plan",
+      "status": "active",
+      "activatedAt": "2025-01-01T00:00:00.000Z",
+      "endsAt": null
+    },
+    "quota": {
+      "used": 2,
+      "limit": 2,
+      "remaining": 0,
+      "rollingDays": 30
+    },
+    "quotaPercentage": 100,
+    "isNearLimit": true,
+    "isExhausted": true
+  }
+}
+```
+
+**Success Response - Near Limit Warning (200):**
+```json
+{
+  "success": true,
+  "message": "Quota nearly exhausted",
+  "data": {
+    "canCreateListing": true,
+    "hasQuota": true,
+    "subscription": {
+      "planType": "paid",
+      "planName": "Cars Basic Plan",
+      "status": "active",
+      "activatedAt": "2025-01-10T10:00:00.000Z",
+      "endsAt": "2025-02-10T10:00:00.000Z"
+    },
+    "quota": {
+      "used": 4,
+      "limit": 5,
+      "remaining": 1,
+      "rollingDays": 30
+    },
+    "quotaPercentage": 80,
+    "isNearLimit": true,
+    "isExhausted": false
+  }
+}
+```
+
+**Response Fields:**
+- `canCreateListing` (boolean): Whether user can create a new listing
+- `hasQuota` (boolean): Whether user has remaining quota
+- `subscription.planType` (string): "free" or "paid"
+- `subscription.planName` (string): Name of current plan
+- `subscription.status` (string): Subscription status
+- `subscription.activatedAt` (timestamp): When subscription was activated
+- `subscription.endsAt` (timestamp): When subscription expires (null for free plans)
+- `quota.used` (number): Number of listings created in rolling period
+- `quota.limit` (number): Maximum listings allowed in rolling period
+- `quota.remaining` (number): Remaining quota
+- `quota.rollingDays` (number): Rolling period in days (typically 30)
+- `quotaPercentage` (number): Quota usage percentage (0-100)
+- `isNearLimit` (boolean): True if usage >= 80%
+- `isExhausted` (boolean): True if no remaining quota
+
+**Error Responses:**
+- `400` - Invalid category ID
+- `400` - No subscription plan found for this category
+- `500` - Internal server error
+
+**Use Cases:**
+1. **Before Showing Listing Form**: Check if user can create listing
+2. **Quota Display**: Show remaining quota in UI
+3. **Upgrade Prompts**: Show upgrade options when quota is exhausted or near limit
+4. **Validation**: Prevent form submission if no quota available
+
+---
+
+### 12. Cancel Subscription
 
 Cancel user's active subscription.
 

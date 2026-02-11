@@ -1,460 +1,67 @@
-import db from '#models/index.js';
-import { Op } from 'sequelize';
+import models from '#models/index.js';
+const { Location } = models;
+import sequelize from '#config/database.js';
 
-const { State, City } = db;
-
-/**
- * Location Repository
- * Handles database operations for states and cities
- */
 class LocationRepository {
-  /**
-   * Get all active states
-   * @returns {Promise<Array>}
-   */
-  async getAllStates() {
-    return await State.findAll({
-      where: {
-        isActive: true,
-        isDeleted: false
-      },
-      attributes: ['id', 'slug', 'name', 'regionSlug', 'regionName'],
-      order: [['displayOrder', 'ASC'], ['name', 'ASC']]
-    });
-  }
-
-  /**
-   * Get state by ID
-   * @param {number} stateId
-   * @returns {Promise<Object|null>}
-   */
-  async getStateById(stateId) {
-    return await State.findOne({
-      where: {
-        id: stateId,
-        isActive: true,
-        isDeleted: false
-      },
-      attributes: ['id', 'slug', 'name', 'regionSlug', 'regionName']
-    });
-  }
-
-  /**
-   * Get cities by state ID
-   * @param {number} stateId
-   * @returns {Promise<Array>}
-   */
-  async getCitiesByStateId(stateId) {
-    return await City.findAll({
-      where: {
-        stateId,
-        isActive: true,
-        isDeleted: false
-      },
-      attributes: [
-        'id',
-        'name',
-        'district',
-        'stateName',
-        'pincode',
-        'latitude',
-        'longitude'
-      ],
-      order: [['displayOrder', 'ASC'], ['name', 'ASC']]
-    });
-  }
-
-  /**
-   * Get all cities irrespective of state
-   * @returns {Promise<Array>}
-   */
-  async getAllCities() {
-    return await City.findAll({
-      where: {
-        isActive: true,
-        isDeleted: false
-      },
-      attributes: [
-        'id',
-        'name',
-        'district',
-        'stateName',
-        'pincode',
-        'locality',
-        'latitude',
-        'longitude'
-      ],
-      order: [['stateName', 'ASC'], ['displayOrder', 'ASC'], ['name', 'ASC']]
-    });
-  }
-
-  async getPopularCities() {
-    return await City.findAll({
-      where: {
-        isPopular: true,
-        isActive: true,
-        isDeleted: false
-      },
-      attributes: [
-        'id',
-        'name',
-        'slug',
-        'district',
-        'stateName',
-        'stateId',
-        'pincode',
-        'locality',
-        'latitude',
-        'longitude',
-        'displayOrder'
-      ],
-      order: [['displayOrder', 'ASC'], ['name', 'ASC']]
-    });
-  }
-
-  async searchCities(query, stateId = null, limit = 10) {
-    const whereClause = {
-      isActive: true,
-      isDeleted: false,
-      [Op.or]: [
-        {
-          locality: {
-            [Op.iLike]: `%${query}%`
-          }
-        },
-        {
-          name: {
-            [Op.iLike]: `%${query}%`
-          }
-        }
-      ]
-    };
-
-    if (stateId) {
-      whereClause.stateId = stateId;
-    }
-
-    const cities = await City.findAll({
-      where: whereClause,
-      attributes: [
-        'id',
-        'name',
-        'slug',
-        'district',
-        'stateName',
-        'stateId',
-        'pincode',
-        'locality',
-        'latitude',
-        'longitude',
-        'isPopular'
-      ],
-      limit: limit * 2
-    });
-
-    const sortedCities = cities.sort((a, b) => {
-      const aLocalityMatch = a.locality?.toLowerCase().includes(query.toLowerCase());
-      const bLocalityMatch = b.locality?.toLowerCase().includes(query.toLowerCase());
-      
-      if (aLocalityMatch && !bLocalityMatch) return -1;
-      if (!aLocalityMatch && bLocalityMatch) return 1;
-      
-      if (b.isPopular !== a.isPopular) {
-        return b.isPopular ? 1 : -1;
-      }
-      
-      if (a.displayOrder !== b.displayOrder) {
-        return a.displayOrder - b.displayOrder;
-      }
-      
-      return a.name.localeCompare(b.name);
-    });
-
-    return sortedCities.slice(0, limit);
-  }
-
-  async getNearbyCities(lat, lng, radius) {
-    const cities = await City.findAll({
-      where: {
-        isActive: true,
-        isDeleted: false,
-        latitude: { [Op.ne]: null },
-        longitude: { [Op.ne]: null }
-      },
-      attributes: [
-        'id',
-        'name',
-        'slug',
-        'district',
-        'stateName',
-        'stateId',
-        'pincode',
-        'locality',
-        'latitude',
-        'longitude',
-        'isPopular'
-      ]
-    });
-
-    const nearbyCities = cities
-      .map(city => {
-        const distance = this._calculateDistance(
-          lat,
-          lng,
-          parseFloat(city.latitude),
-          parseFloat(city.longitude)
-        );
-        return {
-          ...city.toJSON(),
-          distance: Math.round(distance * 10) / 10
-        };
-      })
-      .filter(city => city.distance <= radius)
-      .sort((a, b) => a.distance - b.distance);
-
-    return nearbyCities;
-  }
-
-  _calculateDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371;
-    const dLat = this._toRad(lat2 - lat1);
-    const dLon = this._toRad(lon2 - lon1);
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(this._toRad(lat1)) *
-        Math.cos(this._toRad(lat2)) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  }
-
-  _toRad(degrees) {
-    return degrees * (Math.PI / 180);
-  }
-
-  async getCityById(cityId) {
-    return await City.findOne({
-      where: {
-        id: cityId,
-        isDeleted: false
-      }
-    });
-  }
-
-  async updateCityPopularity(cityId, isPopular, userId) {
-    const city = await this.getCityById(cityId);
-    if (!city) {
-      return null;
-    }
-
-    await City.update(
-      { 
-        isPopular,
-        updatedBy: userId
-      },
-      { 
-        where: { id: cityId }
-      }
-    );
-
-    return await this.getCityById(cityId);
-  }
-
-  async getAllStatesForAdmin(options = {}) {
-    const { page = 1, limit = 50, search = '' } = options;
-    const offset = (page - 1) * limit;
-
-    const whereClause = {};
-    
-    if (search) {
-      whereClause.name = {
-        [Op.iLike]: `%${search}%`
-      };
-    }
-
-    const { count, rows } = await State.findAndCountAll({
-      where: whereClause,
-      attributes: ['id', 'slug', 'name', 'regionSlug', 'regionName', 'displayOrder', 'isActive', 'isDeleted', ['created_at', 'createdAt'], ['updated_at', 'updatedAt']],
-      order: [['displayOrder', 'ASC'], ['name', 'ASC']],
-      limit,
-      offset
-    });
-
-    return {
-      states: rows,
-      pagination: {
-        currentPage: page,
-        totalPages: Math.ceil(count / limit),
-        totalItems: count,
-        itemsPerPage: limit,
-        hasNextPage: page < Math.ceil(count / limit),
-        hasPrevPage: page > 1
-      }
-    };
-  }
-
-  async getStateByIdForAdmin(stateId) {
-    return await State.findOne({
-      where: { id: stateId },
-      attributes: ['id', 'slug', 'name', 'regionSlug', 'regionName', 'displayOrder', 'isActive', 'isDeleted', ['created_at', 'createdAt'], ['updated_at', 'updatedAt']]
-    });
-  }
-
-  async getStateBySlug(slug) {
-    return await State.findOne({
+  
+  async findByProviderAndPlaceId(provider, placeId) {
+    return await Location.findOne({
       where: { 
-        slug,
-        isDeleted: false
-      },
-      attributes: ['id', 'slug', 'name']
+        provider, 
+        placeId 
+      }
     });
   }
-
-  async createState(stateData) {
-    return await State.create(stateData);
-  }
-
-  async updateState(stateId, updateData, userId) {
-    await State.update(
-      { 
-        ...updateData,
-        updatedBy: userId
-      },
-      { 
-        where: { id: stateId }
-      }
-    );
-
-    return await this.getStateByIdForAdmin(stateId);
-  }
-
-  async deleteState(stateId, userId) {
-    await State.update(
-      { 
-        isDeleted: true,
-        deletedBy: userId,
-        deletedAt: new Date()
-      },
-      { 
-        where: { id: stateId }
-      }
-    );
-  }
-
-  async getAllCitiesForAdmin() {
-    return await City.findAll({
-      attributes: [
-        'id',
-        'name',
-        'slug',
-        'stateId',
-        'stateName',
-        'district',
-        'districtId',
-        'pincode',
-        'latitude',
-        'longitude',
-        'displayOrder',
-        'isActive',
-        'isPopular',
-        'isDeleted',
-        ['created_at', 'createdAt'],
-        ['updated_at', 'updatedAt']
-      ],
-      order: [['stateName', 'ASC'], ['displayOrder', 'ASC'], ['name', 'ASC']]
-    });
-  }
-
-  async getCitiesByStateForAdmin(stateId, options = {}) {
-    const { page = 1, limit = 50, search = '' } = options;
-    const offset = (page - 1) * limit;
-
-    const whereClause = { stateId };
+  
+  async create(locationData) {
+    console.log('[LOCATION REPOSITORY] ========== START create ==========');
+    console.log('[LOCATION REPOSITORY] Attempting to create location with data:');
+    console.log('[LOCATION REPOSITORY] - placeId:', locationData.placeId);
+    console.log('[LOCATION REPOSITORY] - provider:', locationData.provider);
+    console.log('[LOCATION REPOSITORY] - name:', locationData.name);
+    console.log('[LOCATION REPOSITORY] - latitude:', locationData.latitude);
+    console.log('[LOCATION REPOSITORY] - longitude:', locationData.longitude);
+    console.log('[LOCATION REPOSITORY] - type:', locationData.type);
     
-    if (search) {
-      whereClause.name = {
-        [Op.iLike]: `%${search}%`
-      };
+    try {
+      const result = await Location.create(locationData);
+      console.log('[LOCATION REPOSITORY] ✓ Successfully created location');
+      console.log('[LOCATION REPOSITORY] - Created ID:', result.id);
+      console.log('[LOCATION REPOSITORY] - Has location column:', result.location ? 'YES' : 'NO');
+      console.log('[LOCATION REPOSITORY] ========== END create (success) ==========');
+      return result;
+    } catch (error) {
+      console.error('[LOCATION REPOSITORY] ✗ Failed to create location');
+      console.error('[LOCATION REPOSITORY] Error name:', error.name);
+      console.error('[LOCATION REPOSITORY] Error message:', error.message);
+      console.error('[LOCATION REPOSITORY] SQL:', error.sql);
+      console.error('[LOCATION REPOSITORY] Parameters:', error.parameters);
+      console.error('[LOCATION REPOSITORY] Full error:', error);
+      console.error('[LOCATION REPOSITORY] ========== END create (error) ==========');
+      throw error;
     }
-
-    const { count, rows } = await City.findAndCountAll({
-      where: whereClause,
-      attributes: [
-        'id',
-        'name',
-        'slug',
-        'stateId',
-        'stateName',
-        'district',
-        'districtId',
-        'pincode',
-        'latitude',
-        'longitude',
-        'displayOrder',
-        'isActive',
-        'isPopular',
-        'isDeleted',
-        ['created_at', 'createdAt'],
-        ['updated_at', 'updatedAt']
-      ],
-      order: [['displayOrder', 'ASC'], ['name', 'ASC']],
-      limit,
-      offset
-    });
-
-    return {
-      cities: rows,
-      pagination: {
-        currentPage: page,
-        totalPages: Math.ceil(count / limit),
-        totalItems: count,
-        itemsPerPage: limit,
-        hasNextPage: page < Math.ceil(count / limit),
-        hasPrevPage: page > 1
-      }
-    };
   }
-
-  async getCityBySlug(slug) {
-    return await City.findOne({
-      where: { 
-        slug,
-        isDeleted: false
-      },
-      attributes: ['id', 'slug', 'name']
-    });
-  }
-
-  async createCity(cityData) {
-    return await City.create(cityData);
-  }
-
-  async updateCity(cityId, updateData, userId) {
-    await City.update(
+  
+  async incrementUsage(locationId) {
+    return await Location.update(
       { 
-        ...updateData,
-        updatedBy: userId
+        usageCount: sequelize.literal('usage_count + 1'),
+        lastUsedAt: new Date()
       },
       { 
-        where: { id: cityId }
+        where: { id: locationId } 
       }
     );
-
-    return await this.getCityById(cityId);
   }
-
-  async deleteCity(cityId, userId) {
-    await City.update(
-      { 
-        isDeleted: true,
-        deletedBy: userId,
-        deletedAt: new Date()
-      },
-      { 
-        where: { id: cityId }
-      }
-    );
+  
+  async getById(id) {
+    return await Location.findByPk(id);
+  }
+  
+  async update(id, updateData) {
+    return await Location.update(updateData, {
+      where: { id }
+    });
   }
 }
 

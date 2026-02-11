@@ -85,7 +85,7 @@ export async function up(queryInterface, Sequelize) {
     },
     state_id: {
       type: Sequelize.INTEGER,
-      allowNull: false,
+      allowNull: true,
       references: {
         model: "states",
         key: "id",
@@ -95,7 +95,7 @@ export async function up(queryInterface, Sequelize) {
     },
     city_id: {
       type: Sequelize.INTEGER,
-      allowNull: false,
+      allowNull: true,
       references: {
         model: "cities",
         key: "id",
@@ -131,6 +131,14 @@ export async function up(queryInterface, Sequelize) {
     longitude: {
       type: Sequelize.DECIMAL(11, 8),
       allowNull: true,
+    },
+    location: {
+      type: 'geography(POINT, 4326)',
+      allowNull: true,
+    },
+    location_id: {
+      type: Sequelize.BIGINT,
+      allowNull: true
     },
     status: {
       type: Sequelize.ENUM(
@@ -349,6 +357,11 @@ export async function up(queryInterface, Sequelize) {
     name: "idx_listings_essential_data",
     using: "GIN",
   });
+
+  // Add spatial index for location column
+  await queryInterface.sequelize.query(
+    'CREATE INDEX idx_listings_location_gist ON listings USING GIST(location);'
+  );
 
   // Add CHECK constraint to prevent negative total_favorites
   await queryInterface.addConstraint("listings", {

@@ -427,7 +427,7 @@ export async function up(queryInterface, Sequelize) {
       const [listingResult] = await queryInterface.sequelize.query(
         `INSERT INTO listings 
          (user_id, category_id, category_slug, title, slug, share_code, description, keywords, price, price_negotiable,
-          state_id, state_name, city_id, city_name, locality, pincode, latitude, longitude,
+          state_id, state_name, city_id, city_name, locality, pincode, latitude, longitude, location,
           cover_image, cover_image_storage_type, cover_image_mime_type,
           status, is_featured, featured_until, published_at, approved_at, approved_by, expires_at,
           user_subscription_id, is_paid_listing, republish_count, last_republished_at,
@@ -435,6 +435,7 @@ export async function up(queryInterface, Sequelize) {
          VALUES 
          (:userId, :categoryId, :categorySlug, :title, :slug, :shareCode, :description, :keywords, :price, true,
           :stateId, :stateName, :cityId, :cityName, :locality, :pincode, :latitude, :longitude,
+          ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography,
           :coverImage, :coverImageStorageType, :coverImageMimeType,
           'active', :isFeatured, :featuredUntil, :now, :now, :userId, :expiresAt,
           :subscriptionId, true, 0, :now,

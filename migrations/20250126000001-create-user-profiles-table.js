@@ -150,6 +150,14 @@ export async function up(queryInterface, Sequelize) {
       type: Sequelize.DECIMAL(11, 8),
       allowNull: true
     },
+    preferred_location: {
+      type: 'geography(POINT, 4326)',
+      allowNull: true
+    },
+    preferred_location_id: {
+      type: Sequelize.BIGINT,
+      allowNull: true
+    },
     created_at: {
       type: Sequelize.DATE,
       allowNull: false,
@@ -183,6 +191,11 @@ export async function up(queryInterface, Sequelize) {
   await queryInterface.addIndex('user_profiles', ['preferred_city_id'], {
     name: 'idx_user_profiles_preferred_city_id'
   });
+
+  // Add spatial index for preferred_location column
+  await queryInterface.sequelize.query(
+    'CREATE INDEX idx_user_profiles_preferred_location_gist ON user_profiles USING GIST(preferred_location);'
+  );
 }
 
 export async function down(queryInterface, Sequelize) {
