@@ -1,398 +1,119 @@
 import locationRepository from '#repositories/locationRepository.js';
-import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '#utils/constants/messages.js';
+import config from '#config/env.js';
 
 class LocationService {
-  async getAllStates() {
-    const states = await locationRepository.getAllStates();
-
-    return {
-      success: true,
-      message: SUCCESS_MESSAGES.DATA_RETRIEVED,
-      data: states
-    };
-  }
-
-  async getCitiesByStateId(stateId) {
-    if (!stateId || isNaN(stateId)) {
-      throw new Error('Invalid state ID');
-    }
-
-    const state = await locationRepository.getStateById(stateId);
-    if (!state) {
-      throw new Error(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
-    }
-
-    const cities = await locationRepository.getCitiesByStateId(stateId);
-
-    return {
-      success: true,
-      message: SUCCESS_MESSAGES.DATA_RETRIEVED,
-      data: cities
-    };
-  }
-
-  async getAllCities() {
-    const cities = await locationRepository.getAllCities();
-
-    return {
-      success: true,
-      message: SUCCESS_MESSAGES.DATA_RETRIEVED,
-      data: cities
-    };
-  }
-
-  async getPopularCities() {
-    const cities = await locationRepository.getPopularCities();
-
-    return {
-      success: true,
-      message: SUCCESS_MESSAGES.DATA_RETRIEVED,
-      data: cities
-    };
-  }
-
-  async searchCities(options = {}) {
-    const { query, stateId, limit } = options;
-
-    if (!query || query.trim().length < 2) {
-      throw new Error('Search query must be at least 2 characters');
-    }
-
-    const cities = await locationRepository.searchCities(query.trim(), stateId, limit || 10);
-
-    return {
-      success: true,
-      message: SUCCESS_MESSAGES.DATA_RETRIEVED,
-      data: cities
-    };
-  }
-
-  async getNearbyCities(options = {}) {
-    const { lat, lng, radius = 50 } = options;
-
-    if (!lat || !lng) {
-      throw new Error('Latitude and longitude are required');
-    }
-
-    if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-      throw new Error('Invalid coordinates');
-    }
-
-    if (isNaN(radius) || radius <= 0) {
-      throw new Error('Radius must be a positive number');
-    }
-
-    const cities = await locationRepository.getNearbyCities(lat, lng, radius);
-
-    return {
-      success: true,
-      message: SUCCESS_MESSAGES.DATA_RETRIEVED,
-      data: cities
-    };
-  }
-
-  async getAllStatesForAdmin(options = {}) {
-    const { page = 1, limit = 50, search = '' } = options;
-
-    const result = await locationRepository.getAllStatesForAdmin({
-      page,
-      limit,
-      search: search.trim()
-    });
-
-    return {
-      success: true,
-      message: SUCCESS_MESSAGES.DATA_RETRIEVED,
-      data: {
-        states: result.states,
-        pagination: result.pagination
-      }
-    };
-  }
-
-  async createState(stateData, userId) {
-    const { name, slug, regionSlug, regionName, displayOrder, isActive } = stateData;
-
-    if (!name || name.trim().length < 2) {
-      throw new Error('State name must be at least 2 characters');
-    }
-
-    const generatedSlug = slug || name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-
-    const existingState = await locationRepository.getStateBySlug(generatedSlug);
-    if (existingState) {
-      throw new Error('State with this slug already exists');
-    }
-
-    const newState = await locationRepository.createState({
-      name: name.trim(),
-      slug: generatedSlug,
-      regionSlug: regionSlug || null,
-      regionName: regionName || null,
-      displayOrder: displayOrder || 0,
-      isActive: typeof isActive === 'boolean' ? isActive : true,
-      createdBy: userId
-    });
-
-    return {
-      success: true,
-      message: 'State created successfully',
-      data: newState
-    };
-  }
-
-  async updateState(stateId, stateData, userId) {
-    if (!stateId || isNaN(stateId)) {
-      throw new Error('Invalid state ID');
-    }
-
-    const state = await locationRepository.getStateByIdForAdmin(stateId);
-    if (!state) {
-      throw new Error(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
-    }
-
-    const { name, slug, regionSlug, regionName, displayOrder, isActive } = stateData;
-
-    const updateData = {};
-    if (name !== undefined) {
-      if (name.trim().length < 2) {
-        throw new Error('State name must be at least 2 characters');
-      }
-      updateData.name = name.trim();
-    }
-
-    if (slug !== undefined) {
-      const existingState = await locationRepository.getStateBySlug(slug);
-      if (existingState && existingState.id !== stateId) {
-        throw new Error('State with this slug already exists');
-      }
-      updateData.slug = slug;
-    }
-
-    if (regionSlug !== undefined) updateData.regionSlug = regionSlug;
-    if (regionName !== undefined) updateData.regionName = regionName;
-    if (displayOrder !== undefined) updateData.displayOrder = displayOrder;
-    if (typeof isActive === 'boolean') updateData.isActive = isActive;
-
-    const updatedState = await locationRepository.updateState(stateId, updateData, userId);
-
-    return {
-      success: true,
-      message: 'State updated successfully',
-      data: updatedState
-    };
-  }
-
-  async deleteState(stateId, userId) {
-    if (!stateId || isNaN(stateId)) {
-      throw new Error('Invalid state ID');
-    }
-
-    const state = await locationRepository.getStateByIdForAdmin(stateId);
-    if (!state) {
-      throw new Error(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
-    }
-
-    if (state.isDeleted) {
-      throw new Error('State is already deleted');
-    }
-
-    await locationRepository.deleteState(stateId, userId);
-
-    return {
-      success: true,
-      message: 'State deleted successfully',
-      data: null
-    };
-  }
-
-  async getAllCitiesForAdmin() {
-    const cities = await locationRepository.getAllCitiesForAdmin();
-
-    return {
-      success: true,
-      message: SUCCESS_MESSAGES.DATA_RETRIEVED,
-      data: cities
-    };
-  }
-
-  async getCitiesByStateForAdmin(stateId, options = {}) {
-    if (!stateId || isNaN(stateId)) {
-      throw new Error('Invalid state ID');
-    }
-
-    const { page = 1, limit = 50, search = '' } = options;
-
-    const result = await locationRepository.getCitiesByStateForAdmin(stateId, {
-      page,
-      limit,
-      search: search.trim()
-    });
-
-    return {
-      success: true,
-      message: SUCCESS_MESSAGES.DATA_RETRIEVED,
-      data: {
-        cities: result.cities,
-        pagination: result.pagination
-      }
-    };
-  }
-
-  async createCity(cityData, userId) {
-    const { name, slug, stateId, stateName, district, districtId, pincode, latitude, longitude, displayOrder, isActive, isPopular } = cityData;
-
-    if (!name || name.trim().length < 2) {
-      throw new Error('City name must be at least 2 characters');
-    }
-
-    if (!stateId || isNaN(stateId)) {
-      throw new Error('Valid state ID is required');
-    }
-
-    const state = await locationRepository.getStateByIdForAdmin(stateId);
-    if (!state) {
-      throw new Error('State not found');
-    }
-
-    const generatedSlug = slug || name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-
-    const existingCity = await locationRepository.getCityBySlug(generatedSlug);
-    if (existingCity) {
-      throw new Error('City with this slug already exists');
-    }
-
-    const newCity = await locationRepository.createCity({
-      name: name.trim(),
-      slug: generatedSlug,
-      stateId,
-      stateName: stateName || state.name,
-      district: district || null,
-      districtId: districtId || null,
-      pincode: pincode || null,
-      latitude: latitude || null,
-      longitude: longitude || null,
-      displayOrder: displayOrder || 0,
-      isActive: typeof isActive === 'boolean' ? isActive : true,
-      isPopular: typeof isPopular === 'boolean' ? isPopular : false,
-      createdBy: userId
-    });
-
-    return {
-      success: true,
-      message: 'City created successfully',
-      data: newCity
-    };
-  }
-
-  async updateCity(cityId, cityData, userId) {
-    if (!cityId || isNaN(cityId)) {
-      throw new Error('Invalid city ID');
-    }
-
-    const city = await locationRepository.getCityById(cityId);
-    if (!city) {
-      throw new Error(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
-    }
-
-    const { name, slug, stateId, stateName, district, districtId, pincode, latitude, longitude, displayOrder, isActive, isPopular } = cityData;
-
-    const updateData = {};
+  
+  async cacheLocation(locationData, userId = null) {
+    console.log('[LOCATION SERVICE] ========== START cacheLocation ==========');
+    console.log('[LOCATION SERVICE] Input locationData:', JSON.stringify(locationData, null, 2));
+    console.log('[LOCATION SERVICE] userId:', userId);
     
-    if (name !== undefined) {
-      if (name.trim().length < 2) {
-        throw new Error('City name must be at least 2 characters');
-      }
-      updateData.name = name.trim();
+    // Get provider from env (ola_maps, google_maps, mapbox, manual)
+    const provider = config.map?.provider || 'ola_maps';
+    const placeId = locationData.place_id;
+    
+    console.log('[LOCATION SERVICE] Provider:', provider);
+    console.log('[LOCATION SERVICE] Place ID:', placeId);
+    
+    if (!placeId) {
+      console.error('[LOCATION SERVICE] ERROR: place_id is missing!');
+      throw new Error('place_id is required in locationData');
     }
-
-    if (slug !== undefined) {
-      const existingCity = await locationRepository.getCityBySlug(slug);
-      if (existingCity && existingCity.id !== cityId) {
-        throw new Error('City with this slug already exists');
-      }
-      updateData.slug = slug;
+    
+    console.log('[LOCATION SERVICE] Checking for existing location...');
+    const existingLocation = await locationRepository.findByProviderAndPlaceId(
+      provider, 
+      placeId
+    );
+    
+    if (existingLocation) {
+      console.log('[LOCATION SERVICE] Found existing location, ID:', existingLocation.id);
+      await locationRepository.incrementUsage(existingLocation.id);
+      console.log('[LOCATION SERVICE] Incremented usage count');
+      console.log('[LOCATION SERVICE] ========== END (existing location) ==========');
+      return existingLocation;
     }
-
-    if (stateId !== undefined) {
-      if (isNaN(stateId)) {
-        throw new Error('Valid state ID is required');
-      }
-      const state = await locationRepository.getStateByIdForAdmin(stateId);
-      if (!state) {
-        throw new Error('State not found');
-      }
-      updateData.stateId = stateId;
-      updateData.stateName = state.name;
+    
+    console.log('[LOCATION SERVICE] No existing location found, creating new...');
+    const parsedData = this._parseLocationData(locationData, provider, userId);
+    console.log('[LOCATION SERVICE] Parsed data:', JSON.stringify(parsedData, null, 2));
+    
+    console.log('[LOCATION SERVICE] Calling repository.create...');
+    try {
+      const newLocation = await locationRepository.create(parsedData);
+      console.log('[LOCATION SERVICE] Successfully created location, ID:', newLocation.id);
+      console.log('[LOCATION SERVICE] ========== END (new location) ==========');
+      return newLocation;
+    } catch (error) {
+      console.error('[LOCATION SERVICE] ERROR creating location:', error.message);
+      console.error('[LOCATION SERVICE] Error stack:', error.stack);
+      console.error('[LOCATION SERVICE] Failed data:', JSON.stringify(parsedData, null, 2));
+      throw error;
     }
-
-    if (stateName !== undefined) updateData.stateName = stateName;
-    if (district !== undefined) updateData.district = district;
-    if (districtId !== undefined) updateData.districtId = districtId;
-    if (pincode !== undefined) updateData.pincode = pincode;
-    if (latitude !== undefined) updateData.latitude = latitude;
-    if (longitude !== undefined) updateData.longitude = longitude;
-    if (displayOrder !== undefined) updateData.displayOrder = displayOrder;
-    if (typeof isActive === 'boolean') updateData.isActive = isActive;
-    if (typeof isPopular === 'boolean') updateData.isPopular = isPopular;
-
-    const updatedCity = await locationRepository.updateCity(cityId, updateData, userId);
-
-    return {
-      success: true,
-      message: 'City updated successfully',
-      data: updatedCity
-    };
   }
-
-  async deleteCity(cityId, userId) {
-    if (!cityId || isNaN(cityId)) {
-      throw new Error('Invalid city ID');
+  
+  _parseLocationData(locationData, provider, userId) {
+    console.log('[LOCATION SERVICE] ========== START _parseLocationData ==========');
+    
+    const addressComponents = locationData.address_components || [];
+    console.log('[LOCATION SERVICE] Address components count:', addressComponents.length);
+    
+    const country = addressComponents.find(c => 
+      c.types?.includes('country')
+    )?.long_name || null;
+    
+    const state = addressComponents.find(c => 
+      c.types?.includes('administrative_area_level_1')
+    )?.long_name || null;
+    
+    const district = addressComponents.find(c => 
+      c.types?.includes('administrative_area_level_2')
+    )?.long_name || null;
+    
+    let city = null;
+    const locationType = locationData.types?.[0];
+    if (locationType === 'locality' || locationType === 'sublocality') {
+      city = locationData.name;
+    } else {
+      city = addressComponents.find(c => 
+        c.types?.includes('locality')
+      )?.long_name || null;
     }
-
-    const city = await locationRepository.getCityById(cityId);
-    if (!city) {
-      throw new Error(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
-    }
-
-    if (city.isDeleted) {
-      throw new Error('City is already deleted');
-    }
-
-    await locationRepository.deleteCity(cityId, userId);
-
-    return {
-      success: true,
-      message: 'City deleted successfully',
-      data: null
+    
+    const latitude = locationData.geometry.location.lat;
+    const longitude = locationData.geometry.location.lng;
+    
+    console.log('[LOCATION SERVICE] Extracted data:');
+    console.log('  - Country:', country);
+    console.log('  - State:', state);
+    console.log('  - District:', district);
+    console.log('  - City:', city);
+    console.log('  - Type:', locationType);
+    console.log('  - Latitude:', latitude);
+    console.log('  - Longitude:', longitude);
+    
+    const result = {
+      placeId: locationData.place_id,
+      provider: provider,
+      name: locationData.name,
+      type: locationType || 'locality',
+      country: country,
+      state: state,
+      district: district,
+      city: city,
+      locality: locationData.formatted_address || null,
+      pincode: locationData.pincode || null,
+      latitude: latitude,
+      longitude: longitude,
+      formattedAddress: locationData.formatted_address,
+      types: locationData.types || [],
+      addressComponents: addressComponents,
+      rawResponse: locationData,
+      createdBy: userId
     };
-  }
-
-  async toggleCityPopularity(cityId, isPopular, userId) {
-    if (!cityId || isNaN(cityId)) {
-      throw new Error('Invalid city ID');
-    }
-
-    if (typeof isPopular !== 'boolean') {
-      throw new Error('isPopular must be a boolean value');
-    }
-
-    const updatedCity = await locationRepository.updateCityPopularity(cityId, isPopular, userId);
-
-    if (!updatedCity) {
-      throw new Error(ERROR_MESSAGES.RESOURCE_NOT_FOUND);
-    }
-
-    return {
-      success: true,
-      message: isPopular ? 'City marked as popular' : 'City unmarked as popular',
-      data: {
-        id: updatedCity.id,
-        name: updatedCity.name,
-        slug: updatedCity.slug,
-        isPopular: updatedCity.isPopular
-      }
-    };
+    
+    console.log('[LOCATION SERVICE] ========== END _parseLocationData ==========');
+    return result;
   }
 }
 

@@ -36,6 +36,7 @@ import OtpVerification from './OtpVerification.js';
 import ListingReport from './ListingReport.js';
 import UserReport from './UserReport.js';
 import UserSearch from './UserSearch.js';
+import Location from './Location.js';
 
 // Initialize models
 const User = UserModel(sequelize);
@@ -84,7 +85,8 @@ const models = {
   OtpVerification,
   ListingReport,
   UserReport,
-  UserSearch
+  UserSearch,
+  Location
 };
 
 // Set up associations
@@ -184,6 +186,9 @@ UserReport.associate(models);
 
 // UserSearch associations
 UserSearch.associate(models);
+
+// Location associations
+Location.associate(models);
 
 export { sequelize };
 export default models;

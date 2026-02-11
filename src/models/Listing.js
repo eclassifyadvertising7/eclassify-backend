@@ -67,12 +67,12 @@ const Listing = sequelize.define(
     },
     stateId: {
       type: DataTypes.INTEGER,
-      allowNull: false,
+      allowNull: true,
       field: 'state_id'
     },
     cityId: {
       type: DataTypes.INTEGER,
-      allowNull: false,
+      allowNull: true,
       field: 'city_id'
     },
     stateName: {
@@ -109,6 +109,16 @@ const Listing = sequelize.define(
       type: DataTypes.DECIMAL(11, 8),
       allowNull: true,
       field: 'longitude'
+    },
+    location: {
+      type: DataTypes.GEOGRAPHY('POINT', 4326),
+      allowNull: true,
+      field: 'location'
+    },
+    locationId: {
+      type: DataTypes.BIGINT,
+      allowNull: true,
+      field: 'location_id'
     },
     status: {
       type: DataTypes.ENUM('draft', 'pending', 'active', 'expired', 'sold', 'rejected'),
@@ -354,6 +364,12 @@ Listing.associate = (models) => {
   Listing.belongsTo(models.City, {
     foreignKey: 'city_id',
     as: 'city'
+  });
+
+  // Belongs to Location
+  Listing.belongsTo(models.Location, {
+    foreignKey: 'location_id',
+    as: 'locationData'
   });
 
   // Has one CarListing

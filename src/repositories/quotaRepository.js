@@ -116,18 +116,39 @@ class QuotaRepository {
    * @returns {Promise<Object>} Updated listing
    */
   async updateListingQuotaTracking(listingId, subscriptionId, isPaidListing = false) {
+    const existingListing = await Listing.findByPk(listingId, {
+      attributes: ['id', 'userSubscriptionId', 'isPaidListing']
+    });
+
+    if (!existingListing) {
+      throw new Error('Listing not found');
+    }
+
+    if (existingListing.userSubscriptionId !== null) {
+      console.log(`[QUOTA] Listing ${listingId} already has subscription ${existingListing.userSubscriptionId}, skipping update`);
+      return existingListing;
+    }
+
     const [affectedRows] = await Listing.update(
       {
         userSubscriptionId: subscriptionId,
         isPaidListing
       },
       {
-        where: { id: listingId }
+        where: { 
+          id: listingId,
+          userSubscriptionId: null
+        }
       }
     );
 
     if (affectedRows === 0) {
-      throw new Error('Listing not found or could not be updated');
+      const listing = await Listing.findByPk(listingId);
+      if (listing.userSubscriptionId !== null) {
+        console.log(`[QUOTA] Listing ${listingId} subscription was set by another process, using existing value`);
+        return listing;
+      }
+      throw new Error('Listing could not be updated');
     }
 
     return await Listing.findByPk(listingId);

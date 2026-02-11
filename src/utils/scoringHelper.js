@@ -1,76 +1,21 @@
+import scoringLogger from '#utils/loggers/scoringLogger.js';
+
 class ScoringHelper {
-  static calculateLocationScore(userLocation, listingLocation) {
-    if (!userLocation || !listingLocation) return 0;
-
-    let baseScore = 0;
-
-    // Same city - highest score
-    if (userLocation.cityId === listingLocation.cityId) {
-      baseScore = 50;
-    } 
-    // Same state but different city - check distance if coordinates available
-    else if (userLocation.stateId === listingLocation.stateId) {
-      // If both have coordinates, use distance-based scoring
-      if (userLocation.latitude && userLocation.longitude && 
-          listingLocation.latitude && listingLocation.longitude) {
-        const distance = this.calculateDistance(
-          userLocation.latitude,
-          userLocation.longitude,
-          listingLocation.latitude,
-          listingLocation.longitude
-        );
-        
-        // Distance-based scoring within same state
-        if (distance <= 10) baseScore = 40;        // Within 10km
-        else if (distance <= 25) baseScore = 35;   // Within 25km
-        else if (distance <= 50) baseScore = 30;   // Within 50km
-        else if (distance <= 100) baseScore = 25;  // Within 100km
-        else if (distance <= 200) baseScore = 20;  // Within 200km
-        else baseScore = 15;                       // Beyond 200km but same state
-      } else {
-        // No coordinates, just same state
-        baseScore = 25;
-      }
-    } 
-    // Different state
-    else {
-      baseScore = 0;
+  static calculateLocationScore(userLocation, listingLocation, distance_km = null) {
+    if (distance_km !== null && distance_km !== undefined) {
+      let score = 0;
+      if (distance_km <= 5) score = 50;
+      else if (distance_km <= 10) score = 45;
+      else if (distance_km <= 25) score = 40;
+      else if (distance_km <= 50) score = 30;
+      else if (distance_km <= 100) score = 20;
+      else if (distance_km <= 200) score = 10;
+      else score = 0;
+      
+      return score;
     }
 
-    // Apply multiplier based on source
-    let multiplier = 1.0;
-    
-    if (userLocation.source) {
-      switch (userLocation.source) {
-        case 'user_preferred':
-          multiplier = 1.0;
-          break;
-        case 'user_profile':
-          multiplier = 0.7;
-          break;
-        default:
-          multiplier = 0.7;
-      }
-    }
-
-    return Math.round(baseScore * multiplier);
-  }
-
-  static calculateDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371; // Earth's radius in kilometers
-    const dLat = this.toRadians(lat2 - lat1);
-    const dLon = this.toRadians(lon2 - lon1);
-    
-    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-              Math.cos(this.toRadians(lat1)) * Math.cos(this.toRadians(lat2)) *
-              Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  }
-
-  static toRadians(degrees) {
-    return degrees * (Math.PI / 180);
+    return 0;
   }
 
   static calculatePaidListingScore(isPaidListing) {
@@ -108,12 +53,12 @@ class ScoringHelper {
       isFeatured = false,
       featuredUntil = null,
       createdAt,
-      created_at // Fallback for snake_case from database
+      created_at,
+      distance_km
     } = listingData;
 
-    const { userLocation = null } = context;
+    const { userLocation = null, requestId = null } = context;
 
-    // Use createdAt or created_at (fallback)
     const timestamp = createdAt || created_at;
     
     if (!timestamp) {
@@ -121,13 +66,26 @@ class ScoringHelper {
     }
 
     const scores = {
-      location: this.calculateLocationScore(userLocation, { stateId, cityId, latitude, longitude }),
+      location: this.calculateLocationScore(
+        userLocation, 
+        { stateId, cityId, latitude, longitude },
+        distance_km
+      ),
       paid: this.calculatePaidListingScore(isPaidListing),
       featured: this.calculateFeaturedScore(isFeatured, featuredUntil),
       freshness: this.calculateFreshnessScore(timestamp)
     };
 
     const totalScore = Object.values(scores).reduce((sum, score) => sum + score, 0);
+
+    if (requestId) {
+      scoringLogger.listingScored(requestId, {
+        listingId: listingData.id,
+        distance_km: distance_km !== null && distance_km !== undefined ? parseFloat(distance_km).toFixed(2) : 'N/A',
+        scores,
+        totalScore
+      });
+    }
 
     return {
       totalScore,
@@ -143,19 +101,33 @@ class ScoringHelper {
       if (aFeatured && !bFeatured) return -1;
       if (!aFeatured && bFeatured) return 1;
       
-      return b.totalScore - a.totalScore;
+      const scoreComparison = b.totalScore - a.totalScore;
+      if (scoreComparison !== 0) return scoreComparison;
+      
+      const aDistance = a.distance_km !== undefined && a.distance_km !== null ? a.distance_km : Infinity;
+      const bDistance = b.distance_km !== undefined && b.distance_km !== null ? b.distance_km : Infinity;
+      const distanceComparison = aDistance - bDistance;
+      if (distanceComparison !== 0) return distanceComparison;
+      
+      return b.id - a.id;
     });
   }
 
-  static sortListingsWithPrimary(listings, sortBy = 'relevance') {
-    return listings.sort((a, b) => {
+  static sortListingsWithPrimary(listings, sortBy = 'relevance', requestId = null) {
+    const sorted = listings.sort((a, b) => {
       let primaryComparison = 0;
 
       switch (sortBy) {
         case 'relevance':
           primaryComparison = (b.totalScore || 0) - (a.totalScore || 0);
           if (primaryComparison !== 0) return primaryComparison;
-          return (b.id || 0) - (a.id || 0);
+          
+          const aDistance = a.distance_km !== undefined && a.distance_km !== null ? a.distance_km : Infinity;
+          const bDistance = b.distance_km !== undefined && b.distance_km !== null ? b.distance_km : Infinity;
+          const distanceComparison = aDistance - bDistance;
+          if (distanceComparison !== 0) return distanceComparison;
+          
+          return b.id - a.id;
 
         case 'views':
           primaryComparison = (b.viewCount || 0) - (a.viewCount || 0);
@@ -198,14 +170,40 @@ class ScoringHelper {
         default:
           primaryComparison = (b.totalScore || 0) - (a.totalScore || 0);
           if (primaryComparison !== 0) return primaryComparison;
-          return (b.id || 0) - (a.id || 0);
+          
+          const aDistDef = a.distance_km !== undefined && a.distance_km !== null ? a.distance_km : Infinity;
+          const bDistDef = b.distance_km !== undefined && b.distance_km !== null ? b.distance_km : Infinity;
+          const distCompDef = aDistDef - bDistDef;
+          if (distCompDef !== 0) return distCompDef;
+          
+          return b.id - a.id;
       }
 
       const scoreComparison = (b.totalScore || 0) - (a.totalScore || 0);
       if (scoreComparison !== 0) return scoreComparison;
 
-      return (b.id || 0) - (a.id || 0);
+      const aDistFallback = a.distance_km !== undefined && a.distance_km !== null ? a.distance_km : Infinity;
+      const bDistFallback = b.distance_km !== undefined && b.distance_km !== null ? b.distance_km : Infinity;
+      const distCompFallback = aDistFallback - bDistFallback;
+      if (distCompFallback !== 0) return distCompFallback;
+
+      return b.id - a.id;
     });
+
+    if (requestId && sorted.length > 0) {
+      const scores = sorted.map(l => l.totalScore || 0);
+      const topScore = Math.max(...scores);
+      const avgScore = scores.reduce((sum, s) => sum + s, 0) / scores.length;
+      
+      scoringLogger.sortingApplied(requestId, {
+        sortBy,
+        listingsCount: sorted.length,
+        topScore: topScore.toFixed(0),
+        avgScore: avgScore.toFixed(1)
+      });
+    }
+
+    return sorted;
   }
 
   static calculateSimilarityScore(listing, referenceListing) {

@@ -614,3 +614,147 @@ AND table_name IN ('roles', 'permissions', 'user_subscriptions');
 **Indexes:** reported_user_id, status, reported_by, report_type, created_at (DESC), related_listing_id
 
 **Notes:** High-volume table (BIGINT PK); report_type values: 'scammer', 'fake_profile', 'harassment', 'spam', 'inappropriate_behavior', 'fake_listings', 'non_responsive', 'other'; status values: 'pending', 'under_review', 'resolved', 'dismissed'; action_taken values: 'none', 'warning_sent', 'user_suspended', 'user_banned', 'listings_removed', 'false_report'; context field provides additional details about where/how issue occurred; related_listing_id and related_chat_room_id provide context; prevents self-reporting and duplicate reports
+
+
+---
+
+### locations
+**Columns:** id (BIGINT PK), external_id (VARCHAR(100)), provider (VARCHAR(20)), place_id (VARCHAR(100)), reference (VARCHAR(50)), provider_numeric_id (BIGINT), parent_id (BIGINT FK→locations), name (VARCHAR(300)), type (VARCHAR(50)), country (VARCHAR(100)), state (VARCHAR(100)), district (VARCHAR(100)), city (VARCHAR(100)), locality (VARCHAR(200)), pincode (VARCHAR(10)), latitude (DECIMAL(10,8)), longitude (DECIMAL(11,8)), location (geography(POINT, 4326)), formatted_address (TEXT), viewport_ne_lat (DECIMAL(10,8)), viewport_ne_lng (DECIMAL(11,8)), viewport_sw_lat (DECIMAL(10,8)), viewport_sw_lng (DECIMAL(11,8)), layer (VARCHAR(50)), types (JSONB), address_components (JSONB), matched_state_id (INT FK→states), matched_city_id (INT FK→cities), match_confidence (DECIMAL(3,2)), is_verified (BOOLEAN), data_quality_score (DECIMAL(3,2)), raw_response (JSONB), usage_count (INT), last_used_at (TIMESTAMP), created_by (BIGINT FK→users), updated_by (BIGINT FK→users), created_at (TIMESTAMP), updated_at (TIMESTAMP)
+
+**Relationships:**
+- belongsTo → locations (via parent_id, as 'parent') - self-referencing for hierarchy
+- hasMany → locations (via parent_id, as 'children')
+- belongsTo → states (via matched_state_id, as 'matchedState')
+- belongsTo → cities (via matched_city_id, as 'matchedCity')
+- belongsTo → users (via created_by, as 'creator')
+- belongsTo → users (via updated_by, as 'updater')
+- hasMany → listings (via location_id)
+- hasMany → user_profiles (via preferred_location_id)
+
+**Hooks:**
+- beforeInsert/beforeUpdate: Auto-populate location geography column from latitude/longitude (via trigger)
+
+**Constraints:** 
+- UNIQUE (provider, external_id)
+- CHECK provider IN ('ola_maps', 'google', 'manual', 'other')
+- CHECK match_confidence BETWEEN 0 AND 1
+- CHECK data_quality_score BETWEEN 0 AND 1
+
+**Indexes:** 
+- (provider, external_id) UNIQUE
+- place_id (partial, WHERE place_id IS NOT NULL)
+- provider_numeric_id (partial, WHERE provider_numeric_id IS NOT NULL)
+- parent_id (partial, WHERE parent_id IS NOT NULL)
+- country, state, district, city, locality, pincode
+- (state, city)
+- type
+- (provider, type)
+- location GIST (spatial index)
+- (matched_state_id, matched_city_id)
+- types GIN
+- address_components GIN
+- raw_response GIN
+- usage_count DESC
+- last_used_at DESC
+
+**Notes:** 
+- Unified table supporting multiple map providers (OLA Maps, Google, future providers)
+- Stores parsed and structured location data from map APIs
+- Caches API responses to avoid repeated calls
+- Supports hierarchical relationships via parent_id (e.g., Google's parent-child structure)
+- Fuzzy matching to existing states/cities tables via matched_state_id/matched_city_id
+- PostGIS geography column for efficient distance-based queries
+- Usage tracking for popular locations
+- For OLA Maps: provider='ola_maps', external_id=place_id, place_id populated
+- For Google: provider='google', external_id=id (as string), provider_numeric_id populated
+
+---
+
+### listings (UPDATED)
+**PostGIS Changes:**
+- state_id: Changed to nullable (was NOT NULL)
+- city_id: Changed to nullable (was NOT NULL)
+- location: New geography(POINT, 4326) column for PostGIS spatial queries
+- location_id: New FK to locations table
+
+**Notes:** 
+- Coordinates (latitude/longitude) are now primary, state_id/city_id are optional
+- location column auto-populated from latitude/longitude via trigger
+- state_id/city_id used only for pre-filtering (performance optimization)
+- Distance-based scoring uses PostGIS ST_Distance on location column
+- Spatial index (GIST) on location column for efficient radius queries
+
+---
+
+### user_profiles (UPDATED)
+**PostGIS Changes:**
+- preferred_location: New geography(POINT, 4326) column for PostGIS spatial queries
+- preferred_location_id: New FK to locations table
+
+**Notes:**
+- preferred_location column auto-populated from preferred_latitude/preferred_longitude via trigger
+- Used for location-based search and recommendations
+- Spatial index (GIST) on preferred_location column
+
+---
+
+## PostGIS Triggers
+
+### sync_listings_location()
+**Table:** listings
+**Event:** BEFORE INSERT OR UPDATE OF latitude, longitude
+**Action:** Auto-populate location geography column from latitude/longitude
+
+### sync_user_profiles_preferred_location()
+**Table:** user_profiles
+**Event:** BEFORE INSERT OR UPDATE OF preferred_latitude, preferred_longitude
+**Action:** Auto-populate preferred_location geography column from preferred_latitude/preferred_longitude
+
+### sync_locations_location()
+**Table:** locations
+**Event:** BEFORE INSERT OR UPDATE OF latitude, longitude
+**Action:** Auto-populate location geography column from latitude/longitude
+
+---
+
+## PostGIS Spatial Queries
+
+### Distance-Based Search
+```sql
+-- Find listings within 200km radius
+SELECT 
+  *,
+  ST_Distance(location, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography) / 1000 AS distance_km
+FROM listings
+WHERE location IS NOT NULL
+  AND ST_DWithin(
+    location,
+    ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography,
+    200000  -- 200km in meters
+  )
+ORDER BY distance_km ASC;
+```
+
+### Progressive Relaxation Strategy
+1. **Attempt 1:** city_id + state_id + radius
+2. **Attempt 2:** state_id + radius (if not enough results)
+3. **Attempt 3:** radius only (if still not enough results)
+
+---
+
+## Location Search Architecture
+
+### Data Flow
+1. User selects location from map provider (OLA Maps/Google)
+2. Parse API response and store in locations table
+3. Fuzzy match to existing states/cities tables
+4. Store location_id in listing/user_profile
+5. Use PostGIS for distance-based search and scoring
+
+### Backward Compatibility
+- Existing data with state_id/city_id continues to work
+- Triggers auto-populate geography columns from existing coordinates
+- Search falls back to city/state matching if coordinates missing
+- No data loss or breaking changes
+
+---

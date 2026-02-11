@@ -65,6 +65,17 @@ export async function up(queryInterface, Sequelize) {
       is_active: true,
       created_at: new Date(),
       updated_at: new Date()
+    },
+    {
+      id: 7,
+      name: 'Employee',
+      slug: 'employee',
+      description: 'General employee with limited access',
+      priority: 20,
+      is_system_role: false,
+      is_active: true,
+      created_at: new Date(),
+      updated_at: new Date()
     }
   ];
 

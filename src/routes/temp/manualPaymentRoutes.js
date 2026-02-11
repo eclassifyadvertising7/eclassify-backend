@@ -40,7 +40,7 @@ endUserRouter.post(
 panelRouter.get(
   '/list',
   authenticate,
-  allowRoles(['super_admin']),
+  allowRoles(['super_admin', 'admin', 'employee']),
   ManualPaymentController.listSubscriptionsForVerification
 );
 
@@ -52,7 +52,7 @@ panelRouter.get(
 panelRouter.get(
   '/view/:id',
   authenticate,
-  allowRoles(['super_admin']),
+  allowRoles(['super_admin', 'admin', 'employee']),
   ManualPaymentController.getSubscriptionById
 );
 
@@ -65,7 +65,7 @@ panelRouter.get(
 panelRouter.post(
   '/verify/:id',
   authenticate,
-  allowRoles(['super_admin']),
+  allowRoles(['super_admin', 'admin', 'employee']),
   ManualPaymentController.verifyManualPayment
 );
 
@@ -78,7 +78,7 @@ panelRouter.post(
 panelRouter.post(
   '/qr-code',
   authenticate,
-  allowRoles(['super_admin']),
+  allowRoles(['super_admin', 'admin', 'employee']),
   ManualPaymentController.storeQRCode
 );
 

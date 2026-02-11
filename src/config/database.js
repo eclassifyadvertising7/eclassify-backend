@@ -7,6 +7,7 @@ dotenv.config();
 
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const DATABASE_URL = process.env.DATABASE_URL;
+const SQL_LOGGING_ENABLED = process.env.SQL_LOGGING_ENABLED === 'true';
 
 if (!DATABASE_URL) {
   throw new Error('DATABASE_URL is not defined in environment variables');
@@ -19,7 +20,7 @@ const databaseConfig = {
   development: {
     url: DATABASE_URL,
     dialect: 'postgres',
-    logging: (msg) => logger.debug(msg),
+    logging: SQL_LOGGING_ENABLED ? (msg) => logger.debug(msg) : false,
     pool: {
       max: 20,
       min: 5,

@@ -36,6 +36,13 @@ router.get('/plans/:id', SubscriptionController.getPlanDetails);
 router.get('/check-eligibility/:planId', SubscriptionController.checkEligibility);
 
 /**
+ * @route   GET /api/end-user/subscriptions/check-quota/:categoryId
+ * @desc    Check quota availability for category before creating listing
+ * @access  Authenticated Users
+ */
+router.get('/check-quota/:categoryId', SubscriptionController.checkQuotaStatus);
+
+/**
  * @route   GET /api/end-user/subscriptions/active/all
  * @desc    Get all user's active subscriptions
  * @access  Authenticated Users

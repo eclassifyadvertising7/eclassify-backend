@@ -156,6 +156,16 @@ export default (sequelize) => {
       type: DataTypes.DECIMAL(11, 8),
       allowNull: true,
       field: 'preferred_longitude'
+    },
+    preferredLocation: {
+      type: DataTypes.GEOGRAPHY('POINT', 4326),
+      allowNull: true,
+      field: 'preferred_location'
+    },
+    preferredLocationId: {
+      type: DataTypes.BIGINT,
+      allowNull: true,
+      field: 'preferred_location_id'
     }
   }, {
     tableName: 'user_profiles',
@@ -188,6 +198,11 @@ export default (sequelize) => {
     UserProfile.belongsTo(models.City, {
       foreignKey: 'preferredCityId',
       as: 'preferredCity'
+    });
+
+    UserProfile.belongsTo(models.Location, {
+      foreignKey: 'preferredLocationId',
+      as: 'preferredLocationData'
     });
   };
 

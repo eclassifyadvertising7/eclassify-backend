@@ -1,85 +1,204 @@
+import scoringLogger from '#utils/loggers/scoringLogger.js';
+
 class LocationHelper {
 
-  static calculateDistance(lat1, lon1, lat2, lon2) {
-    if (!lat1 || !lon1 || !lat2 || !lon2) return null;
+  static parseOLALocation(olaResponse, requestId = null) {
+    try {
+      if (!olaResponse || !olaResponse.secondary_text) {
+        return null;
+      }
 
-    const R = 6371; // Earth's radius in kilometers
-    const dLat = this.toRadians(lat2 - lat1);
-    const dLon = this.toRadians(lon2 - lon1);
-    
-    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-              Math.cos(this.toRadians(lat1)) * Math.cos(this.toRadians(lat2)) *
-              Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
+      const parts = olaResponse.secondary_text.split(',').map(p => p.trim());
+      
+      const result = {
+        locality: null,
+        city: null,
+        state: null,
+        pincode: null,
+        placeId: olaResponse.place_id || null,
+        reference: olaResponse.reference || null,
+        placeName: olaResponse.place_name || null,
+        latitude: olaResponse.geometry?.location?.lat || null,
+        longitude: olaResponse.geometry?.location?.lng || null,
+        formattedAddress: olaResponse.secondary_text || null
+      };
+
+      if (parts.length >= 1) {
+        const lastPart = parts[parts.length - 1];
+        if (/^\d{6}$/.test(lastPart)) {
+          result.pincode = lastPart;
+          parts.pop();
+        }
+      }
+
+      if (parts.length >= 1) {
+        result.state = parts[parts.length - 1];
+      }
+
+      if (parts.length >= 2) {
+        result.city = parts[parts.length - 2];
+      }
+
+      if (parts.length >= 3) {
+        result.locality = parts.slice(0, parts.length - 2).join(', ');
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Error parsing OLA location:', error);
+      return null;
+    }
   }
 
-  static toRadians(degrees) {
-    return degrees * (Math.PI / 180);
+  static parseGoogleLocation(googleResponse) {
+    try {
+      if (!googleResponse || !googleResponse.addressComponents) {
+        return null;
+      }
+
+      const result = {
+        locality: null,
+        city: null,
+        district: null,
+        state: null,
+        country: null,
+        pincode: null,
+        externalId: googleResponse.id ? String(googleResponse.id) : null,
+        providerNumericId: googleResponse.id || null,
+        parentId: googleResponse.parentId || null,
+        name: googleResponse.name || null,
+        type: googleResponse.type || null,
+        latitude: googleResponse.latitude || null,
+        longitude: googleResponse.longitude || null,
+        formattedAddress: googleResponse.formattedAddress || null
+      };
+
+      const components = googleResponse.addressComponents || [];
+      
+      for (const component of components) {
+        const type = component.type?.toLowerCase();
+        const longName = component.longName;
+        const shortName = component.shortName;
+
+        switch (type) {
+          case 'country':
+            result.country = longName;
+            break;
+          case 'administrative_area_level_1':
+            result.state = longName;
+            break;
+          case 'administrative_area_level_2':
+            result.district = longName;
+            break;
+          case 'locality':
+          case 'city':
+            result.city = longName;
+            break;
+          case 'sublocality':
+          case 'sublocality_level_1':
+          case 'neighbourhood':
+            result.locality = longName;
+            break;
+          case 'postal_code':
+            result.pincode = shortName;
+            break;
+        }
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Error parsing Google location:', error);
+      return null;
+    }
   }
 
+  static async matchLocationToDatabase(city, state) {
+    try {
+      const { default: models } = await import('#models/index.js');
+      const { State, City } = models;
+      const { Op } = await import('sequelize');
 
-  static getLocationMatch(userLocation, listingLocation) {
-    if (!userLocation || !listingLocation) {
-      return { type: 'unknown', score: 0 };
+      if (!state) {
+        return { stateId: null, cityId: null, confidence: 0 };
+      }
+
+      const stateMatch = await State.findOne({
+        where: {
+          name: {
+            [Op.iLike]: `%${state}%`
+          }
+        },
+        attributes: ['id', 'name']
+      });
+
+      if (!stateMatch) {
+        return { stateId: null, cityId: null, confidence: 0 };
+      }
+
+      if (!city) {
+        return { stateId: stateMatch.id, cityId: null, confidence: 0.7 };
+      }
+
+      const cityMatch = await City.findOne({
+        where: {
+          stateId: stateMatch.id,
+          name: {
+            [Op.iLike]: `%${city}%`
+          }
+        },
+        attributes: ['id', 'name']
+      });
+
+      if (cityMatch) {
+        return { 
+          stateId: stateMatch.id, 
+          cityId: cityMatch.id, 
+          confidence: 0.95 
+        };
+      }
+
+      return { stateId: stateMatch.id, cityId: null, confidence: 0.7 };
+    } catch (error) {
+      console.error('Error matching location to database:', error);
+      return { stateId: null, cityId: null, confidence: 0 };
     }
-
-    // Same city
-    if (userLocation.cityId === listingLocation.cityId) {
-      return { type: 'same_city', score: 50 };
-    }
-
-    // Same state
-    if (userLocation.stateId === listingLocation.stateId) {
-      return { type: 'same_state', score: 25 };
-    }
-
-    // Different state
-    return { type: 'different_state', score: 0 };
-  }
-
-
-  static getDistanceScore(distance) {
-    if (!distance) return 0;
-
-    if (distance <= 5) return 30;      // Within 5km
-    if (distance <= 10) return 25;     // Within 10km
-    if (distance <= 25) return 20;     // Within 25km
-    if (distance <= 50) return 15;     // Within 50km
-    if (distance <= 100) return 10;    // Within 100km
-    return 5;                          // Beyond 100km
   }
 
 
   static async parseUserLocation(req) {
-    // Priority 1: User preferred location (manually set in query/body)
-    // This is when user explicitly selects a location for search
-    if (req.query.preferredStateId && req.query.preferredCityId) {
+    // Priority 1: Request query parameters (preferredLatitude/preferredLongitude)
+    if (req.query.preferredLatitude && req.query.preferredLongitude) {
+      scoringLogger.debug('Location from request query', {
+        latitude: req.query.preferredLatitude,
+        longitude: req.query.preferredLongitude,
+        source: 'user_preferred'
+      });
+
       return {
-        stateId: parseInt(req.query.preferredStateId),
-        cityId: parseInt(req.query.preferredCityId),
-        latitude: req.query.preferredLatitude ? parseFloat(req.query.preferredLatitude) : null,
-        longitude: req.query.preferredLongitude ? parseFloat(req.query.preferredLongitude) : null,
+        latitude: parseFloat(req.query.preferredLatitude),
+        longitude: parseFloat(req.query.preferredLongitude),
         source: 'user_preferred',
         priority: 1
       };
     }
 
     // Also check in request body for preferred location (for POST requests)
-    if (req.body && req.body.preferredLocation && req.body.preferredLocation.stateId && req.body.preferredLocation.cityId) {
+    if (req.body && req.body.preferredLocation && req.body.preferredLocation.latitude && req.body.preferredLocation.longitude) {
+      scoringLogger.debug('Location from request body', {
+        latitude: req.body.preferredLocation.latitude,
+        longitude: req.body.preferredLocation.longitude,
+        source: 'user_preferred'
+      });
+
       return {
-        stateId: parseInt(req.body.preferredLocation.stateId),
-        cityId: parseInt(req.body.preferredLocation.cityId),
-        latitude: req.body.preferredLocation.latitude ? parseFloat(req.body.preferredLocation.latitude) : null,
-        longitude: req.body.preferredLocation.longitude ? parseFloat(req.body.preferredLocation.longitude) : null,
+        latitude: parseFloat(req.body.preferredLocation.latitude),
+        longitude: parseFloat(req.body.preferredLocation.longitude),
         source: 'user_preferred',
         priority: 1
       };
     }
 
     // Priority 2: User's profile location (fallback when frontend doesn't send location)
-    // Fetch from database ONLY if frontend didn't send location data
     if (req.user && req.user.userId) {
       try {
         const { default: models } = await import('#models/index.js');
@@ -88,12 +207,8 @@ class LocationHelper {
         const userProfile = await UserProfile.findOne({
           where: { userId: req.user.userId },
           attributes: [
-            'preferredStateId',
-            'preferredCityId',
             'preferredLatitude',
             'preferredLongitude',
-            'stateId',
-            'cityId',
             'latitude',
             'longitude'
           ],
@@ -102,24 +217,34 @@ class LocationHelper {
 
         if (userProfile) {
           // Prefer preferred location if set
-          if (userProfile.preferredStateId && userProfile.preferredCityId) {
+          if (userProfile.preferredLatitude && userProfile.preferredLongitude) {
+            scoringLogger.debug('Location from user profile (preferred)', {
+              latitude: userProfile.preferredLatitude,
+              longitude: userProfile.preferredLongitude,
+              source: 'user_profile',
+              userId: req.user.userId
+            });
+
             return {
-              stateId: userProfile.preferredStateId,
-              cityId: userProfile.preferredCityId,
-              latitude: userProfile.preferredLatitude || null,
-              longitude: userProfile.preferredLongitude || null,
+              latitude: parseFloat(userProfile.preferredLatitude),
+              longitude: parseFloat(userProfile.preferredLongitude),
               source: 'user_profile',
               priority: 2
             };
           }
           
           // Fallback to actual profile location
-          if (userProfile.stateId && userProfile.cityId) {
+          if (userProfile.latitude && userProfile.longitude) {
+            scoringLogger.debug('Location from user profile (actual)', {
+              latitude: userProfile.latitude,
+              longitude: userProfile.longitude,
+              source: 'user_profile',
+              userId: req.user.userId
+            });
+
             return {
-              stateId: userProfile.stateId,
-              cityId: userProfile.cityId,
-              latitude: userProfile.latitude || null,
-              longitude: userProfile.longitude || null,
+              latitude: parseFloat(userProfile.latitude),
+              longitude: parseFloat(userProfile.longitude),
               source: 'user_profile',
               priority: 2
             };
@@ -131,6 +256,11 @@ class LocationHelper {
     }
 
     // No location available - return null for generalized listings
+    scoringLogger.debug('No location available', {
+      hasQuery: !!(req.query.preferredLatitude || req.query.preferredLongitude),
+      hasUser: !!req.user
+    });
+
     return null;
   }
 
